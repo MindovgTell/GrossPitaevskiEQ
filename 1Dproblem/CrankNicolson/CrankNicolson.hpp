@@ -26,13 +26,18 @@ public:
     CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits=0);
     
     //***************/1DProblem/***************//
+    //Thomas-Fermi ansatz
     std::complex<double> thomas_fermi_state();
-
+    //Initialization of starting 1D state
+    void init_start_state_1D(double x_c, double sigma_x, double p_x);
+    
+    //***************/1DProblem/***************//
     // Gauss Wave funciton
     std::complex<double> gauss_wave_packet(double sigma_x, double sigma_y, double x, double y, double x_c, double y_c, double p_x, double p_y = 0);
 
     //Methods for creating matrixes
-    void init_start_state(double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y);
+    void init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y);
+    
     int get_m_index(int i,int j, int M);
 
     void init_time_evolution_matrices();

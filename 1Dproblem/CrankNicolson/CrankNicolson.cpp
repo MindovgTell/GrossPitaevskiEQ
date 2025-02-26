@@ -26,7 +26,8 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
     this->init_time_evolution_matrices();
 
-    this->init_start_state(x_c,y_c,sigma_x,sigma_y,p_x,p_y);
+    this->init_start_state_1D(x_c,sigma_x,p_x);
+    this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y,p_x,p_y);
 }
 
 //Indexes in vector representation of wave function
@@ -42,11 +43,8 @@ std::complex<double> CrankNicolson::gauss_wave_packet(double sigma_x, double sig
     return std::exp(exponent + phase); 
 }
 
-
-
 //Function for initializing wave function
-void CrankNicolson::init_start_state(double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y)
-{
+void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y){
     int size = std::pow(this->m_size-2,2);
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
@@ -66,6 +64,8 @@ void CrankNicolson::init_start_state(double x_c, double y_c, double sigma_x, dou
     this->m_Psi = U;
 }
 
+void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
+}
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
 void CrankNicolson::init_time_evolution_matrices(){
     int mat_size = pow(this->m_size-2,2);
