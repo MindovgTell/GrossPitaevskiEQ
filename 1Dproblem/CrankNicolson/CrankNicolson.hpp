@@ -23,15 +23,26 @@ private:
 
 public:
     //Constructor
+    //2D constructor
     CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits=0);
-    
-    //***************/1DProblem/***************//
+
+    //1D constructor
+    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double v_0);
+
+    //***************/1DFunctions/***************//
     //Thomas-Fermi ansatz
     std::complex<double> thomas_fermi_state();
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
+
+    void init_time_evolution_matrices_1D();
+
+    void init_Mat_A_1D(std::complex<double> r,Eigen::VectorXcd& d);
+    void init_Mat_B_1D(std::complex<double> r,Eigen::VectorXcd& d);
+
+    Eigen::VectorXd create_potential_1D();
     
-    //***************/1DProblem/***************//
+    //***************/2DFunctions/***************//
     // Gauss Wave funciton
     std::complex<double> gauss_wave_packet(double sigma_x, double sigma_y, double x, double y, double x_c, double y_c, double p_x, double p_y = 0);
 

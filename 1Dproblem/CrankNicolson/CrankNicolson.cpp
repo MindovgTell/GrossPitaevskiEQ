@@ -2,6 +2,67 @@
 
 using namespace std::complex_literals;
 
+//***************/1DFunctions/***************//
+
+CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double v_0){
+    int M = 1/h;
+    this->m_h_step = h;
+    this->m_delta_t = deltat;
+    this->m_T = T;
+    this->V_0 = v_0;
+    this->m_r = -1i*m_delta_t/(2*std::pow(m_h_step,2));
+    this->t_step = std::round(T/deltat) + 1;
+    this->m_size = M;
+
+    this->m_V = this->create_potential_1D();
+
+    this->init_time_evolution_matrices_1D();
+    this->init_start_state_1D(x_c,sigma_x,p_x);
+}
+
+std::complex<double> CrankNicolson::thomas_fermi_state(){
+    
+}
+
+void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
+    int size = this->m_size - 2;
+    Eigen::VectorXcd U(size);
+    std::complex<double> psum = 0;
+    for(int i = 1; i != m_size-1; ++i){
+        double x = i * this->m_h_step;
+        std::complex<double> c = thomas_fermi_state(); // Add parameters for Thomas-Fermi function
+        U(i) = c;
+        psum += std::real(std::conj(c)*c);
+    }
+
+    std::complex<double> normalization_factor = 1.0 / std::sqrt(psum);
+    U = normalization_factor * U;
+    this->m_Psi = U;
+}
+
+//Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
+void CrankNicolson::init_time_evolution_matrices_1D(){
+    int mat_size = this->m_size-2;
+    Eigen::VectorXcd a(mat_size);
+    Eigen::VectorXcd b(mat_size);
+
+    for(int i = 1; i < this->m_size-1; ++i){
+            a(i) = (1.0 - 2.0*this->m_r + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            b(i) = (1.0 + 2.0*this->m_r - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+    }
+    this->init_Mat_A(m_r,a);
+    this->init_Mat_B(-m_r,b); 
+}
+
+
+
+Eigen::VectorXd CrankNicolson::create_potential_1D(){
+
+}
+
+
+
+//***************/2DFunctions/***************//
 //Constructor
 CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits){ 
     int M = 1/h;
@@ -13,20 +74,18 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
 
-    // if(slits == 0){
-    //     this->m_V = this->create_potential_box();
-    // }
-    // else if(slits == 1){
-    //     this->m_V = this->create_one_slit();
-    // }
-    // else if(slits == 2){
-    //     this->m_V = this->create_double_slit();
-    // }
-    // save_to_csv("./Matrice/potential.csv", this->m_V);
+    if(slits == 0){
+        this->m_V = this->create_potential_box();
+    }
+    else if(slits == 1){
+        this->m_V = this->create_one_slit();
+    }
+    else if(slits == 2){
+        this->m_V = this->create_double_slit();
+    }
+    save_to_csv("./Matrice/potential.csv", this->m_V);
 
     this->init_time_evolution_matrices();
-
-    this->init_start_state_1D(x_c,sigma_x,p_x);
     this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y,p_x,p_y);
 }
 
@@ -64,8 +123,6 @@ void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, 
     this->m_Psi = U;
 }
 
-void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
-}
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
 void CrankNicolson::init_time_evolution_matrices(){
     int mat_size = pow(this->m_size-2,2);
