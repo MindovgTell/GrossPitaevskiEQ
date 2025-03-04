@@ -105,14 +105,13 @@ void CrankNicolson::simulation_1D(){
     // Prepare the right-hand side for the time-stepping
     b = (this->m_Psi);
     
+    // Set up the sparse LU solver
+    Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> lg;
+    lg.compute(this->m_A);
 
     for (int i = 1; i < this->t_step; ++i) {
 
-        init_time_evolution_matrices_1D();
-
-        // Set up the sparse LU solver
-        Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> lg;
-        lg.compute(this->m_A);
+        // init_time_evolution_matrices_1D();
         
         // Update the right-hand side vector b
         b = (this->m_B) * b;
