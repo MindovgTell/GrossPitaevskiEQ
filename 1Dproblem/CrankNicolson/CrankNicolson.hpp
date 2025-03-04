@@ -18,18 +18,16 @@ private:
     Eigen::VectorXcd m_Psi;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t, m_h_step,V_0;
+    double m_delta_t, m_h_step, V_0, m_omega;
     std::complex<double> m_r;
 
 public:
-    //Constructor
-    //2D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits=0);
 
+//********************************/1DFunctions/********************************//
+    
     //1D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double v_0);
+    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double v_0);
 
-    //***************/1DFunctions/***************//
     //Thomas-Fermi ansatz
     std::complex<double> thomas_fermi_state();
     //Initialization of starting 1D state
@@ -37,12 +35,16 @@ public:
 
     void init_time_evolution_matrices_1D();
 
-    void init_Mat_A_1D(std::complex<double> r,Eigen::VectorXcd& d);
-    void init_Mat_B_1D(std::complex<double> r,Eigen::VectorXcd& d);
+    Eigen::VectorXd create_harmonic_potential_1D();
 
-    Eigen::VectorXd create_potential_1D();
+    void simulation_1D();
+    Eigen::VectorXd  prob_1D(Eigen::VectorXcd &vec);
     
-    //***************/2DFunctions/***************//
+//********************************/2DFunctions/********************************//
+
+    //2D constructor
+    CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits=0);
+
     // Gauss Wave funciton
     std::complex<double> gauss_wave_packet(double sigma_x, double sigma_y, double x, double y, double x_c, double y_c, double p_x, double p_y = 0);
 
@@ -60,7 +62,9 @@ public:
 
     Eigen::VectorXd prob(Eigen::VectorXcd&  vec);
 
-    void save_to_csv(std::string filename, Eigen::MatrixXd mat);
+    void save_matrix_to_csv(std::string filename, Eigen::MatrixXd mat);
+    void save_vector_to_csv(std::string filename, Eigen::VectorXd mat);
+
     void simulation();
     
     // Functions for create potential

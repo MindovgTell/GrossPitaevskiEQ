@@ -2,9 +2,9 @@
 
 using namespace std::complex_literals;
 
-//***************/1DFunctions/***************//
+//********************************/1DFunctions/********************************//
 
-CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double v_0){
+CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double v_0){
     int M = 1/h;
     this->m_h_step = h;
     this->m_delta_t = deltat;
@@ -13,15 +13,16 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_r = -1i*m_delta_t/(2*std::pow(m_h_step,2));
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
+    this->m_omega = omega;
 
-    this->m_V = this->create_potential_1D();
+    this->m_V = this->create_harmonic_potential_1D();
 
     this->init_time_evolution_matrices_1D();
     this->init_start_state_1D(x_c,sigma_x,p_x);
 }
 
 std::complex<double> CrankNicolson::thomas_fermi_state(){
-    
+    //TODO
 }
 
 void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
@@ -54,15 +55,94 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
     this->init_Mat_B(-m_r,b); 
 }
 
+Eigen::VectorXd CrankNicolson::create_harmonic_potential_1D(){
+    Eigen::VectorXd V(this->m_size);
+    V.setZero();
+    for(int i = 1; i < this->m_size-1; ++i){
+        V(i) = 0.5 * std::pow((this->m_omega * i * this->m_h_step),2);
+    }
+
+    return V;
+}
 
 
-Eigen::VectorXd CrankNicolson::create_potential_1D(){
+// Time evolution simulation for 1D Gross-Pitaevskii equation
+void CrankNicolson::simulation_1D(){
 
+    int size = this->m_Psi.size();
+
+    Eigen::VectorXcd x(size);
+    Eigen::VectorXcd b(size);
+
+    x.setZero();
+    b.setZero();
+
+    // Save initial data before the loop
+    Eigen::VectorXd p_init = prob(m_Psi);
+    save_vector_to_csv("./Vector/vector0.csv", p_init);
+
+    // Prepare the right-hand side for the time-stepping
+    b = (this->m_Psi);
+    
+
+    for (int i = 1; i < this->t_step; ++i) {
+
+        init_time_evolution_matrices_1D();
+
+        // Set up the sparse LU solver
+        Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> lg;
+        lg.compute(this->m_A);
+        
+        // Update the right-hand side vector b
+        b = (this->m_B) * b;
+
+        // Solve the system A * x = b
+        x = lg.solve(b);
+
+        // Update b for the next iteration
+        b = x;
+        this->m_Psi = b;
+
+        // Calculate probability and save to CSV
+        Eigen::VectorXd solution = prob(x);
+        save_vector_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
+        
+        if(i % 4 == 0)
+            std::cout << "Simulation step: #" << i << '\n';
+    }
+
+}
+
+Eigen::VectorXd CrankNicolson::prob_1D(Eigen::VectorXcd &vec)
+{
+    int size = this->m_size - 2;
+    Eigen::VectorXd pr(size);
+    for(int i = 0; i != size; ++i){
+        pr(i) = std::pow(vec(i).real(),2) + std::pow(vec(i).imag(),2);
+    }
+    return pr;
 }
 
 
 
-//***************/2DFunctions/***************//
+//Function for saving Eigen Matrices as csv tabels 
+void CrankNicolson::save_vector_to_csv(std::string filename, Eigen::VectorXd vec){
+
+    const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
+    int size = vec.size();
+    Eigen::VectorXd vec(size);
+
+    std::ofstream file(filename);
+    if(file.is_open()){
+        //file << vec.format(CSVFormat) << '\n';
+        file << vec.format(CSVFormat);
+        file.close();
+    }
+}
+
+
+
+//********************************/2DFunctions/********************************//
 //Constructor
 CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits){ 
     int M = 1/h;
@@ -83,7 +163,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     else if(slits == 2){
         this->m_V = this->create_double_slit();
     }
-    save_to_csv("./Matrice/potential.csv", this->m_V);
+    save_matrix_to_csv("./Matrice/potential.csv", this->m_V);
 
     this->init_time_evolution_matrices();
     this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y,p_x,p_y);
@@ -235,8 +315,8 @@ void CrankNicolson::init_Mat_B(std::complex<double> r, Eigen::VectorXcd& d) {
     this->m_B = B;
 }
 
-//Function for saving Eigen Matrices as csv tabels 
-void CrankNicolson::save_to_csv(std::string filename, Eigen::MatrixXd mat){
+//sFunction for saving Eigen Matrices as csv tabels 
+void CrankNicolson::save_matrix_to_csv(std::string filename, Eigen::MatrixXd mat){
 
     const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
     int size = std::sqrt(mat.size());
@@ -251,8 +331,7 @@ void CrankNicolson::save_to_csv(std::string filename, Eigen::MatrixXd mat){
 }
 
 // Function for solving systems of equations for each time step dependently on start conditions
-void CrankNicolson::simulation()
-{
+void CrankNicolson::simulation(){
     int size = this->m_Psi.size();
 
     Eigen::VectorXcd x(size);
@@ -263,7 +342,7 @@ void CrankNicolson::simulation()
 
     // Save initial data before the loop
     Eigen::VectorXd p_init = prob(m_Psi);
-    save_to_csv("./Matrice/matrix0.csv", vec_to_mat(p_init));
+    save_matrix_to_csv("./Matrice/matrix0.csv", vec_to_mat(p_init));
 
     // Prepare the right-hand side for the time-stepping
     b = (this->m_Psi);
@@ -286,7 +365,7 @@ void CrankNicolson::simulation()
         // Calculate probability and save to CSV
         Eigen::VectorXd p = prob(x);
         Eigen::MatrixXd solution = vec_to_mat(p);
-        save_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
+        save_matrix_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
         
         if(i % 4 == 0)
             std::cout << "Simulation step: #" << i << '\n';
