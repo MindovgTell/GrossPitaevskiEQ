@@ -30,12 +30,16 @@ public:
 
     //Thomas-Fermi ansatz
     std::complex<double> thomas_fermi_state();
+    //Gauss wave function
+    std::complex<double> CrankNicolson::gauss_wave_packet(double sigma_x, double x, double x_c, double p_x);
+
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
 
     void init_time_evolution_matrices_1D();
 
     Eigen::VectorXd create_harmonic_potential_1D();
+    Eigen::VectorXd create_potential_1D();
 
     void simulation_1D();
     Eigen::VectorXd  prob_1D(Eigen::VectorXcd &vec);

@@ -15,7 +15,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_size = M;
     this->m_omega = omega;
 
-    this->m_V = this->create_harmonic_potential_1D();
+    this->m_V = this->create_potential_1D();
 
     this->init_time_evolution_matrices_1D();
     this->init_start_state_1D(x_c,sigma_x,p_x);
@@ -23,6 +23,13 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
 std::complex<double> CrankNicolson::thomas_fermi_state(){
     //TODO
+}
+
+std::complex<double> CrankNicolson::gauss_wave_packet(double sigma_x, double x, double x_c, double p_x){
+    std::complex<double> i(0, 1); // Define the imaginary unit
+    double exponent = -(pow(x - x_c ,2) / (2 * pow(sigma_x,2)));
+    std::complex<double> phase = i * (p_x * (x - x_c));
+    return std::exp(exponent + phase); 
 }
 
 void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
@@ -61,6 +68,15 @@ Eigen::VectorXd CrankNicolson::create_harmonic_potential_1D(){
     for(int i = 1; i < this->m_size-1; ++i){
         V(i) = 0.5 * std::pow((this->m_omega * i * this->m_h_step),2);
     }
+
+    return V;
+}
+
+Eigen::VectorXd CrankNicolson::create_potential_1D(){
+    Eigen::VectorXd V(this->m_size);
+    V.setZero();
+    V(0) = V_0;
+    V(this->m_size - 1) = V_0;
 
     return V;
 }
