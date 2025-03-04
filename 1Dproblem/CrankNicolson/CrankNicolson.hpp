@@ -5,6 +5,7 @@
 #include <complex>
 #include <fstream>
 #include <cmath>
+#include <numbers>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
@@ -18,7 +19,7 @@ private:
     Eigen::VectorXcd m_Psi;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t, m_h_step, V_0, m_omega;
+    double m_delta_t, m_h_step, V_0, m_omega, m_N, m_g;
     std::complex<double> m_r;
 
 public:
@@ -26,12 +27,12 @@ public:
 //********************************/1DFunctions/********************************//
     
     //1D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double v_0);
+    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s);
 
     //Thomas-Fermi ansatz
-    std::complex<double> thomas_fermi_state();
+    double thomas_fermi_state(double x);
     //Gauss wave function
-    std::complex<double> CrankNicolson::gauss_wave_packet(double sigma_x, double x, double x_c, double p_x);
+    //std::complex<double> CrankNicolson::gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x);
 
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);

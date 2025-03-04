@@ -1,2 +1,2 @@
-Problem     h       deltat      T          x_c      sigma_x     p_x     omega    v_0
-1         0.008   2.5e-05     0.0075      0.25     0.01        200      0       1e+10
+Problem     h       deltat      T          x_c      sigma_x     p_x     omega    N      a_s
+1         0.008   2.5e-05     0.0075      0.25     0.01        200      0       100     1e-05

@@ -31,21 +31,21 @@ void simulation(std::string inputfile){
     std::string line;
     std::getline(input_data,line);//Skip first line in file
 
-    double Problem,h,deltat,T,x_c,sigma_x,p_x,omega,v_0;
+    double Problem,h,deltat,T,x_c,sigma_x,p_x,omega,N , a_s;
 
     std::getline(input_data,line);
     std::stringstream str_stream(line);
-    str_stream >> Problem >> h >>deltat >>T >> x_c >> sigma_x >> p_x >> omega >>v_0;
+    str_stream >> Problem >> h >>deltat >>T >> x_c >> sigma_x >> p_x >> omega >> N >> a_s;
 
     int width = 10;
     std::cout << std::setw(width) << "Problem" << std::setw(width) << "h" << std::setw(width) << "deltat" << std::setw(width) << "T" << std::setw(width) << "x_c" << std::setw(width)
-    << "sigma_x" << std::setw(width) << "p_x" << std::setw(width) << "omega" << std::setw(width) << "v_0" << std::endl;
+    << "sigma_x" << std::setw(width) << "p_x" << std::setw(width) << "omega" << std::setw(width) << "N" << std::setw(width) << "a_s" << std::endl;
 
     std::cout << std::setw(width) << Problem << std::setw(width) << h << std::setw(width) << deltat << std::setw(width) << T << std::setw(width) << x_c << std::setw(width)
-    << sigma_x << std::setw(width) << p_x << std::setw(width) << omega << std::setw(width) << v_0 << std::endl;
+    << sigma_x << std::setw(width) << p_x << std::setw(width) << omega << std::setw(width) << N << std::setw(width) << a_s << std::endl;
 
-    CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, v_0);
+    CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s);
 
-    Crank.simulation_1D();
+    //Crank.simulation_1D();
 
 }

@@ -4,16 +4,20 @@ using namespace std::complex_literals;
 
 //********************************/1DFunctions/********************************//
 
-CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double v_0){
+CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s){
     int M = 1/h;
     this->m_h_step = h;
     this->m_delta_t = deltat;
     this->m_T = T;
-    this->V_0 = v_0;
+    this->V_0 = 1e+10;
     this->m_r = -1i*m_delta_t/(2*std::pow(m_h_step,2));
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
     this->m_omega = omega;
+
+    //Physical parameters
+    this->m_N = N;
+    this->m_g = 2 * M_PI * a_s;
 
     this->m_V = this->create_potential_1D();
 
@@ -21,16 +25,17 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->init_start_state_1D(x_c,sigma_x,p_x);
 }
 
-std::complex<double> CrankNicolson::thomas_fermi_state(){
-    //TODO
+double CrankNicolson::thomas_fermi_state(double x){
+    double out = std::sqrt(this->m_omega/(4 * this->m_g) * (std::pow((3 * this->m_N * this->m_g/std::pow(this->m_omega,2) ), 2/3) - std::pow(x,2)));
+    return out;
 }
 
-std::complex<double> CrankNicolson::gauss_wave_packet(double sigma_x, double x, double x_c, double p_x){
-    std::complex<double> i(0, 1); // Define the imaginary unit
-    double exponent = -(pow(x - x_c ,2) / (2 * pow(sigma_x,2)));
-    std::complex<double> phase = i * (p_x * (x - x_c));
-    return std::exp(exponent + phase); 
-}
+// std::complex<double> CrankNicolson::gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x){
+//     std::complex<double> i(0, 1); // Define the imaginary unit
+//     double exponent = -(pow(x - x_c ,2) / (2 * pow(sigma_x,2)));
+//     std::complex<double> phase = i * (p_x * (x - x_c));
+//     return std::exp(exponent + phase); 
+// }
 
 void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     int size = this->m_size - 2;
@@ -38,7 +43,7 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     std::complex<double> psum = 0;
     for(int i = 1; i != m_size-1; ++i){
         double x = i * this->m_h_step;
-        std::complex<double> c = thomas_fermi_state(); // Add parameters for Thomas-Fermi function
+        std::complex<double> c = thomas_fermi_state(x); // Add parameters for Thomas-Fermi function
         U(i) = c;
         psum += std::real(std::conj(c)*c);
     }
@@ -140,18 +145,17 @@ Eigen::VectorXd CrankNicolson::prob_1D(Eigen::VectorXcd &vec)
 }
 
 
-
 //Function for saving Eigen Matrices as csv tabels 
-void CrankNicolson::save_vector_to_csv(std::string filename, Eigen::VectorXd vec){
+void CrankNicolson::save_vector_to_csv(std::string filename, Eigen::VectorXd v){
 
     const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
-    int size = vec.size();
-    Eigen::VectorXd vec(size);
+    int size = v.size();
+    Eigen::VectorXd vector(size);
 
     std::ofstream file(filename);
     if(file.is_open()){
         //file << vec.format(CSVFormat) << '\n';
-        file << vec.format(CSVFormat);
+        file << vector.format(CSVFormat);
         file.close();
     }
 }
