@@ -5,8 +5,11 @@
 #include <vector>
 #include <complex>
 #include "./CrankNicolson/CrankNicolson.hpp"
+//#include "./matplotlibcpp.h"
 
 using namespace std::complex_literals;
+
+//namespace plt = matplotlibcpp;
 
 void simulation(std::string inputfile);
 
@@ -56,6 +59,16 @@ void simulation(std::string inputfile){
 }
 
 void test(double arg){
-    CrankNicolson Crank(0.05, 2.5e-04, 0.0075, 0.25,0.01,200, 0.1, 100, 1e-05);
-    Crank.print_m_Psi();
+    // CrankNicolson Crank(0.05, 2.5e-04, 0.0075, 0.25,0.01,200, 0.1, 100, 1e-05);
+    // Crank.print_m_Psi();
+
+    // std::vector<double> y{1,2.1,2.5,5};
+    // std::vector<double> x{2,0.5,3,2.7};
+
+    // plt::figure();
+    // plt::plot(x,y, std::string("bo-"),{{"label", "data trend"}});
+    // plt::xlabel("time [s]");
+    // plt::ylabel("observation [m]");
+    // plt::legend();
+    // plt::show(); 
 }
