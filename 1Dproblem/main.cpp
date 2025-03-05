@@ -10,6 +10,8 @@ using namespace std::complex_literals;
 
 void simulation(std::string inputfile);
 
+void test(double arg);
+
 int main(int argc, char const *argv[]){
 
     if(argc != 2){
@@ -19,8 +21,11 @@ int main(int argc, char const *argv[]){
         std::cerr << "Usage:" << executable << " input_file.txt" << '\n';
         return 1;
     }
-    simulation(argv[1]);
-  
+
+    //simulation(argv[1]);
+    
+    test(std::stoi(argv[1]));
+
     return 0;
 }
 
@@ -47,5 +52,10 @@ void simulation(std::string inputfile){
     CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s);
 
     //Crank.simulation_1D();
+    Crank.print_m_Psi();
+}
 
+void test(double arg){
+    CrankNicolson Crank(0.05, 2.5e-04, 0.0075, 0.25,0.01,200, 0.1, 100, 1e-05);
+    Crank.print_m_Psi();
 }

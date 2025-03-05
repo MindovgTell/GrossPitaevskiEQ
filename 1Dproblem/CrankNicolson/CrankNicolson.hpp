@@ -77,6 +77,12 @@ public:
     Eigen::MatrixXd create_one_slit();
     Eigen::MatrixXd create_double_slit();
     Eigen::MatrixXd create_triple_slit();
+
+
+//*****************************/Printing and Getter Functions/******************************//
+    void print_Mat_A();
+    void print_Mat_B();
+    void print_m_Psi();
 };
 
 

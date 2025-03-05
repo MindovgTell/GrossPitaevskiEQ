@@ -9,7 +9,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_h_step = h;
     this->m_delta_t = deltat;
     this->m_T = T;
-    this->V_0 = 1e+10;
+    this->V_0 = 1e+8;
     this->m_r = -1i*m_delta_t/(2*std::pow(m_h_step,2));
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
@@ -21,41 +21,41 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
     this->m_V = this->create_potential_1D();
 
-    this->init_time_evolution_matrices_1D();
     this->init_start_state_1D(x_c,sigma_x,p_x);
+
+    //this->init_time_evolution_matrices_1D();
+    
 }
 
 double CrankNicolson::thomas_fermi_state(double x){
-    double out = std::sqrt(this->m_omega/(4 * this->m_g) * (std::pow((3 * this->m_N * this->m_g/std::pow(this->m_omega,2) ), 2/3) - std::pow(x,2)));
-    return out;
+    double out = (this->m_omega/(4 * this->m_g)) * (std::pow((3 * this->m_N * this->m_g / std::pow(this->m_omega,2) ), 2/3) - std::pow(x,2));
+    if(out > 0)
+        return std::sqrt(out);
+    else 
+        return 0;
 }
-
-// std::complex<double> CrankNicolson::gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x){
-//     std::complex<double> i(0, 1); // Define the imaginary unit
-//     double exponent = -(pow(x - x_c ,2) / (2 * pow(sigma_x,2)));
-//     std::complex<double> phase = i * (p_x * (x - x_c));
-//     return std::exp(exponent + phase); 
-// }
 
 void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     int size = this->m_size - 2;
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
-    for(int i = 1; i != m_size-1; ++i){
+    for(int i = 1; i != m_size-2; ++i){
+
         double x = i * this->m_h_step;
+
         std::complex<double> c = thomas_fermi_state(x); // Add parameters for Thomas-Fermi function
+
         U(i) = c;
         psum += std::real(std::conj(c)*c);
     }
 
     std::complex<double> normalization_factor = 1.0 / std::sqrt(psum);
-    U = normalization_factor * U;
-    this->m_Psi = U;
+    this->m_Psi = normalization_factor * U;
 }
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
 void CrankNicolson::init_time_evolution_matrices_1D(){
-    int mat_size = this->m_size-2;
+    int mat_size = pow(this->m_size-2,2);
     Eigen::VectorXcd a(mat_size);
     Eigen::VectorXcd b(mat_size);
 
@@ -161,7 +161,15 @@ void CrankNicolson::save_vector_to_csv(std::string filename, Eigen::VectorXd v){
 
 
 
+
+
+//********************************/***********/********************************//
+//                                                                             //
 //********************************/2DFunctions/********************************//
+//                                                                             //
+//********************************/***********/********************************//
+
+
 //Constructor
 CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits){ 
     int M = 1/h;
@@ -258,80 +266,6 @@ Eigen::VectorXd CrankNicolson::prob(Eigen::VectorXcd &vec)
         pr(i) = std::pow(vec(i).real(),2) + std::pow(vec(i).imag(),2);
     }
     return pr;
-}
-
-//Function for initialization left-hand side matrix according to Crank Nicolson algorithm
-void CrankNicolson::init_Mat_A(std::complex<double> r, Eigen::VectorXcd& d){
-    int S = d.size();
-    int s = std::sqrt(S);
-
-    typedef Eigen::Triplet<std::complex<double> > T;
-    std::vector<T> tripletList;
-    tripletList.reserve(5*s);
-
-    tripletList.push_back(T(0, 0, d(0)));
-    tripletList.push_back(T(0, 1, r));
-    tripletList.push_back(T(S - 1, S - 2, r));
-    tripletList.push_back(T(S - 1, S - 1, d(S-1)));
-
-    for (int i = 1; i < S-1; ++i) {
-        if(i + s  < S){
-            tripletList.push_back(T(i-1, i+s-1, r));
-            tripletList.push_back(T(i+s-1, i-1, r));
-        } 
-        tripletList.push_back(T(i, i,d(i)));
-
-        if(i%s == 0){
-            std::complex<double> z(0.,0.);
-            tripletList.push_back(T(i, i - 1, z));
-            tripletList.push_back(T(i-1, i, z));
-        }
-        else {
-            tripletList.push_back(T(i, i - 1, r));
-            tripletList.push_back(T(i - 1, i, r));
-        }
-    }
-
-    Eigen::SparseMatrix<std::complex<double> > A(S,S);
-    A.setFromTriplets(tripletList.begin(), tripletList.end());
-    this->m_A = A;
-}
-
-//Function for initialization right-hand side matrix according to Crank Nicolson algorithm
-void CrankNicolson::init_Mat_B(std::complex<double> r, Eigen::VectorXcd& d) {
-    int S = d.size();
-    int s = std::sqrt(S);
-
-    typedef Eigen::Triplet<std::complex<double> > T;
-    std::vector<T> tripletList;
-    tripletList.reserve(5*s);
-
-    tripletList.push_back(T(0, 0, d(0)));
-    tripletList.push_back(T(0, 1, r));
-    tripletList.push_back(T(S - 1, S - 2, r));
-    tripletList.push_back(T(S - 1, S - 1, d(S-1)));
-
-    for (int i = 1; i < S-1; ++i) {
-        if(i + s  < S){
-            tripletList.push_back(T(i-1, i+s-1, r));
-            tripletList.push_back(T(i+s-1, i-1, r));
-        } 
-        tripletList.push_back(T(i, i,d(i)));
-
-        if(i%s == 0){
-            std::complex<double> z(0.,0.);
-            tripletList.push_back(T(i, i - 1, z));
-            tripletList.push_back(T(i-1, i, z));
-        }
-        else {
-            tripletList.push_back(T(i, i - 1, r));
-            tripletList.push_back(T(i - 1, i, r));
-        }
-    }
-
-    Eigen::SparseMatrix<std::complex<double> > B(S,S);
-    B.setFromTriplets(tripletList.begin(), tripletList.end());
-    this->m_B = B;
 }
 
 //sFunction for saving Eigen Matrices as csv tabels 
@@ -482,3 +416,99 @@ Eigen::MatrixXd CrankNicolson::create_triple_slit(){
     return V;    
 }
 
+
+
+//Function for initialization left-hand side matrix according to Crank Nicolson algorithm
+void CrankNicolson::init_Mat_A(std::complex<double> r, Eigen::VectorXcd& d){
+    int S = d.size();
+    int s = std::sqrt(S);
+
+    typedef Eigen::Triplet<std::complex<double> > T;
+    std::vector<T> tripletList;
+    tripletList.reserve(5*s);
+
+    tripletList.push_back(T(0, 0, d(0)));
+    tripletList.push_back(T(0, 1, r));
+    tripletList.push_back(T(S - 1, S - 2, r));
+    tripletList.push_back(T(S - 1, S - 1, d(S-1)));
+
+    for (int i = 1; i < S-1; ++i) {
+        if(i + s  < S){
+            tripletList.push_back(T(i-1, i+s-1, r));
+            tripletList.push_back(T(i+s-1, i-1, r));
+        } 
+        tripletList.push_back(T(i, i,d(i)));
+
+        if(i%s == 0){
+            std::complex<double> z(0.,0.);
+            tripletList.push_back(T(i, i - 1, z));
+            tripletList.push_back(T(i-1, i, z));
+        }
+        else {
+            tripletList.push_back(T(i, i - 1, r));
+            tripletList.push_back(T(i - 1, i, r));
+        }
+    }
+
+    Eigen::SparseMatrix<std::complex<double> > A(S,S);
+    A.setFromTriplets(tripletList.begin(), tripletList.end());
+    this->m_A = A;
+}
+
+//Function for initialization right-hand side matrix according to Crank Nicolson algorithm
+void CrankNicolson::init_Mat_B(std::complex<double> r, Eigen::VectorXcd& d) {
+    int S = d.size();
+    int s = std::sqrt(S);
+
+    typedef Eigen::Triplet<std::complex<double> > T;
+    std::vector<T> tripletList;
+    tripletList.reserve(5*s);
+
+    tripletList.push_back(T(0, 0, d(0)));
+    tripletList.push_back(T(0, 1, r));
+    tripletList.push_back(T(S - 1, S - 2, r));
+    tripletList.push_back(T(S - 1, S - 1, d(S-1)));
+
+    for (int i = 1; i < S-1; ++i) {
+        if(i + s  < S){
+            tripletList.push_back(T(i-1, i+s-1, r));
+            tripletList.push_back(T(i+s-1, i-1, r));
+        } 
+        tripletList.push_back(T(i, i,d(i)));
+
+        if(i%s == 0){
+            std::complex<double> z(0.,0.);
+            tripletList.push_back(T(i, i - 1, z));
+            tripletList.push_back(T(i-1, i, z));
+        }
+        else {
+            tripletList.push_back(T(i, i - 1, r));
+            tripletList.push_back(T(i - 1, i, r));
+        }
+    }
+
+    Eigen::SparseMatrix<std::complex<double> > B(S,S);
+    B.setFromTriplets(tripletList.begin(), tripletList.end());
+    this->m_B = B;
+}
+
+
+
+
+
+
+
+//********************************/***********/********************************//
+//                                                                             //
+//*****************************/Getters Functions/*****************************//
+//                                                                             //
+//********************************/***********/********************************//
+
+
+void CrankNicolson::print_m_Psi(){
+    std::cout << "[ ";
+    for(auto a : this->m_Psi){
+        std::cout <<  a << ' ' ;
+    }
+    std::cout << " ]" << std::endl;
+}
