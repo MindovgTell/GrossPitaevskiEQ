@@ -26,18 +26,14 @@ endif()
 
 message(STATUS "Eigen3 include directory: ${EIGEN3_INCLUDE_DIR}")
 
-# Создаем исполняемый файл
 add_executable(${PROJECT_NAME} main.cpp ./CrankNicolson/CrankNicolson.cpp)
 
-# Добавляем заголовочные файлы
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${Python3_INCLUDE_DIRS}        # Python 3.11 заголовки
-    ${Python3_NumPy_INCLUDE_DIRS}  # NumPy заголовки
+    ${Python3_INCLUDE_DIRS}        # Python 3.11
+    ${Python3_NumPy_INCLUDE_DIRS}  # NumPy
     ${EIGEN3_INCLUDE_DIR}          # Eigen
-    ${CMAKE_SOURCE_DIR}            # matplotlibcpp.h (если он в корне проекта)
+    ${CMAKE_SOURCE_DIR}            # matplotlibcpp.h
 )
-
-# Линковка с Python 3.11
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Python3_LIBRARIES})
 
 
