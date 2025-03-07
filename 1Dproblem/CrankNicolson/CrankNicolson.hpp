@@ -19,7 +19,7 @@ private:
     Eigen::VectorXcd m_Psi;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t, m_h_step, V_0, m_omega, m_N, m_g;
+    double m_delta_t, m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential;
     std::complex<double> m_r;
 
 public:
@@ -38,6 +38,7 @@ public:
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
 
     void init_time_evolution_matrices_1D();
+    void init_chem_potential(double omega, double N, double a_s);
 
     Eigen::VectorXd create_harmonic_potential_1D();
     Eigen::VectorXd create_potential_1D();

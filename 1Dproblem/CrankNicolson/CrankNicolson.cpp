@@ -2,7 +2,11 @@
 
 using namespace std::complex_literals;
 
+//********************************/***********/********************************//
+//                                                                             //
 //********************************/1DFunctions/********************************//
+//                                                                             //
+//********************************/***********/********************************//
 
 CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s){
     int M = 1/h;
@@ -20,7 +24,10 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     //this->m_g = 2 * M_PI * a_s;
     this->m_g = 1;
 
+    this->init_chem_potential(omega, N, a_s);
+
     this->m_V = this->create_harmonic_potential_1D();
+
 
     this->init_start_state_1D(x_c,sigma_x,p_x);
 
@@ -29,11 +36,24 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 }
 
 double CrankNicolson::thomas_fermi_state(double x){
-    double out = (this->m_omega/(4 * this->m_g)) * (std::pow((3 * this->m_N * this->m_g / std::pow(this->m_omega,2) ), 2/3) - std::pow(x,2));
+    double R_tf = std::sqrt(this->m_chem_potential) / this->m_omega;
+
+    double out = (this->m_chem_potential/this->m_g) * (1 - x*x / R_tf);
+
+    // double out = (this->m_omega/(4 * this->m_g)) * (std::pow((3 * this->m_N * this->m_g / std::pow(this->m_omega,2) ), 2/3) - std::pow(x,2));
     if(out > 0)
         return std::sqrt(out);
     else 
         return 0;
+}
+
+void CrankNicolson::init_chem_potential(double omega, double N, double a_s){
+    double potential, a_ho;
+    a_ho = std::sqrt(1/(2*omega));
+
+    potential = 0.5*omega*std::pow((15*N*a_s/a_ho), 0.4);
+
+    this->m_chem_potential = potential;
 }
 
 void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
@@ -42,7 +62,7 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     std::complex<double> psum = 0;
     for(int i = 1; i != m_size-2; ++i){
 
-        double x = i * this->m_h_step;
+        double x = i * this->m_h_step * 3;
 
         std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
 
@@ -51,7 +71,7 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     }
 
     std::complex<double> normalization_factor = 1.0 / std::sqrt(psum);
-    this->m_Psi = normalization_factor * U;
+    this->m_Psi = U * normalization_factor;
 }
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm

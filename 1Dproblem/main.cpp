@@ -12,6 +12,7 @@ using namespace std::complex_literals;
 namespace plt = matplotlibcpp;
 
 void simulation(std::string inputfile);
+void draw(Eigen::VectorXd& x, Eigen::VectorXd& Psi);
 
 int main(int argc, char const *argv[]){
 
@@ -70,17 +71,21 @@ void simulation(std::string inputfile){
 
     Eigen::VectorXd Psi = Crank.get_m_Psi().real(); 
 
-    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(48, -1,1);
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(98, -1,1);
 
+    draw(x, Psi);
+}
+
+
+void draw(Eigen::VectorXd& x, Eigen::VectorXd& Psi){
     std::vector<double> x_vec(x.data(), x.data() + x.size());
     std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
 
     plt::figure();
-    plt::plot(x_vec,y_vec, std::string("bo-"),{{"label", "data trend"}});
+    plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "data trend"}});
     plt::xlabel("time [s]");
     plt::ylabel("observation [m]");
     plt::legend();
     plt::grid();
     plt::show(); 
-
 }
