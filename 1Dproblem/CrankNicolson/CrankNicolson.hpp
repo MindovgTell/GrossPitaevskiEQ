@@ -83,6 +83,9 @@ public:
     void print_Mat_A();
     void print_Mat_B();
     void print_m_Psi();
+
+    Eigen::VectorXcd get_m_Psi();
+
 };
 
 

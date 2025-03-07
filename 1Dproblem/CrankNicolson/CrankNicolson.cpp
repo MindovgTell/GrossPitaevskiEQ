@@ -17,9 +17,10 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
     //Physical parameters
     this->m_N = N;
-    this->m_g = 2 * M_PI * a_s;
+    //this->m_g = 2 * M_PI * a_s;
+    this->m_g = 1;
 
-    this->m_V = this->create_potential_1D();
+    this->m_V = this->create_harmonic_potential_1D();
 
     this->init_start_state_1D(x_c,sigma_x,p_x);
 
@@ -43,7 +44,7 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
 
         double x = i * this->m_h_step;
 
-        std::complex<double> c = thomas_fermi_state(x); // Add parameters for Thomas-Fermi function
+        std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
 
         U(i) = c;
         psum += std::real(std::conj(c)*c);
@@ -511,4 +512,9 @@ void CrankNicolson::print_m_Psi(){
         std::cout <<  a << ' ' ;
     }
     std::cout << " ]" << std::endl;
+}
+
+Eigen::VectorXcd CrankNicolson::get_m_Psi(){
+    Eigen::VectorXcd output = this->m_Psi;
+    return output;
 }
