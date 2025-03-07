@@ -45,6 +45,9 @@ public:
 
     void simulation_1D();
     Eigen::VectorXd  prob_1D(Eigen::VectorXcd &vec);
+
+    void init_Mat_A_1D(std::complex<double> r,Eigen::VectorXcd& d);
+    void init_Mat_B_1D(std::complex<double> r,Eigen::VectorXcd& d);
     
 //********************************/2DFunctions/********************************//
 
@@ -59,10 +62,10 @@ public:
     
     int get_m_index(int i,int j, int M);
 
-    void init_time_evolution_matrices();
+    void init_time_evolution_matrices_2D();
 
-    void init_Mat_A(std::complex<double> r,Eigen::VectorXcd& d);
-    void init_Mat_B(std::complex<double> r,Eigen::VectorXcd& d);
+    void init_Mat_A_2D(std::complex<double> r,Eigen::VectorXcd& d);
+    void init_Mat_B_2D(std::complex<double> r,Eigen::VectorXcd& d);
 
     Eigen::MatrixXd vec_to_mat(const Eigen::VectorXd& vec);
 

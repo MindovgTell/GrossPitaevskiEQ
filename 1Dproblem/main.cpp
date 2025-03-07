@@ -65,15 +65,17 @@ void simulation(std::string inputfile){
 
     CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s);
 
-    //Crank.simulation_1D();
-    Crank.print_m_Psi();
+    // Crank.simulation_1D();
 
 
-    Eigen::VectorXd Psi = Crank.get_m_Psi().real(); 
+    // Crank.print_m_Psi();
 
-    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(98, -1,1);
 
-    draw(x, Psi);
+    // Eigen::VectorXd Psi = Crank.get_m_Psi().real(); 
+
+    // Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(98, -1,1);
+
+    // draw(x, Psi);
 }
 
 
