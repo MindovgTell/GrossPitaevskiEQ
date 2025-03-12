@@ -30,7 +30,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
     this->init_start_state_1D(x_c,sigma_x,p_x);
 
-    // this->init_time_evolution_matrices_1D();
+    this->init_time_evolution_matrices_1D();
 }
 
 double CrankNicolson::thomas_fermi_state(double x){
@@ -70,18 +70,22 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
 
     std::complex<double> normalization_factor = 1.0 / std::sqrt(psum);
     this->m_Psi = U * normalization_factor;
+
+    //********/Test/********//
+    this->m_out = m_Psi.real();
+    //********/****/********//
 }
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
 void CrankNicolson::init_time_evolution_matrices_1D(){
-    int mat_size = pow(this->m_size-2,2);
-    Eigen::VectorXcd a(mat_size);
-    Eigen::VectorXcd b(mat_size);
+    Eigen::VectorXcd a(this->m_size-2);
+    Eigen::VectorXcd b(this->m_size-2);
 
-    for(int i = 1; i < this->m_size-1; ++i){
+    for(int i = 0; i < this->m_size-2; ++i){
             a(i) = (1.0 - 2.0*this->m_r + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
             b(i) = (1.0 + 2.0*this->m_r - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
     }
+
     this->init_Mat_A_1D(m_r,a);
     this->init_Mat_B_1D(-m_r,b); 
 }
@@ -118,19 +122,19 @@ void CrankNicolson::simulation_1D(){
     b.setZero();
 
     // Save initial data before the loop
-    Eigen::VectorXd p_init = prob(m_Psi);
-    save_vector_to_csv("./Vector/vector0.csv", p_init);
+    //Eigen::VectorXd p_init = prob(m_Psi);
+    // save_vector_to_csv("./Vector/vector0.csv", p_init);
 
     // Prepare the right-hand side for the time-stepping
     b = (this->m_Psi);
     
     // Set up the sparse LU solver
     Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> lg;
-    lg.compute(this->m_A);
+    lg.compute(m_A);
 
     for (int i = 1; i < this->t_step; ++i) {
 
-        // init_time_evolution_matrices_1D();
+        this->init_time_evolution_matrices_1D();
         
         // Update the right-hand side vector b
         b = (this->m_B) * b;
@@ -140,21 +144,21 @@ void CrankNicolson::simulation_1D(){
 
         // Update b for the next iteration
         b = x;
-        this->m_Psi = b;
 
         // Calculate probability and save to CSV
-        Eigen::VectorXd solution = prob(x);
-        save_vector_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
+        // Eigen::VectorXd solution = prob(x);
+        // save_vector_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
         
-        if(i % 4 == 0)
+        if(i % 1 == 0)
             std::cout << "Simulation step: #" << i << '\n';
     }
 
+    this->m_out = prob_1D(x);
 }
 
 Eigen::VectorXd CrankNicolson::prob_1D(Eigen::VectorXcd &vec)
 {
-    int size = this->m_size - 2;
+    int size = this->m_Psi.size();
     Eigen::VectorXd pr(size);
     for(int i = 0; i != size; ++i){
         pr(i) = std::pow(vec(i).real(),2) + std::pow(vec(i).imag(),2);
@@ -194,16 +198,16 @@ void CrankNicolson::init_Mat_A_1D(std::complex<double> r, Eigen::VectorXcd& d){
     tripletList.push_back(T(S - 1, S - 1, d(S-1)));
 
     for (int i = 1; i < S-1; ++i) {
-        if(i + s  < S){
-            tripletList.push_back(T(i-1, i+s-1, r));
-            tripletList.push_back(T(i+s-1, i-1, r));
-        } 
+        // if(i + s  < S){
+        //     tripletList.push_back(T(i-1, i+s-1, r));
+        //     tripletList.push_back(T(i+s-1, i-1, r));
+        // } 
         tripletList.push_back(T(i, i,d(i)));
 
         if(i%s == 0){
-            std::complex<double> z(0.,0.);
-            tripletList.push_back(T(i, i - 1, z));
-            tripletList.push_back(T(i-1, i, z));
+            // std::complex<double> z(0.,0.);
+            // tripletList.push_back(T(i, i - 1, z));
+            // tripletList.push_back(T(i-1, i, z));
         }
         else {
             tripletList.push_back(T(i, i - 1, r));
@@ -231,16 +235,12 @@ void CrankNicolson::init_Mat_B_1D(std::complex<double> r, Eigen::VectorXcd& d) {
     tripletList.push_back(T(S - 1, S - 1, d(S-1)));
 
     for (int i = 1; i < S-1; ++i) {
-        if(i + s  < S){
-            tripletList.push_back(T(i-1, i+s-1, r));
-            tripletList.push_back(T(i+s-1, i-1, r));
-        } 
         tripletList.push_back(T(i, i,d(i)));
 
         if(i%s == 0){
-            std::complex<double> z(0.,0.);
-            tripletList.push_back(T(i, i - 1, z));
-            tripletList.push_back(T(i-1, i, z));
+            // std::complex<double> z(0.,0.);
+            // tripletList.push_back(T(i, i - 1, z));
+            // tripletList.push_back(T(i-1, i, z));
         }
         else {
             tripletList.push_back(T(i, i - 1, r));
@@ -597,14 +597,33 @@ void CrankNicolson::init_Mat_B_2D(std::complex<double> r, Eigen::VectorXcd& d) {
 
 
 void CrankNicolson::print_m_Psi(){
-    std::cout << "[ ";
-    for(auto a : this->m_Psi){
-        std::cout <<  a << ' ' ;
-    }
-    std::cout << " ]" << std::endl;
-}
+    std::cout << "Psi length is: " << this->m_Psi.size() << std::endl;
+}   
 
 Eigen::VectorXcd CrankNicolson::get_m_Psi(){
     Eigen::VectorXcd output = this->m_Psi;
     return output;
+}
+
+Eigen::VectorXd CrankNicolson::get_m_out(){
+    Eigen::VectorXd output = this->m_out;
+    return output;
+}
+
+void CrankNicolson::print_Mat_A_dim(){
+    std::cout << "Matrix A number of cols: " << this->m_A.cols() << std::endl;
+    std::cout << "Matrix A number of rows: " << this->m_A.rows() << std::endl;
+}
+
+void CrankNicolson::print_Mat_B_dim(){
+    std::cout << "Matrix B number of cols: " << this->m_B.cols() << std::endl;
+    std::cout << "Matrix B number of rows: " << this->m_B.rows() << std::endl;
+}
+
+void CrankNicolson::print_Mat_A(){
+    std::cout << Eigen::MatrixXcd(this->m_A) << std::endl;
+}
+
+void CrankNicolson::print_Mat_B(){
+    std::cout << Eigen::MatrixXcd(this->m_B) << std::endl;
 }

@@ -17,6 +17,7 @@ private:
     Eigen::SparseMatrix<std::complex<double> > m_B;
 
     Eigen::VectorXcd m_Psi;
+    Eigen::VectorXd  m_out;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
     double m_delta_t, m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential;
@@ -84,11 +85,13 @@ public:
 
 
 //*****************************/Printing and Getter Functions/******************************//
+    void print_Mat_A_dim();
+    void print_Mat_B_dim();
+    void print_m_Psi();
     void print_Mat_A();
     void print_Mat_B();
-    void print_m_Psi();
-
     Eigen::VectorXcd get_m_Psi();
+    Eigen::VectorXd get_m_out();
 
 };
 

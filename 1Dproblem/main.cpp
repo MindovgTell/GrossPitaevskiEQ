@@ -12,7 +12,8 @@ using namespace std::complex_literals;
 namespace plt = matplotlibcpp;
 
 void simulation(std::string inputfile);
-void draw(Eigen::VectorXd& x, Eigen::VectorXd& Psi);
+void draw1(Eigen::VectorXd& x, Eigen::VectorXd& Psi);
+void draw2(Eigen::VectorXd& x, Eigen::VectorXd& Psi, Eigen::VectorXd& Fin);
 
 int main(int argc, char const *argv[]){
 
@@ -65,26 +66,44 @@ void simulation(std::string inputfile){
 
     CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s);
 
-    // Crank.simulation_1D();
+    //Crank.print_m_Psi();
+    // Crank.print_Mat_A();
+    // Crank.print_Mat_B();
+
+    Crank.simulation_1D();
 
 
-    // Crank.print_m_Psi();
 
+    Eigen::VectorXd Psi = Crank.get_m_Psi().real(); 
+    Eigen::VectorXd Fin = Crank.get_m_out(); 
 
-    // Eigen::VectorXd Psi = Crank.get_m_Psi().real(); 
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(98, -1,1);
 
-    // Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(98, -1,1);
-
-    // draw(x, Psi);
+    draw2(x, Psi, Fin);
 }
 
 
-void draw(Eigen::VectorXd& x, Eigen::VectorXd& Psi){
+void draw1(Eigen::VectorXd& x, Eigen::VectorXd& Psi){
     std::vector<double> x_vec(x.data(), x.data() + x.size());
     std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
 
     plt::figure();
     plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "data trend"}});
+    plt::xlabel("time [s]");
+    plt::ylabel("observation [m]");
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
+
+void draw2(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin){
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
+    std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
+    std::vector<double> z_vec(Fin.data(), Fin.data() + Fin.size());
+
+    plt::figure();
+    plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "data trend"}});
+    plt::plot(x_vec,z_vec, std::string("r-"),{{"label", "data trend"}});
     plt::xlabel("time [s]");
     plt::ylabel("observation [m]");
     plt::legend();
