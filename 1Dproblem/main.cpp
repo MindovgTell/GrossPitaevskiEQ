@@ -69,12 +69,11 @@ void simulation(std::string inputfile){
     //Crank.print_m_Psi();
     // Crank.print_Mat_A();
     // Crank.print_Mat_B();
+    Eigen::VectorXd Psi = Crank.get_m_Psi().real();
 
     Crank.simulation_1D();
 
-
-
-    Eigen::VectorXd Psi = Crank.get_m_Psi().real(); 
+ 
     Eigen::VectorXd Fin = Crank.get_m_out(); 
 
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(98, -1,1);

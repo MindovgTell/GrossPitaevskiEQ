@@ -134,6 +134,7 @@ void CrankNicolson::simulation_1D(){
 
     for (int i = 1; i < this->t_step; ++i) {
 
+        this->m_Psi = b;
         this->init_time_evolution_matrices_1D();
         
         // Update the right-hand side vector b
@@ -149,7 +150,7 @@ void CrankNicolson::simulation_1D(){
         // Eigen::VectorXd solution = prob(x);
         // save_vector_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
         
-        if(i % 1 == 0)
+        if(i % 4 == 0)
             std::cout << "Simulation step: #" << i << '\n';
     }
 
