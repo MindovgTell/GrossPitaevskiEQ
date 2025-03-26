@@ -84,6 +84,8 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
     for(int i = 0; i < this->m_size-2; ++i){
             a(i) = (1.0 - 2.0*this->m_r + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
             b(i) = (1.0 + 2.0*this->m_r - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            // a(i) = (1.0 - 2.0*this->m_r + 1.0*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            // b(i) = (1.0 + 2.0*this->m_r - 1.0*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
     }
 
     this->init_Mat_A_1D(m_r,a);

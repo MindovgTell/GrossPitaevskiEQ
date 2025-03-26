@@ -76,7 +76,7 @@ void simulation(std::string inputfile){
  
     Eigen::VectorXd Fin = Crank.get_m_out(); 
 
-    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(98, -1,1);
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(998, -1,1);
 
     draw2(x, Psi, Fin);
 }

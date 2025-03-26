@@ -20,7 +20,7 @@ private:
     Eigen::VectorXd  m_out;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t, m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential;
+    double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential;
     std::complex<double> m_r;
 
 public:
