@@ -33,6 +33,16 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->init_time_evolution_matrices_1D();
 }
 
+
+void CrankNicolson::init_chem_potential(double omega, double N, double a_s){
+    double potential, a_ho;
+    a_ho = std::sqrt(1/(2*omega));
+
+    potential = 0.5*omega*std::pow((15*N*a_s/a_ho), 0.4);
+
+    this->m_chem_potential = potential;
+}
+
 double CrankNicolson::thomas_fermi_state(double x){
     double R_tf = std::sqrt(this->m_chem_potential) / this->m_omega;
 
@@ -45,14 +55,13 @@ double CrankNicolson::thomas_fermi_state(double x){
         return 0;
 }
 
-void CrankNicolson::init_chem_potential(double omega, double N, double a_s){
-    double potential, a_ho;
-    a_ho = std::sqrt(1/(2*omega));
-
-    potential = 0.5*omega*std::pow((15*N*a_s/a_ho), 0.4);
-
-    this->m_chem_potential = potential;
+std::complex<double> CrankNicolson::gauss_wave_packet_1D(double sigma_x,  double x,  double x_c, double p_x){
+    std::complex<double> i(0, 1); // Define the imaginary unit
+    double exponent = -(pow(x - x_c ,2) / (2 * pow(sigma_x,2)));
+    std::complex<double> phase = i * p_x * (x - x_c);
+    return std::exp(exponent + phase); 
 }
+
 
 void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     int size = this->m_size - 2;
@@ -62,18 +71,21 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
 
         double x = i * this->m_h_step * 3;
 
-        std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
+        //std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
+        std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
+
 
         U(i) = c;
         psum += std::real(std::conj(c)*c);
     }
-
     std::complex<double> normalization_factor = 1.0 / std::sqrt(psum);
+    // std::complex<double> normalization_factor = m_N / std::sqrt(psum);
     this->m_Psi = U * normalization_factor;
 
-    //********/Test/********//
-    this->m_out = m_Psi.real();
-    //********/****/********//
+    // //********/Test/********//
+    // this->m_out = this->m_Psi;
+    // //********/****/********//
+
 }
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
@@ -82,10 +94,10 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
     Eigen::VectorXcd b(this->m_size-2);
 
     for(int i = 0; i < this->m_size-2; ++i){
-            a(i) = (1.0 - 2.0*this->m_r + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-            b(i) = (1.0 + 2.0*this->m_r - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-            // a(i) = (1.0 - 2.0*this->m_r + 1.0*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-            // b(i) = (1.0 + 2.0*this->m_r - 1.0*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            // a(i) = (1.0 - 2.0*this->m_r + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            // b(i) = (1.0 + 2.0*this->m_r - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            a(i) = (1.0 - 2.0*this->m_r + 1.0*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            b(i) = (1.0 + 2.0*this->m_r - 1.0*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
     }
 
     this->init_Mat_A_1D(m_r,a);
@@ -275,15 +287,8 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
 
-    if(slits == 0){
-        this->m_V = this->create_potential_box();
-    }
-    else if(slits == 1){
-        this->m_V = this->create_one_slit();
-    }
-    else if(slits == 2){
-        this->m_V = this->create_double_slit();
-    }
+    this->m_V = this->create_potential_box();
+    
     save_matrix_to_csv("./Matrice/potential.csv", this->m_V);
 
     this->init_time_evolution_matrices_2D();
@@ -433,85 +438,6 @@ Eigen::MatrixXd CrankNicolson::create_potential_box(){
     return V;
 }
 
-//Function for creating potential box with one slit wall in the middle
-Eigen::MatrixXd CrankNicolson::create_one_slit(){
-    Eigen::MatrixXd V = create_potential_box();
-    int center_index = (m_size)*0.5; //200 * 0.5 = 100
-    int x_thickness = 0.02/m_h_step;// indices i in x direction: (0.02/0.005) + 1 = 5
-    int x_start = center_index - x_thickness/2;
-    int x_end = center_index + x_thickness/2;
-    int aperture = (0.05/m_h_step) ;// (0.05/0.005) + 1 = 11
-    int start = center_index - aperture/2;
-    int end = start + aperture + 1;
-    Eigen::VectorXd S(this->m_size);
-    S.fill(this->V_0);
-
-    for (int i = x_start; i < x_end+1; ++i)
-    {
-        V.col(i) = S;
-        for(int j = start; j < end; ++j)
-            V(j,i) = 0;
-    }
-    return V;
-}
-
-//Function for creating potential box with double slit wall in the middle
-Eigen::MatrixXd CrankNicolson::create_double_slit(){
-
-    Eigen::MatrixXd V = create_potential_box();
-
-    int center_index = (this->m_size)*0.5; //200 * 0.5 = 100
-    int x_thickness = 0.02/m_h_step;// indices i in x direction: (0.02/0.005) + 1 = 5
-    int x_start = center_index - x_thickness/2;
-    int x_end = center_index + x_thickness/2;
-    int aperture = (0.05/m_h_step) + 1 ;// (0.05/0.005) + 1 = 11
-    int center_wall_length = (0.05/m_h_step);// (0.05/0.005) = 10. From j=95 to j=105
-    int start = center_index - (center_wall_length)/2 - aperture; // j=84 for lower aperture and j=106 for upper aperture
-    int end = start + aperture;
-
-    Eigen::VectorXd S(this->m_size);
-    S.fill(this->V_0);
-
-    for (int i = x_start; i < x_end+1; i++) {
-        V.col(i) = S;
-        for(int j = start; j < end+1; j++) {
-            V(j,i) = 0;
-            V(j+center_wall_length+1+aperture,i) = 0;
-        }
-    }
-    return V;
-}
-
-
-Eigen::MatrixXd CrankNicolson::create_triple_slit(){
-    Eigen::MatrixXd V = create_potential_box();
-    
-    int center_index = (this->m_size)*0.5; //200 * 0.5 = 100
-    int x_thickness = 0.02/m_h_step;// indices i in x direction: (0.02/0.005) + 1 = 5
-    int x_start = center_index - x_thickness/2;
-    int x_end = center_index + x_thickness/2;
-    int aperture = (0.05/m_h_step) + 1 ;// (0.05/0.005) + 1 = 11
-    int center_wall_length = (0.05/m_h_step);// (0.05/0.005) = 10. From j=95 to j=105
-    int start = center_index - (center_wall_length)/2 - aperture; // j=84 for lower aperture and j=106 for upper aperture
-    int end = start + aperture;
-
-    Eigen::VectorXd S(this->m_size);
-    S.fill(this->V_0);
-
-    for (int i = x_start; i < x_end+1; i++) {
-        V.col(i) = S;
-        for(int j = start; j < end+1; j++) {
-            V(j,i) = 0;
-            V(j+center_wall_length+1+aperture,i) = 0;
-
-        }
-    }
-    
-    return V;    
-}
-
-
-
 //Function for initialization left-hand side matrix according to Crank Nicolson algorithm
 void CrankNicolson::init_Mat_A_2D(std::complex<double> r, Eigen::VectorXcd& d){
     int S = d.size();
@@ -605,6 +531,15 @@ void CrankNicolson::print_m_Psi(){
 
 Eigen::VectorXcd CrankNicolson::get_m_Psi(){
     Eigen::VectorXcd output = this->m_Psi;
+    return output;
+}
+
+Eigen::VectorXd CrankNicolson::get_m_Psi_prob(){
+    int size = this->m_Psi.size();
+    Eigen::VectorXd output(size);
+    for(int i = 0; i < size; ++i){
+        output(i) = std::pow(m_Psi(i).real(),2) + std::pow(m_Psi(i).imag(),2);
+    }
     return output;
 }
 

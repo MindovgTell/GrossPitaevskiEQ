@@ -69,11 +69,13 @@ void simulation(std::string inputfile){
     //Crank.print_m_Psi();
     // Crank.print_Mat_A();
     // Crank.print_Mat_B();
-    Eigen::VectorXd Psi = Crank.get_m_Psi().real();
+
+
+    
+    Eigen::VectorXd Psi = Crank.get_m_Psi_prob();   
 
     Crank.simulation_1D();
 
- 
     Eigen::VectorXd Fin = Crank.get_m_out(); 
 
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(998, -1,1);
@@ -101,11 +103,13 @@ void draw2(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin){
     std::vector<double> z_vec(Fin.data(), Fin.data() + Fin.size());
 
     plt::figure();
-    plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "data trend"}});
-    plt::plot(x_vec,z_vec, std::string("r-"),{{"label", "data trend"}});
-    plt::xlabel("time [s]");
-    plt::ylabel("observation [m]");
+    plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "Initial state"}});
+    plt::plot(x_vec,z_vec, std::string("r-"),{{"label", "Final state"}});
+    plt::xlabel("");
+    plt::ylabel("");
     plt::legend();
     plt::grid();
     plt::show(); 
 }
+
+

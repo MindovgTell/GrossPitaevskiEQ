@@ -32,8 +32,9 @@ public:
 
     //Thomas-Fermi ansatz
     double thomas_fermi_state(double x);
+
     //Gauss wave function
-    //std::complex<double> CrankNicolson::gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x);
+    std::complex<double> gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x);
 
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
@@ -79,9 +80,6 @@ public:
     
     // Functions for create potential
     Eigen::MatrixXd create_potential_box();
-    Eigen::MatrixXd create_one_slit();
-    Eigen::MatrixXd create_double_slit();
-    Eigen::MatrixXd create_triple_slit();
 
 
 //*****************************/Printing and Getter Functions/******************************//
@@ -90,7 +88,9 @@ public:
     void print_m_Psi();
     void print_Mat_A();
     void print_Mat_B();
+
     Eigen::VectorXcd get_m_Psi();
+    Eigen::VectorXd get_m_Psi_prob();
     Eigen::VectorXd get_m_out();
 
 };
