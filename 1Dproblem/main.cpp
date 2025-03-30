@@ -11,9 +11,12 @@ using namespace std::complex_literals;
 
 namespace plt = matplotlibcpp;
 
-void simulation(std::string inputfile);
+void simulation1D(std::string inputfile);
+void simulation2D(std::string inputfile);
+
 void draw1(Eigen::VectorXd& x, Eigen::VectorXd& Psi);
 void draw2(Eigen::VectorXd& x, Eigen::VectorXd& Psi, Eigen::VectorXd& Fin);
+void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi, Eigen::VectorXd& Fin, Eigen::VectorXd& V);
 
 int main(int argc, char const *argv[]){
 
@@ -25,13 +28,13 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    simulation(argv[1]);
+    simulation1D(argv[1]);
 
     return 0;
 }
 
 
-void simulation(std::string inputfile){
+void simulation1D(std::string inputfile){
 
 
     std::ifstream input_data(inputfile);
@@ -64,23 +67,25 @@ void simulation(std::string inputfile){
     << sigma_x << std::setw(width) << p_x << std::setw(width) << omega << std::setw(width) << N << std::setw(width) << a_s << std::endl;
 
 
+
+
     CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s);
-
-    //Crank.print_m_Psi();
-    // Crank.print_Mat_A();
-    // Crank.print_Mat_B();
-
 
     
     Eigen::VectorXd Psi = Crank.get_m_Psi_prob();   
 
     Crank.simulation_1D();
 
-    Eigen::VectorXd Fin = Crank.get_m_out(); 
+    Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
 
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(998, -1,1);
 
+    Eigen::VectorXd V = Crank.get_m_V();
+
     draw2(x, Psi, Fin);
+    // draw3(x, Psi, Fin, V);
+
+    // Crank.get_m_V_size();
 }
 
 
@@ -111,5 +116,23 @@ void draw2(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin){
     plt::grid();
     plt::show(); 
 }
+
+void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin, Eigen::VectorXd& V){
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
+    std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
+    std::vector<double> z_vec(Fin.data(), Fin.data() + Fin.size());
+    std::vector<double> t_vec(V.data(), V.data() + V.size());
+
+    plt::figure();
+    plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "Initial state"}});
+    plt::plot(x_vec,z_vec, std::string("r-"),{{"label", "Final state"}});
+    plt::plot(x_vec,t_vec, std::string("g-"),{{"label", "Potential well"}});
+    plt::xlabel("");
+    plt::ylabel("");
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
+
 
 

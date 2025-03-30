@@ -17,7 +17,7 @@ private:
     Eigen::SparseMatrix<std::complex<double> > m_B;
 
     Eigen::VectorXcd m_Psi;
-    Eigen::VectorXd  m_out;
+    Eigen::VectorXcd m_Fin;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
     double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential;
@@ -50,6 +50,9 @@ public:
 
     void init_Mat_A_1D(std::complex<double> r,Eigen::VectorXcd& d);
     void init_Mat_B_1D(std::complex<double> r,Eigen::VectorXcd& d);
+
+
+    void normalize(Eigen::VectorXcd &vec);
     
 //********************************/2DFunctions/********************************//
 
@@ -91,9 +94,16 @@ public:
 
     Eigen::VectorXcd get_m_Psi();
     Eigen::VectorXd get_m_Psi_prob();
-    Eigen::VectorXd get_m_out();
 
-};
+    Eigen::VectorXcd get_m_Fin();
+    Eigen::VectorXd get_m_Fin_prob();
+
+    Eigen::VectorXd get_m_V();
+    void get_m_V_size(){
+        std::cout << "Size of V vector: " << this->m_V.size() << std::endl;
+    }
+
+};  
 
 
 #endif 

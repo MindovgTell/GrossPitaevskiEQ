@@ -13,7 +13,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_h_step = h;
     this->m_delta_t = deltat;
     this->m_T = T;
-    this->V_0 = 1e+8;
+    this->V_0 = 1e+20;
     this->m_r = -1i*m_delta_t/(2*std::pow(m_h_step,2));
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
@@ -27,6 +27,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->init_chem_potential(omega, N, a_s);
 
     this->m_V = this->create_harmonic_potential_1D();
+    // this->m_V = this->create_potential_1D();
 
     this->init_start_state_1D(x_c,sigma_x,p_x);
 
@@ -78,14 +79,13 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
         U(i) = c;
         psum += std::real(std::conj(c)*c);
     }
-    std::complex<double> normalization_factor = 1.0 / std::sqrt(psum);
+
+    // std::complex<double> normalization_factor = 1.0 / std::sqrt(psum * this->m_h_step);
+    std::complex<double> normalization_factor = std::sqrt( 1.0 / (psum * this->m_h_step));
     // std::complex<double> normalization_factor = m_N / std::sqrt(psum);
+    // std::complex<double> normalization_factor = std::sqrt(m_N / (psum * this->m_h_step));
+
     this->m_Psi = U * normalization_factor;
-
-    // //********/Test/********//
-    // this->m_out = this->m_Psi;
-    // //********/****/********//
-
 }
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
@@ -105,20 +105,20 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
 }
 
 Eigen::VectorXd CrankNicolson::create_harmonic_potential_1D(){
-    Eigen::VectorXd V(this->m_size);
+    Eigen::VectorXd V(this->m_size-2);
     V.setZero();
-    for(int i = 1; i < this->m_size-1; ++i){
-        V(i) = 0.5 * std::pow((this->m_omega * i * this->m_h_step),2);
+    for(int i = 0; i < this->m_size-2; ++i){
+        V(i) = 0.5 * std::pow((this->m_omega * (i  - this->m_size/2)* this->m_h_step),2);
     }
 
     return V;
 }
 
 Eigen::VectorXd CrankNicolson::create_potential_1D(){
-    Eigen::VectorXd V(this->m_size);
+    Eigen::VectorXd V(this->m_size-2);
     V.setZero();
     V(0) = V_0;
-    V(this->m_size - 1) = V_0;
+    V(this->m_size - 3) = V_0;
 
     return V;
 }
@@ -150,16 +150,17 @@ void CrankNicolson::simulation_1D(){
 
         this->m_Psi = b;
         this->init_time_evolution_matrices_1D();
+ 
         
         // Update the right-hand side vector b
         b = (this->m_B) * b;
-
+        normalize(b);
         // Solve the system A * x = b
         x = lg.solve(b);
 
         // Update b for the next iteration
         b = x;
-
+        normalize(b);
         // Calculate probability and save to CSV
         // Eigen::VectorXd solution = prob(x);
         // save_vector_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
@@ -168,17 +169,34 @@ void CrankNicolson::simulation_1D(){
             std::cout << "Simulation step: #" << i << '\n';
     }
 
-    this->m_out = prob_1D(x);
+    this->m_Fin = x;
+    normalize(this->m_Fin);
 }
 
 Eigen::VectorXd CrankNicolson::prob_1D(Eigen::VectorXcd &vec)
 {
-    int size = this->m_Psi.size();
+    int size = vec.size();
     Eigen::VectorXd pr(size);
     for(int i = 0; i != size; ++i){
         pr(i) = std::pow(vec(i).real(),2) + std::pow(vec(i).imag(),2);
     }
     return pr;
+}
+
+void CrankNicolson::normalize(Eigen::VectorXcd &vec){
+    int size = vec.size();
+
+    std::complex<double> psum = 0;
+    for(int i = 0; i < size; ++i){
+        psum += std::real(std::conj(vec(i))*vec(i));
+    }
+    // std::complex<double> normalization_factor = 1.0 / std::sqrt(psum * this->m_h_step);
+    std::complex<double> normalization_factor = std::sqrt( 1.0 / (psum * this->m_h_step));
+    // std::complex<double> normalization_factor = m_N / std::sqrt(psum);
+    // std::complex<double> normalization_factor = std::sqrt(m_N / (psum * this->m_h_step));
+
+    vec *= normalization_factor;
+
 }
 
 
@@ -543,8 +561,22 @@ Eigen::VectorXd CrankNicolson::get_m_Psi_prob(){
     return output;
 }
 
-Eigen::VectorXd CrankNicolson::get_m_out(){
-    Eigen::VectorXd output = this->m_out;
+Eigen::VectorXcd CrankNicolson::get_m_Fin(){
+    Eigen::VectorXcd output = this->m_Fin;
+    return output;
+}
+
+Eigen::VectorXd CrankNicolson::get_m_Fin_prob(){
+    int size = this->m_Fin.size();
+    Eigen::VectorXd output(size);
+    for(int i = 0; i < size; ++i){
+        output(i) = std::pow(m_Fin(i).real(),2) + std::pow(m_Fin(i).imag(),2);
+    }
+    return output;
+}
+
+Eigen::VectorXd CrankNicolson::get_m_V(){
+    Eigen::VectorXd output = this->m_V;
     return output;
 }
 
