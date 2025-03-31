@@ -53,6 +53,8 @@ public:
 
 
     void normalize(Eigen::VectorXcd &vec);
+
+    Eigen::VectorXd TM_state_prob();
     
 //********************************/2DFunctions/********************************//
 
