@@ -20,7 +20,7 @@ private:
     Eigen::VectorXcd m_Fin;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential;
+    double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential, _start;
     std::complex<double> m_r;
 
 public:
@@ -28,7 +28,7 @@ public:
 //********************************/1DFunctions/********************************//
     
     //1D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s);
+    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s, double start);
 
     //Thomas-Fermi ansatz
     double thomas_fermi_state(double x);
@@ -55,11 +55,14 @@ public:
     void normalize(Eigen::VectorXcd &vec);
 
     Eigen::VectorXd TM_state_prob();
+    double vec_norm(Eigen::VectorXcd &vec);
+    double vec_norm(Eigen::VectorXd &vec);
+    
     
 //********************************/2DFunctions/********************************//
 
     //2D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits=0);
+    CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits);
 
     // Gauss Wave funciton
     std::complex<double> gauss_wave_packet(double sigma_x, double sigma_y, double x, double y, double x_c, double y_c, double p_x, double p_y = 0);

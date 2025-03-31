@@ -42,14 +42,14 @@ void simulation1D(std::string inputfile){
     std::string line;
     std::getline(input_data,line);//Skip first line in file
 
-    double Problem,h,deltat,T,x_c,sigma_x,p_x,omega,N,a_s;
+    double Problem,h,deltat,T,x_c,sigma_x,p_x,omega,N,a_s, start;
 
     std::getline(input_data,line);
     std::stringstream str_stream(line);
 
     //str_stream.imbue(std::locale("C"));
 
-    if (str_stream >> Problem >> h >> deltat >> T >> x_c >> sigma_x >> p_x >> omega >> N >> a_s) {
+    if (str_stream >> Problem >> h >> deltat >> T >> x_c >> sigma_x >> p_x >> omega >> N >> a_s >> start) {
         std::cout << "Values read successfully!" << std::endl;
     } else {
         std::cout << "Error reading values from string!" << std::endl;
@@ -61,24 +61,22 @@ void simulation1D(std::string inputfile){
     
     int width = 10;
     std::cout << std::setw(width) << "Problem" << std::setw(width) << "h" << std::setw(width) << "deltat" << std::setw(width) << "T" << std::setw(width) << "x_c" << std::setw(width)
-    << "sigma_x" << std::setw(width) << "p_x" << std::setw(width) << "omega" << std::setw(width) << "N" << std::setw(width) << "a_s" << std::endl;
+    << "sigma_x" << std::setw(width) << "p_x" << std::setw(width) << "omega" << std::setw(width) << "N" << std::setw(width) << "a_s" << std::setw(width) << "start" << std::endl;
 
     std::cout << std::setw(width) << Problem << std::setw(width) << h << std::setw(width) << deltat << std::setw(width) << T << std::setw(width) << x_c << std::setw(width)
-    << sigma_x << std::setw(width) << p_x << std::setw(width) << omega << std::setw(width) << N << std::setw(width) << a_s << std::endl;
+    << sigma_x << std::setw(width) << p_x << std::setw(width) << omega << std::setw(width) << N << std::setw(width) << a_s << std::setw(width) << start << std::endl;
 
 
+    CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s, start);
 
-
-    CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s);
-
-    
+    Eigen::VectorXcd Ps = Crank.get_m_Psi();
     Eigen::VectorXd Psi = Crank.get_m_Psi_prob();   
 
     Crank.simulation_1D();
 
     Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
 
-    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(998, -1,1);
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(998, start, -1 * start);
 
     Eigen::VectorXd V = Crank.get_m_V();
     Eigen::VectorXd TM = Crank.TM_state_prob();
@@ -87,6 +85,10 @@ void simulation1D(std::string inputfile){
     draw3(x, Psi, Fin, V);
     draw3(x, Psi, Fin, TM);
     // Crank.get_m_V_size();
+
+    std::cout << '\n' << '\n' << std::endl;
+
+    std::cout << "The norm of vector is: " << Crank.vec_norm(Ps) << std::endl;
 }
 
 
