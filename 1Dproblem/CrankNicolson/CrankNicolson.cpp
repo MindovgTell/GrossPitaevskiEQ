@@ -19,6 +19,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_size = M;
     this->m_omega = omega;
     this->_start = start;
+    this->step = (-1*_start*2)/M;
 
     //Physical parameters
     this->m_N = N;
@@ -40,13 +41,14 @@ void CrankNicolson::init_chem_potential(double omega, double N, double a_s){
     double potential, a_ho;
     a_ho = std::sqrt(1/(2*omega));
 
-    potential = 0.5*omega*std::pow((15*N*a_s/a_ho), 0.4);
+    potential = 0.5*omega*std::pow((15*N), 0.4); //*a_s/a_ho
 
     this->m_chem_potential = potential;
 }
 
 double CrankNicolson::thomas_fermi_state(double x){
-    double R_tf = std::sqrt(this->m_chem_potential) / this->m_omega;
+    // double R_tf = std::sqrt(this->m_chem_potential) / this->m_omega;
+    double R_tf = std::pow(3/2 * this->m_N, 1/3);
 
     double out = (this->m_chem_potential/this->m_g) * (1 - std::pow((x/R_tf),2));
 
@@ -60,7 +62,7 @@ std::complex<double> CrankNicolson::gauss_wave_packet_1D(double sigma_x,  double
     std::complex<double> i(0, 1); // Define the imaginary unit
     double exponent = -(pow(x-x_c,2) / (2 * pow(sigma_x,2))); //this->m_size/2 //-x_c
     std::complex<double> phase = i * p_x * (x - x_c); 
-    return std::exp(exponent ); //+ phase
+    return std::exp(exponent); //+ phase
 }
 
 
@@ -68,7 +70,7 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     int size = this->m_size - 2;
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
-    for(int i = 1; i != size; ++i){
+    for(int i = 0; i != size; ++i){
 
         double x = (i - size/2) * this->m_h_step * this->_start;
 
@@ -79,19 +81,18 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
         psum += std::norm(c);
     }
 
-    // std::complex<double> normalization_factor = 1.0 / std::sqrt(psum * this->m_h_step);
-    // std::complex<double> normalization_factor = std::sqrt( 1.0 / (psum * this->m_h_step));
-    // std::complex<double> normalization_factor = m_N / std::sqrt(psum * this->m_h_step);
-    std::complex<double> normalization_factor = std::sqrt(m_N / (psum * this->m_h_step));
+    std::complex<double> normalization_factor = std::sqrt(m_N) / std::sqrt(psum.real()); // * this->m_h_step
 
-    this->m_Psi = U * normalization_factor;
+    std::cout << psum << std::endl;
+    
+    this->m_Psi = U * std::abs(normalization_factor);
 }
 
-Eigen::VectorXd CrankNicolson::TM_state_prob(){
+Eigen::VectorXcd CrankNicolson::TM_state(){
     int size = this->m_size - 2;
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
-    for(int i = 1; i != size; ++i){
+    for(int i = 0; i != size; ++i){
 
         double x = (i - size/2) * this->m_h_step * this->_start;
 
@@ -101,13 +102,14 @@ Eigen::VectorXd CrankNicolson::TM_state_prob(){
         psum += std::norm(c);
     }
 
-    // std::complex<double> normalization_factor = 1.0 / std::sqrt(psum * this->m_h_step);
-    // std::complex<double> normalization_factor = std::sqrt( 1.0 / (psum * this->m_h_step));
-    // std::complex<double> normalization_factor = m_N / std::sqrt(psum * this->m_h_step);
-    std::complex<double> normalization_factor = std::sqrt(m_N / (psum * this->m_h_step));
 
-    U = U * normalization_factor;
-    return prob_1D(U);
+
+    std::complex<double> normalization_factor = std::sqrt(m_N) / std::sqrt(psum); // * this->m_h_step
+
+    // std::complex<double> normalization_factor = std::sqrt(m_N / (psum * this->m_h_step));
+    std::cout << "step in the grid: " << this->step << std::endl;
+    U = U * std::abs(normalization_factor);
+    return U;
 }
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
@@ -118,8 +120,9 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
     for(int i = 0; i < this->m_size-2; ++i){
             // a(i) = (1.0 - 2.0*this->m_r + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
             // b(i) = (1.0 + 2.0*this->m_r - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) - 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-            a(i) = (1.0 - 2.0*this->m_r + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5)*std::pow(std::abs(m_Psi(i)),2));
-            b(i) = (1.0 + 2.0*this->m_r - 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0*(m_delta_t*0.5)*std::pow(std::abs(m_Psi(i)),2));
+
+            a(i) = 1.0 - 2.0*this->m_r + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5)*std::norm(m_Psi(i));
+            b(i) = 1.0 + 2.0*this->m_r - 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0*(m_delta_t*0.5)*std::norm(m_Psi(i));
     }
 
     this->init_Mat_A_1D(m_r,a);
@@ -186,7 +189,7 @@ void CrankNicolson::simulation_1D(){
         // Calculate probability and save to CSV
         // Eigen::VectorXd solution = prob(x);
         // save_vector_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
-        
+        normalize(x);
         if(i % 4 == 0)
             std::cout << "Simulation step: #" << i << '\n';
     }
@@ -209,16 +212,16 @@ void CrankNicolson::normalize(Eigen::VectorXcd &vec){
     int size = vec.size();
 
     std::complex<double> psum = 0, psum_test = 0;
-    for(int i = 0; i < size; ++i){
+    for(int i = 0; i != size; ++i){
         psum += std::norm(vec(i));
     }
+    std::complex<double> normalization_factor = std::sqrt(m_N) / std::sqrt(psum); // * this->m_h_step
 
-    // std::complex<double> normalization_factor = 1.0 / std::sqrt(psum * this->m_h_step);
-    // std::complex<double> normalization_factor = std::sqrt( 1.0 / (psum * this->m_h_step));
-    // std::complex<double> normalization_factor = m_N / std::sqrt(psum * this->m_h_step);
-    std::complex<double> normalization_factor = std::sqrt(m_N / (psum * this->m_h_step));
 
-    vec *= normalization_factor;
+    // std::complex<double> normalization_factor = std::sqrt(m_N / (psum * this->m_h_step));
+    // vec /= normalization_factor;
+
+    vec *= std::abs(normalization_factor);
 }
 
 

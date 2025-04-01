@@ -20,7 +20,7 @@ private:
     Eigen::VectorXcd m_Fin;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential, _start;
+    double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential, _start, step;
     std::complex<double> m_r;
 
 public:
@@ -54,7 +54,7 @@ public:
 
     void normalize(Eigen::VectorXcd &vec);
 
-    Eigen::VectorXd TM_state_prob();
+    Eigen::VectorXcd TM_state();
     double vec_norm(Eigen::VectorXcd &vec);
     double vec_norm(Eigen::VectorXd &vec);
     

@@ -74,21 +74,26 @@ void simulation1D(std::string inputfile){
 
     Crank.simulation_1D();
 
+    Eigen::VectorXcd Fn = Crank.get_m_Fin(); 
     Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
 
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(998, start, -1 * start);
 
     Eigen::VectorXd V = Crank.get_m_V();
-    Eigen::VectorXd TM = Crank.TM_state_prob();
+    Eigen::VectorXcd TM = Crank.TM_state();
+    Eigen::VectorXd TM_pr = Crank.prob_1D(TM);
 
     // draw2(x, Psi, Fin);
     draw3(x, Psi, Fin, V);
-    draw3(x, Psi, Fin, TM);
+    draw3(x, Psi, Fin, TM_pr);
     // Crank.get_m_V_size();
 
     std::cout << '\n' << '\n' << std::endl;
 
-    std::cout << "The norm of vector is: " << Crank.vec_norm(Ps) << std::endl;
+    std::cout << "The norm of vector is: " << Crank.vec_norm(Fn) << std::endl;
+    std::cout << "The norm of vector is: " << Crank.vec_norm(TM) << std::endl;
+
+    //Crank.print_Mat_A();
 }
 
 
