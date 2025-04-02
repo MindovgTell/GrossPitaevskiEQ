@@ -21,7 +21,7 @@ private:
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
     double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential, _start, step;
-    std::complex<double> m_r;
+    std::complex<double> m_lambda;
 
 public:
 
@@ -38,6 +38,7 @@ public:
 
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
+    void update_time_evolution_matrices_1D();
 
     void init_time_evolution_matrices_1D();
     void init_chem_potential(double omega, double N, double a_s);
@@ -107,6 +108,9 @@ public:
     void get_m_V_size(){
         std::cout << "Size of V vector: " << this->m_V.size() << std::endl;
     }
+    Eigen::VectorXd real(Eigen::VectorXcd& vec);
+    Eigen::VectorXd imag(Eigen::VectorXcd& vec);
+
 
 };  
 
