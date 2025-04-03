@@ -16,7 +16,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->V_0 = 1e+10;
     this->_start = start;
     this->step = (-2*_start)/M;
-    this->m_lambda = -1.0*m_delta_t/(2*std::pow(m_h_step,2));
+    this->m_lambda = -1.0*m_delta_t/(2*std::pow(this->m_h_step,2));
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
     this->m_omega = omega;
@@ -69,15 +69,13 @@ std::complex<double> CrankNicolson::gauss_wave_packet_1D(double sigma_x,  double
     return std::exp(exponent); //+ phase
 }
 
-
 void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     int size = this->m_size - 2;
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
+    double x = this->_start;
     for(int i = 0; i < size; ++i){
-
-        double x = this->_start;
-        x += (i) * this->step;
+        x += this->step;
 
         // std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
         std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
@@ -86,19 +84,20 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
         psum += std::norm(c);
     }
 
-    std::complex<double> normalization_factor = std::sqrt(m_N) / std::sqrt(psum * this->step); // 
+    std::complex<double> normalization_factor = std::sqrt(m_N) / std::sqrt(psum * this->step);
     this->m_Psi = U * std::abs(normalization_factor);
 }
 
 Eigen::VectorXcd CrankNicolson::TM_state(){
     int size = this->m_size - 2;
     Eigen::VectorXcd U(size);
-    std::complex<double> psum = 0;
-    for(int i = 0; i < size; ++i){
-        double x = this->_start;
-        x += (i) * this->step;// * this->_start;  - size/2
-        std::complex<double> c = thomas_fermi_state(x); // Add parameters for Thomas-Fermi function
 
+    double x = this->_start;
+    std::complex<double> psum = 0;
+
+    for(int i = 0; i < size; ++i){
+        x +=  this->step;
+        std::complex<double> c = thomas_fermi_state(x); // Add parameters for Thomas-Fermi function
         U(i) = c;
         psum += std::norm(c);
     }
@@ -128,15 +127,18 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
 }
 
 void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){
-    Eigen::VectorXcd a(this->m_size-2);
-    Eigen::VectorXcd b(this->m_size-2);
-    for(int i = 0; i < this->m_size-2; ++i){
+
+    int size = this->m_size - 2; 
+    Eigen::VectorXcd a(size);
+    Eigen::VectorXcd b(size);
+    for(int i = 0; i < size; ++i){
         // // Real time evolution matrices
         // a(i) = (1.0 - 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
         // b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
 
-        a(i) = 1.0 - 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(vec(i));
-        b(i) = 1.0 + 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(vec(i));
+        // Imaginary time evolution matrices
+        a(i) = 1.0 - 2.0*this->m_lambda + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5)*std::norm(vec(i));
+        b(i) = 1.0 + 2.0*this->m_lambda + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5)*std::norm(vec(i));
     }
 
     this->init_Mat_A_1D(m_lambda,a);
@@ -191,14 +193,12 @@ void CrankNicolson::init_Mat_B_1D(std::complex<double> r, Eigen::VectorXcd& d) {
     this->m_B = B;
 }
 
-
-
 Eigen::VectorXd CrankNicolson::create_harmonic_potential_1D(){
     Eigen::VectorXd V(this->m_size-2);
     V.setZero();
+    double x = this->_start;
     for(int i = 0; i < this->m_size-2; ++i){
-        double x = this->_start;
-        x += (i) * this->step;
+        x += this->step;
         V(i) = 0.5 * std::pow((this->m_omega * x),2.); //* this->_start
     }
     return V;
@@ -212,7 +212,6 @@ Eigen::VectorXd CrankNicolson::create_potential_1D(){
 
     return V;
 }
-
 
 // Time evolution simulation for 1D Gross-Pitaevskii equation
 void CrankNicolson::simulation_1D(){
@@ -238,7 +237,10 @@ void CrankNicolson::simulation_1D(){
         // // Updating time evolution matrieces for the next time iteretion step
         // this->m_Psi = b;
         // this->init_time_evolution_matrices_1D();
-        // update_time_evolution_matrices_1D(b);
+
+        update_time_evolution_matrices_1D(b);
+
+        lg.compute(m_A);
         
         // Update the right-hand side vector b
         b = (this->m_B) * b;
@@ -250,8 +252,7 @@ void CrankNicolson::simulation_1D(){
         // Calculate probability and save to CSV
         // Eigen::VectorXd solution = prob(x);
         // save_vector_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
-        normalize(x);
-        if(i % 200 == 0)
+        if(i % 1000 == 0)
             std::cout << "Simulation step: #" << i << '\n';
     }
     this->m_Fin = x;
@@ -635,7 +636,6 @@ Eigen::VectorXd CrankNicolson::real(Eigen::VectorXcd& vec){
     }
     return answ;
 }
-
 
 Eigen::VectorXd CrankNicolson::imag(Eigen::VectorXcd& vec){
     int size = vec.size();
