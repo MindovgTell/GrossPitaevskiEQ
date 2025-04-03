@@ -14,7 +14,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_delta_t = deltat;
     this->m_T = T;
     this->V_0 = 1e+20;
-    this->m_lambda = -1.0i*m_delta_t/(2*std::pow(m_h_step,2));
+    this->m_lambda = -1.0*m_delta_t/(2*std::pow(m_h_step,2));
     this->t_step = std::round(T/deltat) + 1;
     this->m_size = M;
     this->m_omega = omega;
@@ -44,7 +44,7 @@ void CrankNicolson::init_chem_potential(double omega, double N, double a_s){
     // potential = 0.5*omega*std::pow((15*N), 0.4); //*a_s/a_ho
 
     double R_tf = std::pow(1.5 * this->m_N, 1/3.);
-    double potential = std::pow((this->m_omega * R_tf),2)/ 0.5;
+    double potential = std::pow((this->m_omega * R_tf),2)/ 0.25;
 
     this->m_chem_potential = potential;
 }
@@ -95,7 +95,6 @@ Eigen::VectorXcd CrankNicolson::TM_state(){
     for(int i = 0; i < size; ++i){
 
         double x = (i - size/2) * this->m_h_step * this->_start;
-        std::cout << "coordinates : " << x << std::endl;
         std::complex<double> c = thomas_fermi_state(x); // Add parameters for Thomas-Fermi function
 
         U(i) = c;
@@ -186,7 +185,7 @@ Eigen::VectorXd CrankNicolson::create_harmonic_potential_1D(){
     Eigen::VectorXd V(this->m_size-2);
     V.setZero();
     for(int i = 0; i < this->m_size-2; ++i){
-        V(i) = 0.5 * std::pow((this->m_omega * (i  - this->m_size/2) * this->step),2); //* this->_start
+        V(i) = 0.5 * std::pow((this->m_omega * (i  - this->m_size/2) * this->m_h_step),2); //* this->_start
     }
     return V;
 }

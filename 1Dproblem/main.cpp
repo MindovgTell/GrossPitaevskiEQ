@@ -71,19 +71,19 @@ void simulation1D(std::string inputfile){
 
     Eigen::VectorXd Psi = Crank.get_m_Psi_prob();   
 
-    // Crank.simulation_1D();
+    Crank.simulation_1D();
 
     Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
 
-    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(8, start, -1 * start);
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(998, start, -1 * start);
 
     Eigen::VectorXd V = Crank.get_m_V();
     Eigen::VectorXcd TM = Crank.TM_state();
     Eigen::VectorXd TM_pr = Crank.prob_1D(TM);
 
     // draw2(x, Psi, Fin);
-    // draw3(x, Psi, Fin, V);
-    // draw3(x, Psi, Fin, TM_pr);
+    draw3(x, Psi, Fin, V);
+    draw3(x, Psi, Fin, TM_pr);
     // Crank.get_m_V_size();
 
     std::cout << '\n' << '\n' << std::endl;
