@@ -38,7 +38,7 @@ public:
 
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
-    void update_time_evolution_matrices_1D();
+    void update_time_evolution_matrices_1D(Eigen::VectorXcd &vec);
 
     void init_time_evolution_matrices_1D();
     void init_chem_potential(double omega, double N, double a_s);

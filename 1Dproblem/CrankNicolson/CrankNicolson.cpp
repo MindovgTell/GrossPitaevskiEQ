@@ -116,19 +116,31 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
 
     for(int i = 0; i < this->m_size-2; ++i){
             // // Real time evolution matrices
-            a(i) = (1.0 - 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-            b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            // a(i) = (1.0 - 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            // b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
 
-            // a(i) = 1.0 - 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-            // b(i) = 1.0 + 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+            a(i) = 1.0 - 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+            b(i) = 1.0 + 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
     }
 
     this->init_Mat_A_1D(m_lambda,a);
     this->init_Mat_B_1D(-1.0 * m_lambda,b); 
 }
 
-void CrankNicolson::update_time_evolution_matrices_1D(){
+void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){
+    Eigen::VectorXcd a(this->m_size-2);
+    Eigen::VectorXcd b(this->m_size-2);
+    for(int i = 0; i < this->m_size-2; ++i){
+        // // Real time evolution matrices
+        // a(i) = (1.0 - 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+        // b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
 
+        a(i) = 1.0 - 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(vec(i));
+        b(i) = 1.0 + 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(vec(i));
+    }
+
+    this->init_Mat_A_1D(m_lambda,a);
+    this->init_Mat_B_1D(-1.0 * m_lambda,b); 
 }
 
 //Function for initialization left-hand side matrix according to Crank Nicolson algorithm
@@ -221,8 +233,10 @@ void CrankNicolson::simulation_1D(){
     for (int i = 1; i < this->t_step; ++i) {
         normalize(b);
 
-        this->m_Psi = b;
-        this->init_time_evolution_matrices_1D();
+        // // Updating time evolution matrieces for the next time iteretion step
+        // this->m_Psi = b;
+        // this->init_time_evolution_matrices_1D();
+        update_time_evolution_matrices_1D(b);
         
         // Update the right-hand side vector b
         b = (this->m_B) * b;
@@ -238,7 +252,6 @@ void CrankNicolson::simulation_1D(){
         if(i % 50 == 0)
             std::cout << "Simulation step: #" << i << '\n';
     }
-
     this->m_Fin = x;
     normalize(this->m_Fin);
 }

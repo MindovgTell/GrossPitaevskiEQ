@@ -96,9 +96,9 @@ void simulation1D(std::string inputfile){
 
     // std::cout << potential << std::endl;
 
-    std::cout << '\n' << '\n' << std::endl;
+    // std::cout << '\n' << '\n' << std::endl;
 
-    std::cout << '\n' << '\n' << std::endl;
+    // std::cout << '\n' << '\n' << std::endl;
 
     // Crank.print_Mat_B();
 
