@@ -69,11 +69,13 @@ void simulation1D(std::string inputfile){
 
     CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s, start);
 
-    Eigen::VectorXd Psi = Crank.get_m_Psi_prob();   
+    Eigen::VectorXd Psi = Crank.get_m_Psi_prob(); 
+    Eigen::VectorXcd Ps = Crank.get_m_Psi();  
 
     Crank.simulation_1D();
 
     Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
+    Eigen::VectorXcd Fn = Crank.get_m_Fin(); 
 
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(498, start, -1 * start);
 
@@ -81,18 +83,23 @@ void simulation1D(std::string inputfile){
     Eigen::VectorXcd TM = Crank.TM_state();
     Eigen::VectorXd TM_pr = Crank.prob_1D(TM);
 
-    // draw3(x, Psi, Fin, V);
+    draw3(x, Psi, Fin, V);
     draw3(x, Psi, Fin, TM_pr);
 
     // std::cout << '\n' << '\n' << std::endl;
 
     // Crank.print_Mat_A();
 
-    // std::cout << '\n' << '\n' << std::endl;
+    std::cout << '\n' << '\n' << std::endl;
 
-    // std::cout << '\n' << '\n' << std::endl;
+    std::cout << '\n' << '\n' << std::endl;
 
     // Crank.print_Mat_B();
+    
+    std::cout << "Initial state norm: " << Crank.vec_norm(Ps) << std::endl;
+    std::cout << "Fin state norm: " << Crank.vec_norm(Fn) << std::endl;
+    std::cout << "TM state norm: " << Crank.vec_norm(TM) << std::endl;
+
 
 }
 

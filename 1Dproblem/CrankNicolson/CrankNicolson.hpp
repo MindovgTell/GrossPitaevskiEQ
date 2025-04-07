@@ -35,6 +35,7 @@ public:
 
     //Gauss wave function
     std::complex<double> gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x);
+    double square_func(double x);
 
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
@@ -48,7 +49,7 @@ public:
 
     void simulation_1D();
     Eigen::VectorXd  prob_1D(Eigen::VectorXcd &vec);
-
+ 
     void init_Mat_A_1D(std::complex<double> r,Eigen::VectorXcd& d);
     void init_Mat_B_1D(std::complex<double> r,Eigen::VectorXcd& d);
 
