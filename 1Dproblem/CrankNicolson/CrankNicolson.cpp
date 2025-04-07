@@ -81,8 +81,8 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
         x += this->step;
 
         // std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
-        // std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
-        std::complex<double> c = square_func(x);
+        std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
+        // std::complex<double> c = square_func(x);
 
         U(i) = c;
         psum += std::norm(c);
