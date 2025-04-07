@@ -12,11 +12,14 @@ using namespace std::complex_literals;
 namespace plt = matplotlibcpp;
 
 void simulation1D(std::string inputfile);
-void simulation2D(std::string inputfile);
+// void simulation2D(std::string inputfile);
 
 void draw1(Eigen::VectorXd& x, Eigen::VectorXd& Psi);
+
 void draw2(Eigen::VectorXd& x, Eigen::VectorXd& Psi, Eigen::VectorXd& Fin);
 void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi, Eigen::VectorXd& Fin, Eigen::VectorXd& V);
+
+void draw_energy(std::vector<double>& x, std::vector<double>& Psi,  std::vector<double>& TM_en);
 
 int main(int argc, char const *argv[]){
 
@@ -27,6 +30,8 @@ int main(int argc, char const *argv[]){
         std::cerr << "Usage:" << executable << " input_file.txt" << '\n';
         return 1;
     }
+
+    
 
     simulation1D(argv[1]);
 
@@ -66,7 +71,6 @@ void simulation1D(std::string inputfile){
     std::cout << std::setw(width) << Problem << std::setw(width) << h << std::setw(width) << deltat << std::setw(width) << T << std::setw(width) << x_c << std::setw(width)
     << sigma_x << std::setw(width) << p_x << std::setw(width) << omega << std::setw(width) << N << std::setw(width) << a_s << std::setw(width) << start << std::endl;
 
-
     CrankNicolson Crank(h, deltat, T, x_c, sigma_x, p_x, omega, N, a_s, start);
 
     Eigen::VectorXd Psi = Crank.get_m_Psi_prob(); 
@@ -77,20 +81,17 @@ void simulation1D(std::string inputfile){
     Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
     Eigen::VectorXcd Fn = Crank.get_m_Fin(); 
 
-    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(498, start, -1 * start);
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(500, start, -1 * start);
 
     Eigen::VectorXd V = Crank.get_m_V();
     Eigen::VectorXcd TM = Crank.TM_state();
     Eigen::VectorXd TM_pr = Crank.prob_1D(TM);
 
-    draw3(x, Psi, Fin, V);
-    draw3(x, Psi, Fin, TM_pr);
-
     // std::cout << '\n' << '\n' << std::endl;
 
     // Crank.print_Mat_A();
 
-    std::cout << '\n' << '\n' << std::endl;
+    // std::cou    std::cout << '\n' << '\n' << std::endl;t << '\n' << '\n' << std::endl;
 
     std::cout << '\n' << '\n' << std::endl;
 
@@ -101,6 +102,27 @@ void simulation1D(std::string inputfile){
     std::cout << "TM state norm: " << Crank.vec_norm(TM) << std::endl;
 
 
+    std::cout << '\n' << '\n' << std::endl;
+
+    std::cout << "The energy of the current state: " << Crank.calc_state_energy() << std::endl;
+    std::cout << "The energy of the Thomas-Fermi state: " << Crank.calc_state_energy(TM) << std::endl;
+
+
+
+    std::cout << '\n' << '\n' << std::endl;
+
+    double TM_energy = Crank.calc_state_energy(TM);
+
+    std::vector<double> E = Crank.get_vec_Energy();
+    std::vector<double> en_len(E.size());
+    std::vector<double> TM_en(E.size(), TM_energy);
+    std::iota(en_len.begin(), en_len.end(), 1); // fills with 1, 2, 3, ..., y.size()
+
+
+    draw3(x, Psi, Fin, V);
+    draw3(x, Psi, Fin, TM_pr);
+
+    draw_energy(en_len, E, TM_en);
 }
 
 
@@ -110,6 +132,19 @@ void draw1(Eigen::VectorXd& x, Eigen::VectorXd& Psi){
 
     plt::figure();
     plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "data trend"}});
+    plt::xlabel("time [s]");
+    plt::ylabel("observation [m]");
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
+
+void draw_energy(std::vector<double>& x, std::vector<double>& vec, std::vector<double>& TM_en){
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
+
+    plt::figure();
+    plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}});
+    plt::plot(x_vec, TM_en, std::string("g--"),{{"label", "TM state energy"}});
     plt::xlabel("time [s]");
     plt::ylabel("observation [m]");
     plt::legend();

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <cmath>
 #include <numbers>
+#include <vector>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
@@ -22,6 +23,11 @@ private:
     int m_size, m_T, t_step;
     double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential, _start, step;
     std::complex<double> m_lambda;
+
+
+    // vector of the energies
+
+    std::vector<double> vec_Energy;
 
 public:
 
@@ -59,7 +65,9 @@ public:
     Eigen::VectorXcd TM_state();
     double vec_norm(Eigen::VectorXcd &vec);
     double vec_norm(Eigen::VectorXd &vec);
-    
+
+    double calc_state_energy();
+    double calc_state_energy(Eigen::VectorXcd &vec);
     
 //********************************/2DFunctions/********************************//
 
@@ -111,6 +119,8 @@ public:
     }
     Eigen::VectorXd real(Eigen::VectorXcd& vec);
     Eigen::VectorXd imag(Eigen::VectorXcd& vec);
+
+    std::vector<double> get_vec_Energy(){ return this->vec_Energy;}
 
 
 };  
