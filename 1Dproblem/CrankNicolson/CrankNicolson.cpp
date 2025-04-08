@@ -166,14 +166,8 @@ void CrankNicolson::init_Mat_A_1D(std::complex<double> r, Eigen::VectorXcd& d){
     typedef Eigen::Triplet<std::complex<double> > T;
     std::vector<T> tripletList;
     tripletList.reserve(std::pow(S,2));
-
     tripletList.push_back(T(0, 0, d(0)));
-    // tripletList.push_back(T(0, 1, r));
-    // tripletList.push_back(T(S - 1, S - 2, r));
-    //tripletList.push_back(T(S - 1, S - 1, d(S-1)));
-
-    //std::cout << "the a vector is equal: " << '\n' << d << std::endl;
-
+    
     for (int i = 1; i < S; ++i) {
         tripletList.push_back(T(i, i,d(i)));
         tripletList.push_back(T(i, i - 1, r));
@@ -375,13 +369,12 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->step = (-2*_start)/M;
     this->t_step = std::round(T/deltat) + 1;
 
-
     this->m_lambda = -1.0*m_delta_t/(4*std::pow(this->step,2));
     this->m_size = M;
     this->m_omega_x = omega_x;
     this->m_omega_y = omega_y;
 
-    this->m_Fin = Eigen::VectorXcd(m_size).setZero();
+    this->m_Fin = Eigen::VectorXcd(std::pow(m_size-2, 2.)).setZero();
 
     //Physical parameters
     this->m_N = N;
@@ -390,10 +383,10 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->init_chem_potential(omega_x, omega_y, N, a_s);
 
     //Choosing the potential for system 
-    // this->m_V = this->create_harmonic_potential_2D();
+    this->m_V = this->create_harmonic_potential_2D();
     // this->m_V = this->create_potential_box();
 
-    // this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y,0,0);
+    this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y);
     // this->init_time_evolution_matrices_2D();
 }
 
@@ -414,8 +407,11 @@ double CrankNicolson::thomas_fermi_radius_y(){
     return std::pow(( numerator / denumerator), 0.25);
 }
 
-void CrankNicolson::init_chem_potential(double omega_x, double omega_y, double N, double a_s){
-    
+// Function for calculating the chemical potential for Thomas-Fermi limit with associated parameters
+void CrankNicolson::init_chem_potential(double omega_x, double omega_y, double N, double g){
+    double numerator = g * omega_x * omega_y * N;
+    double potential = std::sqrt(numerator / M_PI);
+    this->m_chem_potential = potential;
 }
 
 //The value of the wave funciton in the specific point on grid
@@ -426,16 +422,21 @@ std::complex<double> CrankNicolson::gauss_wave_packet_2D(double x, double y, dou
     return std::exp(exponent); // + phase
 }
 
-
-
 double CrankNicolson::thomas_fermi_state_2D(double x, double y){
-    double out;
+    double out, R_x, R_y;
+    R_x = thomas_fermi_radius_x();
+    R_y = thomas_fermi_radius_y();
 
+    out = (this->m_chem_potential / this->m_g) * (1 - std::pow(x/R_x, 2.) - std::pow(y/R_y, 2.));
+
+    if ( out > 0)
+        return std::sqrt(out);
+    else 
+        return 0;
 }
 
-
 //Function for initializing wave function
-void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x=0, double p_y=0){
+void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y){
     int size = std::pow(this->m_size-2,2);
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
@@ -443,7 +444,7 @@ void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, 
     for(int i = 1; i != m_size-1; ++i){
         double x = this->_start + i * this->step;
         for(int j = 1; j != m_size-1; ++j){
-            double y = this->_start + this->step;
+            double y = this->_start + j * this->step;
             //Initial state function
             std::complex<double> c = gauss_wave_packet_2D(x, y, x_c, y_c, sigma_x, sigma_y); // ,p_x, p_y
             // std::complex<double> c = thomas_fermi_state(x,y);
@@ -468,12 +469,17 @@ void CrankNicolson::init_time_evolution_matrices_2D(){
     for(int k = 1; k < this->m_size-1; ++k){
         for(int l = 1; l < this->m_size-1; ++l){
             int index = get_m_index(k,l,m_size);
-            a(index) = (1.0 - 4.0*this->m_lambda+ 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
-            b(index) = (1.0 + 4.0*this->m_lambda- 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
+            // //Real time evolution matrices
+            // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
+            // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
+
+            //Imaginary time evolution matrices
+            a(index) = (1.0 - 4.0*this->m_lambda + 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(l,k)) + 1.0*(m_delta_t * 0.5)*std::norm(this->m_Psi(index)));
+            b(index) = (1.0 + 4.0*this->m_lambda - 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(l,k)) - 1.0*(m_delta_t * 0.5)*std::norm(this->m_Psi(index)));
         }
     }
     this->init_Mat_A_2D(m_lambda,a);
-    this->init_Mat_B_2D(-m_lambda,b); 
+    this->init_Mat_B_2D(-1.0 * m_lambda,b); 
 }
 
 //Function which return Eigen::MatrixXd based on Eigen::VectorXd
@@ -512,59 +518,32 @@ void CrankNicolson::save_matrix_to_csv(std::string filename, Eigen::MatrixXd mat
     }
 }
 
-// Function for solving systems of equations for each time step dependently on start conditions
-void CrankNicolson::simulation(){
-    int size = this->m_Psi.size();
-
-    Eigen::VectorXcd x(size);
-    Eigen::VectorXcd b(size);
-
-    x.setZero();
-    b.setZero();
-
-    // Save initial data before the loop
-    Eigen::VectorXd p_init = prob(m_Psi);
-    save_matrix_to_csv("./Matrice/matrix0.csv", vec_to_mat(p_init));
-
-    // Prepare the right-hand side for the time-stepping
-    b = (this->m_Psi);
-
-    // Set up the sparse LU solver
-    Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> lg;
-    lg.compute(m_A);
-    
-
-    for (int i = 1; i < this->t_step; ++i) {
-        // Update the right-hand side vector b
-        b = (this->m_B) * b;
-
-        // Solve the system A * x = b
-        x = lg.solve(b);
-
-        // Update b for the next iteration
-        b = x;
-
-        // Calculate probability and save to CSV
-        Eigen::VectorXd p = prob(x);
-        Eigen::MatrixXd solution = vec_to_mat(p);
-        save_matrix_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
-        
-        if(i % 4 == 0)
-            std::cout << "Simulation step: #" << i << '\n';
-    }
-}
-
 //Function for creating potential box without the wall
 Eigen::MatrixXd CrankNicolson::create_potential_box(){
-    Eigen::MatrixXd V(this->m_size,this->m_size);
+    int size = this->m_size;
+    Eigen::MatrixXd V(size, size);
     V.setZero();
-    Eigen::VectorXd S(this->m_size);
+    Eigen::VectorXd S(size);
     S.fill(V_0);
     V.col(0) = S;
-    V.col(this->m_size-1) = S;
+    V.col(size-1) = S;
     V.row(0) = S;
-    V.row(this->m_size-1) = S;
+    V.row(size-1) = S;
 
+    return V;
+}
+
+Eigen::MatrixXd CrankNicolson::create_harmonic_potential_2D(){
+    int size = this->m_size;
+    Eigen::MatrixXd V(size, size);
+    V.setZero();
+    for(int i = 1; i != size-1; ++i){
+        double x = this->_start + i * this->step;
+        for(int j = 1; j != size-1; ++j){
+            double y = this->_start + j * this->step;
+            V(i,j) = 0.5 * (std::pow(this->m_omega_x * x,2.) + std::pow(this->m_omega_y * y,2.));
+        }
+    }
     return V;
 }
 
@@ -642,10 +621,47 @@ void CrankNicolson::init_Mat_B_2D(std::complex<double> r, Eigen::VectorXcd& d) {
     this->m_B = B;
 }
 
+// Function for solving systems of equations for each time step dependently on start conditions
+void CrankNicolson::simulation(){
+    int size = this->m_Psi.size();
 
+    Eigen::VectorXcd x(size);
+    Eigen::VectorXcd b(size);
 
+    x.setZero();
+    b.setZero();
 
+    // Save initial data before the loop
+    Eigen::VectorXd p_init = prob(m_Psi);
+    save_matrix_to_csv("./Matrice/matrix0.csv", vec_to_mat(p_init));
 
+    // Prepare the right-hand side for the time-stepping
+    b = (this->m_Psi);
+
+    // Set up the sparse LU solver
+    Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> lg;
+    lg.compute(m_A);
+    
+
+    for (int i = 1; i < this->t_step; ++i) {
+        // Update the right-hand side vector b
+        b = (this->m_B) * b;
+
+        // Solve the system A * x = b
+        x = lg.solve(b);
+
+        // Update b for the next iteration
+        b = x;
+
+        // Calculate probability and save to CSV
+        Eigen::VectorXd p = prob(x);
+        Eigen::MatrixXd solution = vec_to_mat(p);
+        save_matrix_to_csv("./Matrice/matrix" + std::to_string(i) + ".csv", solution);   
+        
+        if(i % 4 == 0)
+            std::cout << "Simulation step: #" << i << '\n';
+    }
+}
 
 
 //********************************/***********/********************************//

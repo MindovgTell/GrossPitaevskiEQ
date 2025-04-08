@@ -86,8 +86,8 @@ public:
 
     double thomas_fermi_radius_x();
     double thomas_fermi_radius_y();
-    
-    void init_chem_potential(double omega_x, double omega_y, double N, double a_s);
+
+    void init_chem_potential(double omega_x, double omega_y, double N, double g);
 
     // Gauss Wave funciton
     std::complex<double> gauss_wave_packet_2D(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
@@ -95,7 +95,7 @@ public:
     double thomas_fermi_state_2D(double x, double y);
 
     //Methods for creating matrixes
-    void init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y);
+    void init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
 
 
     void init_time_evolution_matrices_2D();
@@ -114,6 +114,7 @@ public:
     
     // Functions for create potential
     Eigen::MatrixXd create_potential_box();
+    Eigen::MatrixXd create_harmonic_potential_2D();
 
 
 //********************************/***********/********************************//
