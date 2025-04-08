@@ -31,8 +31,12 @@ private:
 
 public:
 
+//********************************/***********/********************************//
+//                                                                             //
 //********************************/1DFunctions/********************************//
-    
+//                                                                             //
+//********************************/***********/********************************//
+
     //1D constructor
     CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s, double start);
 
@@ -69,18 +73,30 @@ public:
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
     
+//********************************/***********/********************************//
+//                                                                             //
 //********************************/2DFunctions/********************************//
+//                                                                             //
+//********************************/***********/********************************//
 
     //2D constructor
     CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double omega_x, double omega_y, double N, double a_s, double start);
+    
+    int get_m_index(int i,int j, int M);
+
+    double thomas_fermi_radius_x();
+    double thomas_fermi_radius_y();
+    
+    void init_chem_potential(double omega_x, double omega_y, double N, double a_s);
 
     // Gauss Wave funciton
-    std::complex<double> gauss_wave_packet(double sigma_x, double sigma_y, double x, double y, double x_c, double y_c, double p_x, double p_y = 0);
+    std::complex<double> gauss_wave_packet_2D(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
+    // Thomas-Fermi function
+    double thomas_fermi_state_2D(double x, double y);
 
     //Methods for creating matrixes
     void init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y);
-    
-    int get_m_index(int i,int j, int M);
+
 
     void init_time_evolution_matrices_2D();
 
@@ -100,7 +116,11 @@ public:
     Eigen::MatrixXd create_potential_box();
 
 
-//*****************************/Printing and Getter Functions/******************************//
+//********************************/***********/********************************//
+//                                                                             //
+//*****************************/Getters Functions/*****************************//
+//                                                                             //
+//********************************/***********/********************************//
     void print_Mat_A_dim();
     void print_Mat_B_dim();
     void print_m_Psi();

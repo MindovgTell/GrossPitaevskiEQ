@@ -20,6 +20,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_lambda = -1.0*m_delta_t/(4*std::pow(this->step,2));
     this->m_size = M;
     this->m_omega_x = omega;
+    this->m_omega_y = 0.0;
 
     this->m_Fin = Eigen::VectorXcd(m_size).setZero();
     //Physical parameters
@@ -244,12 +245,8 @@ void CrankNicolson::simulation_1D(){
     // Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>> solver;
 
     for (int i = 1; i < this->t_step; ++i) {
+
         normalize(b);
-
-        // // Updating time evolution matrieces for the next time iteretion step
-        // this->m_Psi = b;
-        // this->init_time_evolution_matrices_1D();
-
         update_time_evolution_matrices_1D(b);
 
         solver.compute(m_A);
@@ -390,7 +387,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_N = N;
     this->m_g = 1;
 
-    // this->init_chem_potential(omega, N, a_s);
+    this->init_chem_potential(omega_x, omega_y, N, a_s);
 
     //Choosing the potential for system 
     // this->m_V = this->create_harmonic_potential_2D();
@@ -405,32 +402,60 @@ int CrankNicolson::get_m_index(int i, int j, int M){
     return (i-1)*(M-2) + j-1;
 }
 
+double CrankNicolson::thomas_fermi_radius_x(){   
+    double numerator = 4.0 * this->m_g * this->m_omega_y * this->m_N;
+    double denumerator = std::pow(this->m_omega_x, 3.) * M_PI;
+    return std::pow(( numerator / denumerator), 0.25);
+}
+
+double CrankNicolson::thomas_fermi_radius_y(){
+    double numerator = 4.0 * this->m_g * this->m_omega_x * this->m_N;
+    double denumerator = std::pow(this->m_omega_y, 3.) * M_PI;
+    return std::pow(( numerator / denumerator), 0.25);
+}
+
+void CrankNicolson::init_chem_potential(double omega_x, double omega_y, double N, double a_s){
+    
+}
+
 //The value of the wave funciton in the specific point on grid
-std::complex<double> CrankNicolson::gauss_wave_packet(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y){
+std::complex<double> CrankNicolson::gauss_wave_packet_2D(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y){ //, double p_x, double p_y
     std::complex<double> i(0, 1); // Define the imaginary unit
     double exponent = -(pow(x - x_c ,2) / (2 * pow(sigma_x,2))) - (pow(y - y_c, 2) / (2*pow(sigma_y, 2)));
-    std::complex<double> phase = i * (p_x * (x - x_c) + p_y * (y - y_c));
-    return std::exp(exponent + phase); 
+    //std::complex<double> phase = i * (p_x * (x - x_c) + p_y * (y - y_c));
+    return std::exp(exponent); // + phase
 }
+
+
+
+double CrankNicolson::thomas_fermi_state_2D(double x, double y){
+    double out;
+
+}
+
 
 //Function for initializing wave function
 void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x=0, double p_y=0){
     int size = std::pow(this->m_size-2,2);
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
+
     for(int i = 1; i != m_size-1; ++i){
-        double x = i*m_h_step;
+        double x = this->_start + i * this->step;
         for(int j = 1; j != m_size-1; ++j){
-            double y = j*m_h_step;
-            std::complex<double> c = gauss_wave_packet(x, y, x_c, y_c, sigma_x, sigma_y ,p_x, p_y);
+            double y = this->_start + this->step;
+            //Initial state function
+            std::complex<double> c = gauss_wave_packet_2D(x, y, x_c, y_c, sigma_x, sigma_y); // ,p_x, p_y
+            // std::complex<double> c = thomas_fermi_state(x,y);
+
             int index = get_m_index(i,j,this->m_size);
             U(index) = c;
-            psum += std::real(std::conj(c)*c);
+            psum += std::norm(c);
         }
     }
 
-    std::complex<double> normalization_factor = 1.0 / std::sqrt(psum);
-    U = normalization_factor * U;
+    std::complex<double> normalization_factor = std::sqrt(this->m_N) / std::sqrt(psum * std::pow(this->step, 2.));
+    U *= std::abs(normalization_factor);
     this->m_Psi = U;
 }
 
