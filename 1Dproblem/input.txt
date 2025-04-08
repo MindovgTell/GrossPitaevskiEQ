@@ -1,2 +1,2 @@
 Problem h       deltat      T       x_c     sigma_x     p_x     omega     N        a_s    start
-1       0.002   5e-4        6.5e+1     0       5         0       1       1000     100    -50.
+1       0.002   5e-4        1e+1     0       5         0       1       1000     100    -50. 

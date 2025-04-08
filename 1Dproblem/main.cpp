@@ -11,15 +11,30 @@ using namespace std::complex_literals;
 
 namespace plt = matplotlibcpp;
 
-void simulation1D(std::string inputfile);
-// void simulation2D(std::string inputfile);
 
+//--------//-----------------------------------//--------//
+//--------//             Simulators            //--------//
+//--------//-----------------------------------//--------//
+void simulation1D(std::string inputfile);
+void simulation2D(std::string inputfile);
+
+//--------//-----------------------------------//--------//
+//--------//Additional drawing functions for 1D//--------//
+//--------//-----------------------------------//--------//
 void draw1(Eigen::VectorXd& x, Eigen::VectorXd& Psi);
 
 void draw2(Eigen::VectorXd& x, Eigen::VectorXd& Psi, Eigen::VectorXd& Fin);
 void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi, Eigen::VectorXd& Fin, Eigen::VectorXd& V);
 
 void draw_energy(std::vector<double>& x, std::vector<double>& Psi,  std::vector<double>& TM_en);
+
+
+//--------//-----------------------------------//--------//
+//--------//Additional drawing functions for 2D//--------//
+//--------//-----------------------------------//--------//
+
+
+
 
 int main(int argc, char const *argv[]){
 
@@ -31,16 +46,15 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    
-
     simulation1D(argv[1]);
+
+    // simulation2D(argv[1]);
 
     return 0;
 }
 
 
 void simulation1D(std::string inputfile){
-
 
     std::ifstream input_data(inputfile);
 
@@ -54,15 +68,10 @@ void simulation1D(std::string inputfile){
 
     //str_stream.imbue(std::locale("C"));
 
-    if (str_stream >> Problem >> h >> deltat >> T >> x_c >> sigma_x >> p_x >> omega >> N >> a_s >> start) {
+    if (str_stream >> Problem >> h >> deltat >> T >> x_c >> sigma_x >> p_x >> omega >> N >> a_s >> start)
         std::cout << "Values read successfully!" << std::endl;
-    } else {
+    else
         std::cout << "Error reading values from string!" << std::endl;
-    }
-
-
-
-    // str_stream >> Problem >> h >>deltat >>T >> x_c >> sigma_x >> p_x >> y_c >> sigma_y >> p_y >> v_0 >> slits;
     
     int width = 10;
     std::cout << std::setw(width) << "Problem" << std::setw(width) << "h" << std::setw(width) << "deltat" << std::setw(width) << "T" << std::setw(width) << "x_c" << std::setw(width)
@@ -90,8 +99,6 @@ void simulation1D(std::string inputfile){
     // std::cout << '\n' << '\n' << std::endl;
 
     // Crank.print_Mat_A();
-
-    // std::cou    std::cout << '\n' << '\n' << std::endl;t << '\n' << '\n' << std::endl;
 
     std::cout << '\n' << '\n' << std::endl;
 
@@ -125,6 +132,45 @@ void simulation1D(std::string inputfile){
     draw_energy(en_len, E, TM_en);
 }
 
+
+
+void simulation2D(std::string inputfile){
+
+    // Functionality for reading all the neccesary for simulation values from source file
+    std::ifstream input_data(inputfile);
+
+    std::string line;
+    std::getline(input_data,line);//Skip first line in file
+
+    double Problem, h, deltat, T, x_c, sigma_x, y_c, sigma_y, omega_x, omega_y, N, a_s, start;
+
+    std::getline(input_data,line);
+    std::stringstream str_stream(line);
+
+    if (str_stream >> Problem >> h >> deltat >> T >> x_c >> sigma_x >> y_c >> sigma_y >> omega_x >> omega_y >> N >> a_s >> start)
+        std::cout << "Values read successfully!" << std::endl;
+    else
+        std::cout << "Error reading values from string!" << std::endl;
+
+    int width = 10;
+
+    //Writing into console all parameters
+    std::cout << std::setw(width) << "Problem" << std::setw(width) << "h" << std::setw(width) << "deltat" << std::setw(width) << "T" << std::setw(width) << "x_c" << std::setw(width)
+    << "sigma_x" << std::setw(width) << "y_c"<< std::setw(width) << "sigma_y" << std::setw(width) << "omega_x" << std::setw(width) << "omega_y" << std::setw(width) << "N" << std::setw(width) << "a_s" << std::setw(width) << "start" << std::endl;
+
+    std::cout << std::setw(width) << Problem << std::setw(width) << h << std::setw(width) << deltat << std::setw(width) << T << std::setw(width) << x_c << std::setw(width)
+    << sigma_x << std::setw(width) << y_c << std::setw(width) << sigma_y << std::setw(width) << omega_x << std::setw(width) << omega_y << std::setw(width) << N << std::setw(width) << a_s << std::setw(width) << start << std::endl;
+
+    //Creating the simulator
+    CrankNicolson Crank(h, deltat, T, x_c, sigma_x, y_c, sigma_y, omega_x, omega_y, N, a_s, start);
+
+    
+
+}
+
+//--------//-----------------------------------//--------//
+//--------//Additional drawing functions for 1D//--------//
+//--------//-----------------------------------//--------//
 
 void draw1(Eigen::VectorXd& x, Eigen::VectorXd& Psi){
     std::vector<double> x_vec(x.data(), x.data() + x.size());
@@ -186,3 +232,6 @@ void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin, Eige
 
 
 
+//--------//-----------------------------------//--------//
+//--------//Additional drawing functions for 2D//--------//
+//--------//-----------------------------------//--------//

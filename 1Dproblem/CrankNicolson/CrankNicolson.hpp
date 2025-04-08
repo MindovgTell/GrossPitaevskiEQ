@@ -21,7 +21,7 @@ private:
     Eigen::VectorXcd m_Fin;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t,m_h_step, V_0, m_omega, m_N, m_g, m_chem_potential, _start, step;
+    double m_delta_t,m_h_step, V_0, m_omega_x, m_omega_y, m_N, m_g, m_chem_potential, _start, step;
     std::complex<double> m_lambda;
 
 
@@ -72,7 +72,7 @@ public:
 //********************************/2DFunctions/********************************//
 
     //2D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits);
+    CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double omega_x, double omega_y, double N, double a_s, double start);
 
     // Gauss Wave funciton
     std::complex<double> gauss_wave_packet(double sigma_x, double sigma_y, double x, double y, double x_c, double y_c, double p_x, double p_y = 0);

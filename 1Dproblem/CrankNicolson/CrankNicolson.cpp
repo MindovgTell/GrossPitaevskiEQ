@@ -19,7 +19,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->t_step = std::round(T/deltat) + 1;
     this->m_lambda = -1.0*m_delta_t/(4*std::pow(this->step,2));
     this->m_size = M;
-    this->m_omega = omega;
+    this->m_omega_x = omega;
 
     this->m_Fin = Eigen::VectorXcd(m_size).setZero();
     //Physical parameters
@@ -81,8 +81,8 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
         x += this->step;
 
         // std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
-        std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
-        // std::complex<double> c = square_func(x);
+        // std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
+        std::complex<double> c = square_func(x);
 
         U(i) = c;
         psum += std::norm(c);
@@ -121,13 +121,17 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
             // // Real time evolution matrices
             // a(i) = (1.0 - 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
             // b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+            // Imaginary time evolution matrices
+            a(i) = 1.0 + 2.0*this->m_lambda + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+            b(i) = 1.0 - 2.0*this->m_lambda + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
 
-            a(i) = 1.0 - 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-            b(i) = 1.0 + 2.0*this->m_lambda + 1.0*(m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0*(m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-    }
+            // //Test
+            // a(i) = 1.0 - 2.0*this->m_lambda + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+            // b(i) = 1.0 + 2.0*this->m_lambda - 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+        }
 
-    this->init_Mat_A_1D(-1.0 * m_lambda,b);
-    this->init_Mat_B_1D( m_lambda,a); 
+    this->init_Mat_A_1D( -1.0 * m_lambda,a);
+    this->init_Mat_B_1D(m_lambda,b); 
 }
 
 void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){
@@ -141,12 +145,17 @@ void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){
         // b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
 
         // Imaginary time evolution matrices
-        a(i) = 1.0 - 2.0*this->m_lambda + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5)*std::norm(vec(i));
-        b(i) = 1.0 + 2.0*this->m_lambda + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5)*std::norm(vec(i));
+        a(i) = 1.0 + 2.0*this->m_lambda + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
+        b(i) = 1.0 - 2.0*this->m_lambda + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
+    
+        // //Test
+        // a(i) = 1.0 - 2.0*this->m_lambda + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+        // b(i) = 1.0 + 2.0*this->m_lambda - 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+
     }
 
-    this->init_Mat_A_1D(-1.0 * m_lambda,b);
-    this->init_Mat_B_1D(m_lambda,a); 
+    this->init_Mat_A_1D( -1.0 * m_lambda,a);
+    this->init_Mat_B_1D(m_lambda,b); 
 }
 
 //Function for initialization left-hand side matrix according to Crank Nicolson algorithm
@@ -349,6 +358,8 @@ double CrankNicolson::calc_state_energy(Eigen::VectorXcd &vec){
     return energy;
 }
 
+
+
 //********************************/***********/********************************//
 //                                                                             //
 //********************************/2DFunctions/********************************//
@@ -357,22 +368,36 @@ double CrankNicolson::calc_state_energy(Eigen::VectorXcd &vec){
 
 
 //Constructor 2D
-CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y, double v_0, int slits){ 
+CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, double y_c, double sigma_x, double sigma_y, double omega_x, double omega_y, double N, double a_s, double start){ 
     int M = 1/h;
     this->m_h_step = h;
     this->m_delta_t = deltat;
     this->m_T = T;
-    this->V_0 = v_0;
-    this->m_lambda= -1i*m_delta_t/(2*std::pow(m_h_step,2));
+    this->V_0 = 1e+10;
+    this->_start = start;
+    this->step = (-2*_start)/M;
     this->t_step = std::round(T/deltat) + 1;
+
+
+    this->m_lambda = -1.0*m_delta_t/(4*std::pow(this->step,2));
     this->m_size = M;
+    this->m_omega_x = omega_x;
+    this->m_omega_y = omega_y;
 
-    this->m_V = this->create_potential_box();
-    
-    save_matrix_to_csv("./Matrice/potential.csv", this->m_V);
+    this->m_Fin = Eigen::VectorXcd(m_size).setZero();
 
-    this->init_time_evolution_matrices_2D();
-    this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y,p_x,p_y);
+    //Physical parameters
+    this->m_N = N;
+    this->m_g = 1;
+
+    // this->init_chem_potential(omega, N, a_s);
+
+    //Choosing the potential for system 
+    // this->m_V = this->create_harmonic_potential_2D();
+    // this->m_V = this->create_potential_box();
+
+    // this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y,0,0);
+    // this->init_time_evolution_matrices_2D();
 }
 
 //Indexes in vector representation of wave function
@@ -381,7 +406,7 @@ int CrankNicolson::get_m_index(int i, int j, int M){
 }
 
 //The value of the wave funciton in the specific point on grid
-std::complex<double> CrankNicolson::gauss_wave_packet(double sigma_x, double sigma_y, double x, double y, double x_c, double y_c, double p_x, double p_y){
+std::complex<double> CrankNicolson::gauss_wave_packet(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y){
     std::complex<double> i(0, 1); // Define the imaginary unit
     double exponent = -(pow(x - x_c ,2) / (2 * pow(sigma_x,2))) - (pow(y - y_c, 2) / (2*pow(sigma_y, 2)));
     std::complex<double> phase = i * (p_x * (x - x_c) + p_y * (y - y_c));
@@ -389,7 +414,7 @@ std::complex<double> CrankNicolson::gauss_wave_packet(double sigma_x, double sig
 }
 
 //Function for initializing wave function
-void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x, double p_y){
+void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y, double p_x=0, double p_y=0){
     int size = std::pow(this->m_size-2,2);
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
@@ -397,7 +422,7 @@ void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, 
         double x = i*m_h_step;
         for(int j = 1; j != m_size-1; ++j){
             double y = j*m_h_step;
-            std::complex<double> c = gauss_wave_packet(sigma_x,sigma_y,x,y,x_c,y_c,p_x,p_y);
+            std::complex<double> c = gauss_wave_packet(x, y, x_c, y_c, sigma_x, sigma_y ,p_x, p_y);
             int index = get_m_index(i,j,this->m_size);
             U(index) = c;
             psum += std::real(std::conj(c)*c);
