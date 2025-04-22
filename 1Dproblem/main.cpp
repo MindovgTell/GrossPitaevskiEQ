@@ -4,12 +4,16 @@
 #include <sstream>
 #include <vector>
 #include <complex>
+#include <exception>
 #include "./CrankNicolson/CrankNicolson.hpp"
 #include "./matplotlibcpp.h"
 
 using namespace std::complex_literals;
 
 namespace plt = matplotlibcpp;
+
+std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat);
+void heatmap(const Eigen::MatrixXd& mat);
 
 
 //--------//-----------------------------------//--------//
@@ -46,9 +50,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    simulation1D(argv[1]);
+    // simulation1D(argv[1]);
 
-    // simulation2D(argv[1]);
+    simulation2D(argv[1]);
 
     return 0;
 }
@@ -164,8 +168,29 @@ void simulation2D(std::string inputfile){
     //Creating the simulator
     CrankNicolson Crank(h, deltat, T, x_c, sigma_x, y_c, sigma_y, omega_x, omega_y, N, a_s, start);
 
-    
+    Eigen::VectorXcd Psi = Crank.get_m_Psi();
+    Eigen::VectorXd Psi_p = Crank.get_m_Psi_prob();
 
+    Eigen::MatrixXd m_Psi = Crank.vec_to_mat(Psi_p);
+
+
+
+    Crank.simulation_2D();
+
+    Eigen::VectorXcd Fin = Crank.get_m_Fin();
+    Eigen::VectorXd Fin_p = Crank.get_m_Fin_prob();
+
+    Eigen::MatrixXd m_Fin = Crank.vec_to_mat(Fin_p);
+    std::cout << "Fin state norm: " << Crank.vec_norm(Fin_p) << std::endl;
+
+    Eigen::VectorXcd TM = Crank.TM_state();
+    Eigen::VectorXd TM_p = Crank.prob(TM);
+
+    Eigen::MatrixXd m_TM = Crank.vec_to_mat(TM_p);
+
+    heatmap(m_Psi);
+    heatmap(m_Fin);
+    heatmap(m_TM);
 }
 
 //--------//-----------------------------------//--------//
@@ -235,3 +260,32 @@ void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin, Eige
 //--------//-----------------------------------//--------//
 //--------//Additional drawing functions for 2D//--------//
 //--------//-----------------------------------//--------//
+std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat) {
+    std::vector<std::vector<double>> result(mat.rows(), std::vector<double>(mat.cols()));
+    for (int i = 0; i < mat.rows(); ++i)
+        for (int j = 0; j < mat.cols(); ++j)
+            result[i][j] = mat(i, j);
+    return result;
+}
+
+void heatmap(const Eigen::MatrixXd& mat){
+    try {
+        std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(mat);
+
+        // Optional: verify data
+        if (heatmap_data.empty() || heatmap_data[0].empty()) {
+            throw std::runtime_error("Data is empty.");
+        }
+
+        // Plot
+        plt::imshow(heatmap_data); //  , {{"cmap", "'plasma'"}, {"interpolation", "'nearest'"}}
+        plt::colorbar();
+        plt::title("Eigen Heatmap");
+
+        plt::show();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+
+}
