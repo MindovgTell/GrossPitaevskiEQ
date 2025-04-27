@@ -50,9 +50,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    // simulation1D(argv[1]);
+    simulation1D(argv[1]);
 
-    simulation2D(argv[1]);
+    // simulation2D(argv[1]);
 
     return 0;
 }
@@ -89,6 +89,16 @@ void simulation1D(std::string inputfile){
     Eigen::VectorXd Psi = Crank.get_m_Psi_prob(); 
     Eigen::VectorXcd Ps = Crank.get_m_Psi();  
 
+
+
+    // std::cout << '\n' << '\n' << std::endl;
+
+    // std::cout << "DDI for 100th grid point: " << Crank.calculate_DDI(300) << std::endl;
+
+    // std::cout << '\n' << '\n' << std::endl;
+
+
+
     Crank.simulation_1D();
 
     Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
@@ -117,8 +127,6 @@ void simulation1D(std::string inputfile){
 
     std::cout << "The energy of the current state: " << Crank.calc_state_energy() << std::endl;
     std::cout << "The energy of the Thomas-Fermi state: " << Crank.calc_state_energy(TM) << std::endl;
-
-
 
     std::cout << '\n' << '\n' << std::endl;
 

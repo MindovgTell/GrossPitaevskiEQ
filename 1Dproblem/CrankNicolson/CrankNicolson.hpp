@@ -53,6 +53,7 @@ public:
     CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s, double start);
 
     //Thomas-Fermi ansatz
+    void init_chem_potential(double omega, double N, double a_s);
     double thomas_fermi_state(double x);
 
     //Gauss wave function
@@ -61,10 +62,13 @@ public:
 
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
-    void update_time_evolution_matrices_1D(Eigen::VectorXcd &vec);
+
+    //Function for calculating Dipole-Dipole Interaction
+    std::complex<double> calculate_DDI(int grid_position, Eigen::VectorXcd& vec);
 
     void init_time_evolution_matrices_1D();
-    void init_chem_potential(double omega, double N, double a_s);
+    void update_time_evolution_matrices_1D(Eigen::VectorXcd &vec);
+
 
     Eigen::VectorXd create_harmonic_potential_1D();
     Eigen::VectorXd create_potential_1D();

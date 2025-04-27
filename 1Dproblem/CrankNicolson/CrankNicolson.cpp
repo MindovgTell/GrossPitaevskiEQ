@@ -82,14 +82,14 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     std::complex<double> psum = 0;
     double x = this->_start;
     for(int i = 0; i < size; ++i){
-        x += this->step;
-
-        // std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
+        std::complex<double> c = thomas_fermi_state(x - x_c); // Add parameters for Thomas-Fermi function
         // std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
-        std::complex<double> c = square_func(x);
+        // std::complex<double> c = square_func(x);
 
         U(i) = c;
         psum += std::norm(c);
+
+        x += this->step;
     }
 
     std::complex<double> normalization_factor = std::sqrt(m_N) / std::sqrt(psum * this->step);
@@ -116,26 +116,75 @@ Eigen::VectorXcd CrankNicolson::TM_state(){
     return U;
 }
 
+//Function for calculating dipole-dipole interaction
+
+std::complex<double> CrankNicolson::calculate_DDI(int grid_position, Eigen::VectorXcd& vec){
+    std::complex<double> answ(0,0);
+    std::complex<double> V_1d;
+
+    double l_transv =  7.;
+    double dipole_mom = 1.;
+    double coeff = 1.; //Its supposed to be coefficient which containe both dipole_moment etc.
+
+    int size = this->m_size;
+    double x_prime = this->_start;
+
+    double x = this->_start + this->step * grid_position;
+
+
+    for(int i = 0; i < size; ++i){
+        double pos = x - x_prime;
+        double alfa = std::abs(pos) / (std::sqrt(2) * l_transv);
+
+        //Firstly calculating V_1d
+        V_1d = -0.001 * (2 * l_transv * std::abs(pos) - std::sqrt(2 * M_PI) * (std::pow(l_transv,2) + std::pow(pos, 2)) * std::erfc(alfa) * std::exp(alfa*alfa));
+
+        answ += V_1d * std::norm(vec(grid_position)) * this->step;
+
+        x_prime += this->step;
+    }
+
+    // std::cout << answ << std::endl;
+
+    return answ;
+}
+
+
+
+
+
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
 void CrankNicolson::init_time_evolution_matrices_1D(){
     Eigen::VectorXcd a(this->m_size);
     Eigen::VectorXcd b(this->m_size);
 
     for(int i = 0; i < this->m_size; ++i){
-            // // Real time evolution matrices
-            // a(i) = (1.0 - 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-            // b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-            // Imaginary time evolution matrices
-            a(i) = 1.0 + 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-            b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
 
-            // //Test
-            // a(i) = 1.0 - 2.0*this->m_lambda + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-            // b(i) = 1.0 + 2.0*this->m_lambda - 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-        }
+        std::complex<double> A =  1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i)) + 1.0 * (m_delta_t*0.5 * m_g)*calculate_DDI(i, this->m_Psi);
+        
+        // // Real time evolution matrices
+        // a(i) = (1.0 - 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+        // b(i) = (1.0 + 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+        
+        // // Imaginary time evolution matrices
+        // a(i) = 1.0 + 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+        // b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
 
-    this->init_Mat_A_1D( -1.0 * m_lambda_x,a);
-    this->init_Mat_B_1D(m_lambda_x,b); 
+        // TEST ADDED DDI
+        a(i) = 1.0 + 2.0*this->m_lambda_x + A;
+        b(i) = 1.0 - 2.0*this->m_lambda_x + A;
+
+        // //Test
+        // a(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+        // b(i) = 1.0 + 2.0*this->m_lambda_x - 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+        // //
+        // a(i) = 1.0 - 2.0*this->m_lambda_x + A;
+        // b(i) = 1.0 + 2.0*this->m_lambda_x - A;
+
+    }
+
+    this->init_Mat_A_1D(-1.0 * m_lambda_x,a);
+    this->init_Mat_B_1D( m_lambda_x,b); 
 }
 
 void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){
@@ -144,21 +193,29 @@ void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){
     Eigen::VectorXcd a(size);
     Eigen::VectorXcd b(size);
     for(int i = 0; i < size; ++i){
+
+        std::complex<double> A = 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(vec(i)) + 1.0 * (m_delta_t*0.5 * m_g)*calculate_DDI(i, vec);
         // // Real time evolution matrices
         // a(i) = (1.0 - 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
         // b(i) = (1.0 + 2.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
 
-        // Imaginary time evolution matrices
-        a(i) = 1.0 + 2.0*this->m_lambda_x + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
-        b(i) = 1.0 - 2.0*this->m_lambda_x + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
+        // // Imaginary time evolution matrices
+        // a(i) = 1.0 + 2.0*this->m_lambda_x + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
+        // b(i) = 1.0 - 2.0*this->m_lambda_x + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
     
-        // //Test
-        // a(i) = 1.0 - 2.0*this->m_lambda + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-        // b(i) = 1.0 + 2.0*this->m_lambda - 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+        // TEST ADDED DDI
+        a(i) = 1.0 + 2.0*this->m_lambda_x + A;
+        b(i) = 1.0 - 2.0*this->m_lambda_x + A;
 
+        // // //Test
+        // a(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(vec(i));
+        // b(i) = 1.0 + 2.0*this->m_lambda_x - 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0 * (m_delta_t*0.5 * m_g)*std::norm(vec(i));
+        // //
+        // a(i) = 1.0 - 2.0*this->m_lambda_x + A;
+        // b(i) = 1.0 + 2.0*this->m_lambda_x - A;
     }
 
-    this->init_Mat_A_1D( -1.0 * m_lambda_x,a);
+    this->init_Mat_A_1D(-1.0 *  m_lambda_x,a);
     this->init_Mat_B_1D(m_lambda_x,b); 
 }
 
@@ -209,8 +266,8 @@ Eigen::VectorXd CrankNicolson::create_harmonic_potential_1D(){
     V.setZero();
     double x = this->_start;
     for(int i = 0; i < this->m_size; ++i){
-        x += this->step;
         V(i) = 0.5 * std::pow(x,2.);
+        x += this->step;
     }
     return V;
 }
@@ -256,7 +313,7 @@ void CrankNicolson::simulation_1D(){
         // Update b for the next iteration
         b = x;
 
-        if(i % 1000 == 0)
+        if(i % 100 == 0)
             std::cout << "Simulation step: #" << i << '\n';
 
         this->m_Fin = x;
@@ -439,7 +496,7 @@ double CrankNicolson::thomas_fermi_state_2D(double x, double y){
 
     out = (this->m_chem_potential / this->m_g) * (1 - std::pow(x/R_x, 2.) - std::pow(y/R_y, 2.));
 
-    if ( out > 0)
+    if (out > 0)
         return std::sqrt(out);
     else 
         return 0;
