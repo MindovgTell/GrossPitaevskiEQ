@@ -30,7 +30,8 @@ private:
     Eigen::VectorXcd m_Fin;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_delta_t,m_h_step, V_0, m_omega_x, m_omega_y, m_N, m_g, m_chem_potential, _start, step;
+    double m_g_scattering, m_g_lhy;
+    double m_delta_t,m_h_step, V_0, m_omega_x, m_omega_y, m_N, m_chem_potential, _start, step;
     std::complex<double> m_lambda_x, m_lambda_y;
 
 
@@ -54,7 +55,7 @@ public:
 
     //Thomas-Fermi ansatz
     void init_chem_potential(double omega, double N, double a_s);
-    double thomas_fermi_state(double x);
+    double thomas_fermi_state_1D(double x);
 
     //Gauss wave function
     std::complex<double> gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x);
@@ -64,7 +65,7 @@ public:
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
 
     //Function for calculating Dipole-Dipole Interaction
-    std::complex<double> calculate_DDI(int grid_position, Eigen::VectorXcd& vec);
+    std::complex<double> calculate_1D_DDI(int grid_position, Eigen::VectorXcd& vec);
 
     void init_time_evolution_matrices_1D();
     void update_time_evolution_matrices_1D(Eigen::VectorXcd &vec);
@@ -80,11 +81,11 @@ public:
     void init_Mat_B_1D(std::complex<double> r,Eigen::VectorXcd& d);
 
 
-    void normalize(Eigen::VectorXcd &vec);
+    void normalize_1D(Eigen::VectorXcd &vec);
 
     Eigen::VectorXcd TM_state();
-    double vec_norm(Eigen::VectorXcd &vec);
-    double vec_norm(Eigen::VectorXd &vec);
+    double vec_norm_1D(Eigen::VectorXcd &vec);
+    double vec_norm_1D(Eigen::VectorXd &vec);
 
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
@@ -114,6 +115,10 @@ public:
     double thomas_fermi_state_2D(double x, double y);
     Eigen::VectorXcd TM_state_2D();
 
+    //Function for calculating 2D DDI
+
+    std::complex<double> calculate_2D_DDI(int grid_position, Eigen::VectorXcd& vec);
+
     //Methods for creating matrixes
     void init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
 
@@ -132,6 +137,10 @@ public:
     void save_vector_to_csv(std::string filename, Eigen::VectorXd mat);
 
     void simulation_2D();
+
+    void normalize_2D(Eigen::VectorXcd &vec);
+    double vec_norm_2D(Eigen::VectorXcd &vec);
+    double vec_norm_2D(Eigen::VectorXd &vec);
 
 
     double calc_state_energy_2D();

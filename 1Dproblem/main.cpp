@@ -12,8 +12,6 @@ using namespace std::complex_literals;
 
 namespace plt = matplotlibcpp;
 
-std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat);
-void heatmap(const Eigen::MatrixXd& mat);
 
 
 //--------//-----------------------------------//--------//
@@ -36,8 +34,8 @@ void draw_energy(std::vector<double>& x, std::vector<double>& Psi,  std::vector<
 //--------//-----------------------------------//--------//
 //--------//Additional drawing functions for 2D//--------//
 //--------//-----------------------------------//--------//
-
-
+std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat);
+void heatmap(const Eigen::MatrixXd& mat);
 
 
 int main(int argc, char const *argv[]){
@@ -50,9 +48,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    simulation1D(argv[1]);
+    // simulation1D(argv[1]);
 
-    // simulation2D(argv[1]);
+    simulation2D(argv[1]);
 
     return 0;
 }
@@ -118,9 +116,9 @@ void simulation1D(std::string inputfile){
 
     // Crank.print_Mat_B();
     
-    std::cout << "Initial state norm: " << Crank.vec_norm(Ps) << std::endl;
-    std::cout << "Fin state norm: " << Crank.vec_norm(Fn) << std::endl;
-    std::cout << "TM state norm: " << Crank.vec_norm(TM) << std::endl;
+    std::cout << "Initial state norm: " << Crank.vec_norm_1D(Ps) << std::endl;
+    std::cout << "Fin state norm: " << Crank.vec_norm_1D(Fn) << std::endl;
+    std::cout << "TM state norm: " << Crank.vec_norm_1D(TM) << std::endl;
 
 
     std::cout << '\n' << '\n' << std::endl;
@@ -189,9 +187,9 @@ void simulation2D(std::string inputfile){
     Eigen::VectorXd Fin_p = Crank.get_m_Fin_prob();
 
     Eigen::MatrixXd m_Fin = Crank.vec_to_mat(Fin_p);
-    std::cout << "Fin state norm: " << Crank.vec_norm(Fin_p) << std::endl;
+    std::cout << "Fin state norm: " << Crank.vec_norm_2D(Fin) << std::endl;
 
-    Eigen::VectorXcd TM = Crank.TM_state();
+    Eigen::VectorXcd TM = Crank.TM_state_2D();
     Eigen::VectorXd TM_p = Crank.prob(TM);
 
     Eigen::MatrixXd m_TM = Crank.vec_to_mat(TM_p);
@@ -277,6 +275,7 @@ std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat) {
 }
 
 void heatmap(const Eigen::MatrixXd& mat){
+
     try {
         std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(mat);
 
