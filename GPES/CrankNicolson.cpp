@@ -533,7 +533,15 @@ Eigen::VectorXcd CrankNicolson::TM_state_2D(){
     return U;
 }
 
-//Function for initializing wave function
+std::complex<double> CrankNicolson::calculate_2D_DDI(int grid_position, Eigen::VectorXcd &vec)
+{
+    
+
+
+    return ;
+}
+
+// Function for initializing wave function
 void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y){
     int size = std::pow(this->m_size-2,2);
     Eigen::VectorXcd U(size);

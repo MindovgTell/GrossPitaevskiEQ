@@ -5,8 +5,8 @@
 #include <vector>
 #include <complex>
 #include <exception>
-#include "./CrankNicolson/CrankNicolson.hpp"
-#include "./matplotlibcpp.h"
+#include "CrankNicolson.hpp"
+#include "matplotlibcpp.h"
 
 using namespace std::complex_literals;
 
@@ -296,3 +296,4 @@ void heatmap(const Eigen::MatrixXd& mat){
     }
 
 }
+
