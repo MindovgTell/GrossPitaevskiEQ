@@ -5,6 +5,7 @@
 #include <vector>
 #include <complex>
 #include <exception>
+#include <chrono>
 #include "./CrankNicolson/CrankNicolson.hpp"
 #include "./matplotlibcpp.h"
 
@@ -40,6 +41,8 @@ void heatmap(const Eigen::MatrixXd& mat);
 
 int main(int argc, char const *argv[]){
 
+    auto start = std::chrono::high_resolution_clock::now();
+
     if(argc != 2){
         std::string executable = argv[0];
 
@@ -48,9 +51,14 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    // simulation1D(argv[1]);
+    simulation1D(argv[1]);
 
-    simulation2D(argv[1]);
+    // simulation2D(argv[1]);
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << "Time taken by simulation: "
+         << duration.count() << " milliseconds" << std::endl;
 
     return 0;
 }
@@ -136,10 +144,10 @@ void simulation1D(std::string inputfile){
     std::iota(en_len.begin(), en_len.end(), 1); // fills with 1, 2, 3, ..., y.size()
 
 
-    draw3(x, Psi, Fin, V);
-    draw3(x, Psi, Fin, TM_pr);
+    // draw3(x, Psi, Fin, V);
+    // draw3(x, Psi, Fin, TM_pr);
 
-    draw_energy(en_len, E, TM_en);
+    // draw_energy(en_len, E, TM_en);
 }
 
 

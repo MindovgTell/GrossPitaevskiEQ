@@ -92,6 +92,9 @@ public:
 
     double calc_state_chem_potential();
     double calc_state_chem_potential(Eigen::VectorXcd &vec);
+
+
+    bool stop_simulator();
     
 //********************************/***********/********************************//
 //                                                                             //

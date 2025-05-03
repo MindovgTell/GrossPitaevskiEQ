@@ -287,7 +287,6 @@ Eigen::VectorXd CrankNicolson::create_potential_1D(){
 
 // Time evolution simulation for 1D Gross-Pitaevskii equation
 void CrankNicolson::simulation_1D(){
-
     int size = this->m_Psi.size();
 
     Eigen::VectorXcd x(size);
@@ -327,6 +326,7 @@ void CrankNicolson::simulation_1D(){
         this->vec_Energy.push_back(calc_state_energy(this->m_Fin));
     }
 }
+
 
 // Returning the probability density vector
 Eigen::VectorXd CrankNicolson::prob_1D(Eigen::VectorXcd &vec)
