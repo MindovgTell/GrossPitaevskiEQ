@@ -83,8 +83,8 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
     std::complex<double> psum = 0;
     double x = this->_start;
     for(int i = 0; i < size; ++i){
-        std::complex<double> c = thomas_fermi_state_1D(x - x_c); // Add parameters for Thomas-Fermi function
-        // std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
+        // std::complex<double> c = thomas_fermi_state_1D(x - x_c); // Add parameters for Thomas-Fermi function
+        std::complex<double> c = gauss_wave_packet_1D(sigma_x, x, x_c, p_x);
         // std::complex<double> c = square_func(x);
 
         U(i) = c;
@@ -172,20 +172,12 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
         // b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
 
         // TEST ADDED DDI
-        a(i) = 1.0 + 2.0*this->m_lambda_x + U_potential + U_dd + U_lhy;
-        b(i) = 1.0 - 2.0*this->m_lambda_x + U_potential + U_dd + U_lhy;
-
-        // //Test
-        // a(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-        // b(i) = 1.0 + 2.0*this->m_lambda_x - 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) - 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-        // //
-        // a(i) = 1.0 - 2.0*this->m_lambda_x + A;
-        // b(i) = 1.0 + 2.0*this->m_lambda_x - A;
-
+        a(i) = 1.0 - 2.0*this->m_lambda_x + U_potential + U_dd + U_lhy;
+        b(i) = 1.0 + 2.0*this->m_lambda_x - U_potential - U_dd - U_lhy;
     }
 
-    this->init_Mat_A_1D(-1.0 * m_lambda_x,a);
-    this->init_Mat_B_1D( m_lambda_x,b); 
+    this->init_Mat_A_1D(m_lambda_x,a);
+    this->init_Mat_B_1D(-1.0 * m_lambda_x,b); 
 }
 
 void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){

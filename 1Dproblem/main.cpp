@@ -144,10 +144,10 @@ void simulation1D(std::string inputfile){
     std::iota(en_len.begin(), en_len.end(), 1); // fills with 1, 2, 3, ..., y.size()
 
 
-    // draw3(x, Psi, Fin, V);
-    // draw3(x, Psi, Fin, TM_pr);
+    draw3(x, Psi, Fin, V);
+    draw3(x, Psi, Fin, TM_pr);
 
-    // draw_energy(en_len, E, TM_en);
+    draw_energy(en_len, E, TM_en);
 }
 
 
