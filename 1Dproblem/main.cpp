@@ -51,9 +51,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    simulation1D(argv[1]);
+    // simulation1D(argv[1]);
 
-    // simulation2D(argv[1]);
+    simulation2D(argv[1]);
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);

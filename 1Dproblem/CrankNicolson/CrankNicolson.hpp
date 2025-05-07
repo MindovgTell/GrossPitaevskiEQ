@@ -7,8 +7,11 @@
 #include <cmath>
 #include <numbers>
 #include <vector>
+#include <memory>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <fftw3.h>
+#include "DipoleInteraction.hpp"
 
 
 //---------//GLOBAL COMMENT//----------//
@@ -26,21 +29,21 @@ private:
     Eigen::SparseMatrix<std::complex<double> > m_A;
     Eigen::SparseMatrix<std::complex<double> > m_B;
 
+    std::unique_ptr<DipolarInteraction2D> F_ddi;
+    
+
     Eigen::VectorXcd m_Psi;
     Eigen::VectorXcd m_Fin;
     Eigen::MatrixXd m_V;
     int m_size, m_T, t_step;
-    double m_g_scattering, m_g_lhy;
+    double m_g_scattering, m_g_dipole ,m_g_lhy;
     double m_delta_t,m_h_step, V_0, m_omega_x, m_omega_y, m_N, m_chem_potential, _start, step;
     std::complex<double> m_lambda_x, m_lambda_y;
-
 
     // vector of the energies
 
     std::vector<double> vec_Energy;
     std::vector<double> vec_Chem_potential;
-
-    //int _NUMBER_OF_DIMENTIONS;
 
 public:
 
@@ -92,9 +95,6 @@ public:
 
     double calc_state_chem_potential();
     double calc_state_chem_potential(Eigen::VectorXcd &vec);
-
-
-    bool stop_simulator();
     
 //********************************/***********/********************************//
 //                                                                             //
@@ -119,8 +119,7 @@ public:
     Eigen::VectorXcd TM_state_2D();
 
     //Function for calculating 2D DDI
-
-    std::complex<double> calculate_2D_DDI(int grid_position, Eigen::VectorXcd& vec);
+    Eigen::MatrixXcd calculate_2D_DDI(Eigen::MatrixXcd& vec);
 
     //Methods for creating matrixes
     void init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
@@ -133,6 +132,7 @@ public:
     void init_Mat_B_2D(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d);
 
     Eigen::MatrixXd vec_to_mat(const Eigen::VectorXd& vec);
+    Eigen::MatrixXcd vec_to_mat(const Eigen::VectorXcd& vec);
 
     Eigen::VectorXd prob(Eigen::VectorXcd&  vec);
 

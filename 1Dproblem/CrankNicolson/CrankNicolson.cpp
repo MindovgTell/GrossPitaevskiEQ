@@ -1,5 +1,6 @@
 #include "CrankNicolson.hpp"
 
+
 // #define _IMAGINARY_UNIT std::complex i(0,1);
 
 using namespace std::complex_literals;
@@ -31,6 +32,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     //this->m_g = 2 * M_PI * a_s;
     this->m_g_scattering = 1;
     this->m_g_lhy = 0.0005;
+    this->m_g_dipole = 0.0005;
 
     this->init_chem_potential(omega, N, a_s);
 
@@ -157,10 +159,12 @@ void CrankNicolson::init_time_evolution_matrices_1D(){
     Eigen::VectorXcd a(this->m_size);
     Eigen::VectorXcd b(this->m_size);
 
+    // Eigen::VectorXcd V_dd = ;
+
     for(int i = 0; i < this->m_size; ++i){
 
         std::complex<double> U_potential =  1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g_scattering)*std::norm(m_Psi(i));
-        std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_scattering) * calculate_1D_DDI(i, m_Psi);
+        std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_dipole) * calculate_1D_DDI(i, m_Psi);
         std::complex<double> U_lhy = 1.0 * (m_delta_t*0.5) * this->m_g_lhy * std::pow(std::norm(m_Psi(i)), 2.5);
 
         // // Real time evolution matrices
@@ -188,7 +192,7 @@ void CrankNicolson::update_time_evolution_matrices_1D(Eigen::VectorXcd &vec){
     for(int i = 0; i < size; ++i){
 
         std::complex<double> U_potential = 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g_scattering)*std::norm(vec(i));
-        std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_scattering) * calculate_1D_DDI(i, vec);
+        std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_dipole) * calculate_1D_DDI(i, vec);
         std::complex<double> U_lhy = 1.0 * (m_delta_t*0.5) * this->m_g_lhy * std::pow(std::norm(vec(i)), 2.5);
         
         
@@ -387,7 +391,8 @@ double CrankNicolson::calc_state_energy(Eigen::VectorXcd &vec){
         std::complex<double> derivative = (vec(i + 1) - vec(i - 1)) / (2 * this->step);
         double kinetic = std::norm(derivative) * 0.5;
         double potential = this->m_V(i) * std::norm(vec(i));
-        double interaction = 0.5 * std::norm(vec(i)) * std::norm(vec(i));
+        double interaction = 0.5 * m_g_scattering * std::norm(vec(i)) * std::norm(vec(i));
+        double dipole ;
         energy += this->step * (kinetic + potential + interaction); 
     }
     return energy;
@@ -426,7 +431,9 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_delta_t = deltat;
     this->m_T = T;
     this->V_0 = 1e+10;
+
     this->_start = start;
+    double L = std::abs(_start*2);
 
     this->step = (-2*_start)/M;
 
@@ -445,6 +452,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     this->m_N = N;
     this->m_g_scattering = 1;
     this->m_g_lhy = 0.0005;
+    this->m_g_dipole = 0.0005;
 
     this->init_chem_potential(omega_x, omega_y, N, a_s);
 
@@ -454,6 +462,8 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
     this->init_start_state_2D(x_c,y_c,sigma_x,sigma_y);
     this->init_time_evolution_matrices_2D();
+
+    F_ddi = std::make_unique<DipolarInteraction2D>(M-2,M-2,L,L,1,m_g_dipole);
 }
 
 //Indexes in vector representation of wave function
@@ -525,7 +535,7 @@ Eigen::VectorXcd CrankNicolson::TM_state_2D(){
     return U;
 }
 
-//Function for initializing wave function
+// Function for initializing wave function
 void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y){
     int size = std::pow(this->m_size-2,2);
     Eigen::VectorXcd U(size);
@@ -551,22 +561,54 @@ void CrankNicolson::init_start_state_2D(double x_c, double y_c, double sigma_x, 
     this->m_Psi = U;
 }
 
+
+Eigen::MatrixXcd CrankNicolson::calculate_2D_DDI(Eigen::MatrixXcd &mat)
+{
+    int rows = mat.rows();
+    int cols = mat.cols();
+    Eigen::MatrixXd Phi_DDI(rows,cols);
+    Phi_DDI.setZero();
+
+    if(this->F_ddi){
+        F_ddi->compute_DDI_term(mat, Phi_DDI);
+    }
+
+    return Phi_DDI;
+}
+
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
 void CrankNicolson::init_time_evolution_matrices_2D(){
     int mat_size = pow(this->m_size-2,2);
     Eigen::VectorXcd a(mat_size);
     Eigen::VectorXcd b(mat_size);
 
+    Eigen::MatrixXcd mat = vec_to_mat(this->m_Psi);
+
+    // std::cout << "Size of the m_Psi: " << m_Psi.size() << '\n';
+    // std::cout << "Number of rows mat: " << mat.rows() << '\n';
+    // std::cout << "Number of los mat: " << mat.cols() << '\n';
+    // std::cout << "m_size: " << m_size << '\n';
+
+    Eigen::MatrixXcd V_DDI = calculate_2D_DDI(mat);
+
     for(int k = 1; k < m_size-1; ++k){
         for(int l = 1; l < m_size-1; ++l){
             int index = get_m_index(k,l,m_size);
+
+            std::complex<double> U_potential = 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(k,l));
+            std::complex<double> U_contact = 1.0*(m_delta_t * 0.5)*std::norm(this->m_Psi(index));
+            std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_dipole) * V_DDI(k-1,l-1);
+            // std::complex<double> U_lhy = 1.0 * (m_delta_t*0.5) * this->m_g_lhy * std::pow(std::norm(m_Psi(index)), 2.5);
+
+
+
             // //Real time evolution matrices
             // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = (1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(l,k)) + 1.0*(m_delta_t * 0.5)*std::norm(this->m_Psi(index)));
-            b(index) = (1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(l,k)) - 1.0*(m_delta_t * 0.5)*std::norm(this->m_Psi(index)));
+            a(index) = 1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + U_potential + U_contact + U_dd;
+            b(index) = 1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - U_potential - U_contact - U_dd;
         }
     }
     this->init_Mat_A_2D(m_lambda_x, m_lambda_y,a);
@@ -578,16 +620,25 @@ void CrankNicolson::update_time_evolution_matrices_2D(Eigen::VectorXcd &vec){
     Eigen::VectorXcd a(mat_size);
     Eigen::VectorXcd b(mat_size);
 
+    Eigen::MatrixXcd mat = vec_to_mat(vec);
+
+    Eigen::MatrixXcd V_DDI = calculate_2D_DDI(mat);
+
     for(int k = 1; k < m_size-1; ++k){
         for(int l = 1; l < m_size-1; ++l){
             int index = get_m_index(k,l,m_size);
+
+            std::complex<double> U_potential = 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(k,l));
+            std::complex<double> U_contact = 1.0*(m_delta_t * 0.5)*std::norm(vec(index));
+            std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_dipole) * V_DDI(k-1,l-1);
+
             // //Real time evolution matrices
             // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = (1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(l,k)) + 1.0*(m_delta_t * 0.5)*std::norm(vec(index)));
-            b(index) = (1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(l,k)) - 1.0*(m_delta_t * 0.5)*std::norm(vec(index)));
+            a(index) = 1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + U_potential + U_contact + U_dd;
+            b(index) = 1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - U_potential - U_contact - U_dd;
         }
     }
     this->init_Mat_A_2D(m_lambda_x, m_lambda_y,a);
@@ -599,6 +650,17 @@ Eigen::MatrixXd CrankNicolson::vec_to_mat(const Eigen::VectorXd& vec) {
     int size = std::sqrt(vec.size());
     Eigen::MatrixXd mat(size,size);
     Eigen::Map<const Eigen::MatrixXd> mat_map(vec.data(), size, size);
+    mat = mat_map;
+    
+    return mat;
+}
+
+
+//Function which return Eigen::MatrixXcd based on Eigen::VectorXcd
+Eigen::MatrixXcd CrankNicolson::vec_to_mat(const Eigen::VectorXcd& vec) {   
+    int size = std::sqrt(vec.size());
+    Eigen::MatrixXcd mat(size,size);
+    Eigen::Map<const Eigen::MatrixXcd> mat_map(vec.data(), size, size);
     mat = mat_map;
     
     return mat;
