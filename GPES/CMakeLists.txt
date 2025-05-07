@@ -28,7 +28,7 @@ endif()
 
 message(STATUS "Eigen3 include directory: ${EIGEN3_INCLUDE_DIR}")
 
-add_executable(${PROJECT_NAME} main.cpp ./CrankNicolson/CrankNicolson.cpp)
+add_executable(${PROJECT_NAME} main.cpp CrankNicolson.cpp)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${Python3_INCLUDE_DIRS}        # Python 3.11
