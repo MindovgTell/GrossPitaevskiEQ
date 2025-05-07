@@ -450,9 +450,9 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
     //Physical parameters
     this->m_N = N;
-    this->m_g_scattering = 1;
-    this->m_g_lhy = 0.0005;
-    this->m_g_dipole = 0.0005;
+    this->m_g_scattering = 0.3;
+    this->m_g_lhy = 0.005;
+    this->m_g_dipole = 0.005;
 
     this->init_chem_potential(omega_x, omega_y, N, a_s);
 
@@ -583,12 +583,6 @@ void CrankNicolson::init_time_evolution_matrices_2D(){
     Eigen::VectorXcd b(mat_size);
 
     Eigen::MatrixXcd mat = vec_to_mat(this->m_Psi);
-
-    // std::cout << "Size of the m_Psi: " << m_Psi.size() << '\n';
-    // std::cout << "Number of rows mat: " << mat.rows() << '\n';
-    // std::cout << "Number of los mat: " << mat.cols() << '\n';
-    // std::cout << "m_size: " << m_size << '\n';
-
     Eigen::MatrixXcd V_DDI = calculate_2D_DDI(mat);
 
     for(int k = 1; k < m_size-1; ++k){
@@ -598,7 +592,7 @@ void CrankNicolson::init_time_evolution_matrices_2D(){
             std::complex<double> U_potential = 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(k,l));
             std::complex<double> U_contact = 1.0*(m_delta_t * 0.5)*std::norm(this->m_Psi(index));
             std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_dipole) * V_DDI(k-1,l-1);
-            // std::complex<double> U_lhy = 1.0 * (m_delta_t*0.5) * this->m_g_lhy * std::pow(std::norm(m_Psi(index)), 2.5);
+            std::complex<double> U_lhy = 1.0 * (m_delta_t*0.5) * this->m_g_lhy * std::pow(std::norm(m_Psi(index)), 2.5);
 
 
 
@@ -607,8 +601,8 @@ void CrankNicolson::init_time_evolution_matrices_2D(){
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = 1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + U_potential + U_contact + U_dd;
-            b(index) = 1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - U_potential - U_contact - U_dd;
+            a(index) = 1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + U_potential + U_contact + U_dd + U_lhy;
+            b(index) = 1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - U_potential - U_contact - U_dd - U_lhy;
         }
     }
     this->init_Mat_A_2D(m_lambda_x, m_lambda_y,a);
@@ -631,14 +625,15 @@ void CrankNicolson::update_time_evolution_matrices_2D(Eigen::VectorXcd &vec){
             std::complex<double> U_potential = 1.0*(m_delta_t * 0.5)*std::complex<double>(m_V(k,l));
             std::complex<double> U_contact = 1.0*(m_delta_t * 0.5)*std::norm(vec(index));
             std::complex<double> U_dd = 1.0 * (m_delta_t*0.5 * m_g_dipole) * V_DDI(k-1,l-1);
+            std::complex<double> U_lhy = 1.0 * (m_delta_t*0.5) * this->m_g_lhy * std::pow(std::norm(m_Psi(index)), 2.5);
 
             // //Real time evolution matrices
             // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = 1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + U_potential + U_contact + U_dd;
-            b(index) = 1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - U_potential - U_contact - U_dd;
+            a(index) = 1.0 - 2.0*this->m_lambda_x - 2.0*this->m_lambda_y + U_potential + U_contact + U_dd + U_lhy;
+            b(index) = 1.0 + 2.0*this->m_lambda_x + 2.0*this->m_lambda_y - U_potential - U_contact - U_dd - U_lhy;
         }
     }
     this->init_Mat_A_2D(m_lambda_x, m_lambda_y,a);
