@@ -30,7 +30,7 @@ private:
     Eigen::SparseMatrix<std::complex<double> > m_B;
 
     std::unique_ptr<DipolarInteraction2D> F_ddi;
-    
+    Eigen::VectorXd m_V_ddi;
 
     Eigen::VectorXcd m_Psi;
     Eigen::VectorXcd m_Fin;
@@ -68,7 +68,7 @@ public:
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
 
     //Function for calculating Dipole-Dipole Interaction
-    std::complex<double> calculate_1D_DDI(int grid_position, Eigen::VectorXcd& vec);
+    void calculate_1D_DDI(Eigen::VectorXcd& vec);
 
     void init_time_evolution_matrices_1D();
     void update_time_evolution_matrices_1D(Eigen::VectorXcd &vec);
@@ -95,6 +95,14 @@ public:
 
     double calc_state_chem_potential();
     double calc_state_chem_potential(Eigen::VectorXcd &vec);
+
+
+
+    //Methods for calculating interaction strength parameters
+
+    void init_g_scatt_1D(double a_s);
+    void init_g_dipole_1D(double dipole_moment);
+    void init_g_lhy_1D(double dipole_moment, double a_s);
     
 //********************************/***********/********************************//
 //                                                                             //
@@ -105,6 +113,10 @@ public:
     //2D constructor
     CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double y_c, double sigma_y, double omega_x, double omega_y, double N, double a_s, double start);
     
+    void init_g_scatt_2D();
+    void init_g_dipole_2D();
+    void init_g_lhy_2D();
+            
     int get_m_index(int i,int j, int M);
 
     double thomas_fermi_radius_x();
@@ -168,6 +180,8 @@ public:
 
     Eigen::VectorXcd get_m_Psi();
     Eigen::VectorXd get_m_Psi_prob();
+
+    Eigen::VectorXd get_m_V_ddi();
 
     Eigen::VectorXcd get_m_Fin();
     Eigen::VectorXd get_m_Fin_prob();

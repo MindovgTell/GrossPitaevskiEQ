@@ -51,9 +51,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    // simulation1D(argv[1]);
+    simulation1D(argv[1]);
 
-    simulation2D(argv[1]);
+    // simulation2D(argv[1]);
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
@@ -95,17 +95,24 @@ void simulation1D(std::string inputfile){
     Eigen::VectorXd Psi = Crank.get_m_Psi_prob(); 
     Eigen::VectorXcd Ps = Crank.get_m_Psi();  
 
+    std::cout << "Initial state norm: " << Crank.vec_norm_1D(Ps) << std::endl;
 
+    
+    std::cout << '\n' << '\n' << std::endl;
 
-    // std::cout << '\n' << '\n' << std::endl;
+    std::cout << "V_ddi: " << Crank.get_m_V_ddi()(124) << std::endl;
 
-    // std::cout << "DDI for 100th grid point: " << Crank.calculate_DDI(300) << std::endl;
-
-    // std::cout << '\n' << '\n' << std::endl;
-
+    std::cout << '\n' << '\n' << std::endl;
 
 
     Crank.simulation_1D();
+
+    std::cout << '\n' << '\n' << std::endl;
+
+    std::cout << "V_ddi: " << Crank.get_m_V_ddi()(124) << std::endl;
+
+    std::cout << '\n' << '\n' << std::endl;
+
 
     Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
     Eigen::VectorXcd Fn = Crank.get_m_Fin(); 
