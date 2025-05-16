@@ -1,9 +1,0 @@
-#system files
-.vscode
-.DS_store
-
-build
-bin
-
-Drawings
-Matrices

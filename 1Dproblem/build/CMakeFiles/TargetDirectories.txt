@@ -1,3 +1,0 @@
-/Users/egormankevich/Desktop/GrossPitaevski/1Dproblem/build/CMakeFiles/1Dproblem.dir
-/Users/egormankevich/Desktop/GrossPitaevski/1Dproblem/build/CMakeFiles/edit_cache.dir
-/Users/egormankevich/Desktop/GrossPitaevski/1Dproblem/build/CMakeFiles/rebuild_cache.dir
