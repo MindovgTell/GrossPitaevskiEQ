@@ -100,61 +100,61 @@ void simulation1D(std::string inputfile){
     
     std::cout << '\n' << '\n' << std::endl;
 
-    std::cout << "V_ddi: " << Crank.get_m_V_ddi()(124) << std::endl;
+    std::cout << "V_ddi: " << Crank.get_m_V_ddi() << std::endl;
 
     std::cout << '\n' << '\n' << std::endl;
 
 
-    Crank.simulation_1D();
-
-    std::cout << '\n' << '\n' << std::endl;
-
-    std::cout << "V_ddi: " << Crank.get_m_V_ddi()(124) << std::endl;
-
-    std::cout << '\n' << '\n' << std::endl;
-
-
-    Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
-    Eigen::VectorXcd Fn = Crank.get_m_Fin(); 
-
-    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(500, start, -1 * start);
-
-    Eigen::VectorXd V = Crank.get_m_V();
-    Eigen::VectorXcd TM = Crank.TM_state();
-    Eigen::VectorXd TM_pr = Crank.prob_1D(TM);
+    // Crank.simulation_1D();
 
     // std::cout << '\n' << '\n' << std::endl;
 
-    // Crank.print_Mat_A();
+    // std::cout << "V_ddi: " << Crank.get_m_V_ddi().size() << std::endl;
 
-    std::cout << '\n' << '\n' << std::endl;
+    // std::cout << '\n' << '\n' << std::endl;
 
-    // Crank.print_Mat_B();
+
+    // Eigen::VectorXd Fin = Crank.get_m_Fin_prob(); 
+    // Eigen::VectorXcd Fn = Crank.get_m_Fin(); 
+
+    // Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(500, start, -1 * start);
+
+    // Eigen::VectorXd V = Crank.get_m_V();
+    // Eigen::VectorXcd TM = Crank.TM_state();
+    // Eigen::VectorXd TM_pr = Crank.prob_1D(TM);
+
+    // // std::cout << '\n' << '\n' << std::endl;
+
+    // // Crank.print_Mat_A();
+
+    // std::cout << '\n' << '\n' << std::endl;
+
+    // // Crank.print_Mat_B();
     
-    std::cout << "Initial state norm: " << Crank.vec_norm_1D(Ps) << std::endl;
-    std::cout << "Fin state norm: " << Crank.vec_norm_1D(Fn) << std::endl;
-    std::cout << "TM state norm: " << Crank.vec_norm_1D(TM) << std::endl;
+    // std::cout << "Initial state norm: " << Crank.vec_norm_1D(Ps) << std::endl;
+    // std::cout << "Fin state norm: " << Crank.vec_norm_1D(Fn) << std::endl;
+    // std::cout << "TM state norm: " << Crank.vec_norm_1D(TM) << std::endl;
 
 
-    std::cout << '\n' << '\n' << std::endl;
+    // std::cout << '\n' << '\n' << std::endl;
 
-    std::cout << "The energy of the current state: " << Crank.calc_state_energy() << std::endl;
-    std::cout << "The energy of the Thomas-Fermi state: " << Crank.calc_state_energy(TM) << std::endl;
+    // std::cout << "The energy of the current state: " << Crank.calc_state_energy() << std::endl;
+    // std::cout << "The energy of the Thomas-Fermi state: " << Crank.calc_state_energy(TM) << std::endl;
 
-    std::cout << '\n' << '\n' << std::endl;
+    // std::cout << '\n' << '\n' << std::endl;
 
-    double TM_energy = Crank.calc_state_energy(TM);
+    // double TM_energy = Crank.calc_state_energy(TM);
 
-    std::vector<double> E = Crank.get_vec_Energy();
-    std::vector<double> en_len(E.size());
-    std::vector<double> TM_en(E.size(), TM_energy);
-    std::iota(en_len.begin(), en_len.end(), 1); // fills with 1, 2, 3, ..., y.size()
+    // std::vector<double> E = Crank.get_vec_Energy();
+    // std::vector<double> en_len(E.size());
+    // std::vector<double> TM_en(E.size(), TM_energy);
+    // std::iota(en_len.begin(), en_len.end(), 1); // fills with 1, 2, 3, ..., y.size()
 
 
-    draw3(x, Psi, Fin, V);
-    draw3(x, Psi, Fin, TM_pr);
+    // draw3(x, Psi, Fin, V);
+    // draw3(x, Psi, Fin, TM_pr);
 
-    draw_energy(en_len, E, TM_en);
+    // draw_energy(en_len, E, TM_en);
 }
 
 

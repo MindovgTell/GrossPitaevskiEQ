@@ -66,6 +66,7 @@ public:
 
     //Initialization of starting 1D state
     void init_start_state_1D(double x_c, double sigma_x, double p_x);
+    void init_V_ddi();
 
     //Function for calculating Dipole-Dipole Interaction
     void calculate_1D_DDI(Eigen::VectorXcd& vec);

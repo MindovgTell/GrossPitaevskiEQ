@@ -26,6 +26,7 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
     m_omega_y = 0.0;
 
     m_Fin = Eigen::VectorXcd(m_size).setZero();
+    init_V_ddi();
     //Physical parameters
     m_N = N;
     //this->m_g = 2 * M_PI * a_s;
@@ -40,22 +41,22 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
     init_start_state_1D(x_c,sigma_x,p_x);
 
-    init_time_evolution_matrices_1D();
+    // init_time_evolution_matrices_1D();
 }
 
-inline void CrankNicolson::init_g_scatt_1D(double a_s){
-    this->m_g_scattering = 2 * a_s;
-}
+// inline void CrankNicolson::init_g_scatt_1D(double a_s){
+//     m_g_scattering = 2 * a_s;
+// }
 
-inline void CrankNicolson::init_g_dipole_1D(double dipole_moment){
+// inline void CrankNicolson::init_g_dipole_1D(double dipole_moment){
 
-    this->m_g_dipole = dipole_moment * dipole_moment; // /elect_0 or *magn_0 vacuum constant
+//     m_g_dipole = dipole_moment * dipole_moment; // /elect_0 or *magn_0 vacuum constant
 
-}
+// }
 
-inline void CrankNicolson::init_g_lhy_1D(double dipole_moment, double a_s){
-    this->m_g_lhy ;
-}
+// inline void CrankNicolson::init_g_lhy_1D(double dipole_moment, double a_s){
+//     m_g_lhy ;
+// }
 
 
 void CrankNicolson::init_chem_potential(double omega, double N, double a_s){
@@ -111,6 +112,12 @@ void CrankNicolson::init_start_state_1D(double x_c, double sigma_x, double p_x){
 
     std::complex<double> normalization_factor = std::sqrt(m_N) / std::sqrt(psum * this->step);
     this->m_Psi = U * std::abs(normalization_factor);
+}
+
+void CrankNicolson::init_V_ddi()
+{
+    assert(m_size > 0);
+    m_V_ddi = Eigen::VectorXd::Zero(m_size); 
 }
 
 Eigen::VectorXcd CrankNicolson::TM_state(){
@@ -965,10 +972,11 @@ void CrankNicolson::m_Fin_len(){
     std::cout << "Fin length is: " << this->m_Fin.size() << std::endl;
 }   
 
-
 Eigen::VectorXd CrankNicolson::get_m_V_ddi(){
     return m_V_ddi;
 }
+
+
 
 Eigen::VectorXcd CrankNicolson::get_m_Psi(){
     Eigen::VectorXcd output = this->m_Psi;
