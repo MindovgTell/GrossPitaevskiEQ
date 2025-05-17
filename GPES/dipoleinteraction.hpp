@@ -38,8 +38,8 @@ private:
     Eigen::VectorXd U_tilde; // kernel in Fourier space
 
 public:
-    DipolarInteraction(int n, double length, double confinement_length, double interaction_strength)
-        : N(n), L(length), lz(confinement_length), Cdd(interaction_strength) {
+    DipolarInteraction(int size_of_grid, double length, double confinement_length, double dipolar_interaction_strength)
+        : N(size_of_grid), L(length), lz(confinement_length), Cdd(dipolar_interaction_strength) {
 
         dx = L / N;
 

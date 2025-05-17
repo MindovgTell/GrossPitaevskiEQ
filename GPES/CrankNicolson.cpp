@@ -52,18 +52,6 @@ CrankNicolson::CrankNicolson(double h, double deltat, double T, double x_c, doub
 
 
 
-//Function for calculating dipole-dipole interaction
-
-
-
-
-
-
-
-
-
-
-
 
 
 

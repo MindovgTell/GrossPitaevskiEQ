@@ -31,7 +31,7 @@ private:
 
 public:
     //Construction
-    Grid(unsigned int number_of_nodes, double step);
+    Grid(unsigned int number_of_nodes, double start);
     // Delete copy and move constructors
     Grid(const GPES::Grid<Dimension::One>&) = delete;
     Grid(GPES::Grid<Dimension::One> &&)     = delete;
@@ -42,29 +42,14 @@ public:
     double get_start_position() { return _start; }
     double get_step_size() { return _step; }
     double get_omega() { return _omega; }
-
-    Eigen::VectorXd get_potential(){ return _potential;}
-
-
-
+    Eigen::VectorXd& get_potential(){ return _potential;}
+    
+    //Setters
     void set_harmonic_potential(double omega);
 
-
-    // //Harmonic potential terms
-    // Eigen::VectorXd create_harmonic_potential();
-    // Eigen::VectorXd create_potential();
-
-
-
     //operator() overloading
-
-    double& operator()(int i) {
-        return _potential(i);
-    }
-
-    double operator()(int i) const {
-        return _potential(i);
-    }
+    double& operator()(int i) { return _potential(i); }
+    double operator()(int i) const { return _potential(i); }
 };
 
 inline Grid<Dimension::One>::Grid(unsigned int number_of_nodes, double start): _size(number_of_nodes), _start(start) {
@@ -85,32 +70,9 @@ void inline Grid<Dimension::One>::set_harmonic_potential(double omega){
         double x = _start + i * _step;
         V(i) = 0.5 * (std::pow(omega * x,2.));
     }
-
     _omega = omega;
-
     _potential = V;
 }
-
-
-
-// Eigen::VectorXd CrankNicolson::create_harmonic_potential_1D(){
-//     Eigen::VectorXd V(this->m_size);
-//     V.setZero();
-//     double x = this->_start;
-//     for(int i = 0; i < this->m_size; ++i){
-//         V(i) = 0.5 * std::pow(x,2.);
-//         x += this->step;
-//     }
-//     return V;
-// }
-
-// Eigen::VectorXd CrankNicolson::create_potential_1D(){
-//     Eigen::VectorXd V(this->m_size);
-//     V.setZero();
-//     V(0) = V_0;
-//     V(this->m_size - 1) = V_0;
-//     return V;
-// }
 
 
 //********************************/***********/********************************//
@@ -136,7 +98,7 @@ private:
 
 public:
     //Constructor 
-    Grid(int N_x, int N_y, double start_x, double start_y);
+    Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y);
     // Delete copy and move constructors
     Grid(const GPES::Grid<Dimension::Two>&) = delete;
     Grid(GPES::Grid<Dimension::Two> &&)     = delete;
@@ -144,32 +106,23 @@ public:
     //Getters
     unsigned int get_size_of_grid_x(){ return _size_x; }
     unsigned int get_size_of_grid_y(){ return _size_y; }
-
     double get_start_position_x(){ return _start_x; }
     double get_start_position_y(){ return _start_y; }
-
     double get_step_size_x(){ return _step_x; }
     double get_step_size_y(){ return _step_y; }
-
-    Eigen::MatrixXd get_potential() {return _potential; }
-
+    double get_lambda() {return _lambda;}
+    Eigen::MatrixXd& get_potential() {return _potential;}
 
     void set_harmonic_potential(double omega_x, double omega_y);
 
     //operator() overloading
-
-    double& operator()(int i, int j) {
-        return _potential(i, j);
-    }
-
-    double operator()(int i, int j) const {
-        return _potential(i, j);
-    }
+    double& operator()(int i, int j) { return _potential(i, j); }
+    double operator()(int i, int j) const { return _potential(i, j); }
 
 };
 
-inline Grid<Dimension::Two>::Grid(int N_x, int N_y, double start_x, double start_y):
-    _size_x(N_x), _size_y(N_y), _start_x(start_x), _start_y(start_y) {
+inline Grid<Dimension::Two>::Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y):
+    _size_x(number_of_nodes_x), _size_y(number_of_nodes_y), _start_x(start_x), _start_y(start_y) {
         //Setting steps
         _step_x = (-2 * _start_x) / _size_x;
         _step_y = (-2 * _start_y) / _size_y;
@@ -178,14 +131,10 @@ inline Grid<Dimension::Two>::Grid(int N_x, int N_y, double start_x, double start
         _omega_y = 0;
         _lambda = 0;
 
-        this->init_grid();
+        init_grid();
 }
 
 void inline Grid<Dimension::Two>::init_grid(){
-    // Eigen::MatrixXd U(_size_x, _size_y);
-    // U.setZero();
-    // this->_potential = U;
-
     _potential = Eigen::MatrixXd::Zero(_size_x,_size_y);
 }
 
@@ -193,20 +142,19 @@ void inline Grid<Dimension::Two>::set_harmonic_potential(double omega_x, double 
     Eigen::MatrixXd V(_size_x, _size_y);
     V.setZero();
 
-    this->_omega_x = omega_x;
-    this->_omega_y = omega_y;
+    _omega_x = omega_x;
+    _omega_y = omega_y;
 
-    for(int i = 1; i != _size_x - 1; ++i){
-        double x = this->_start_x + i * this->_step_x;
-        for(int j = 1; j != _size_y-1; ++j){
-            double y = this->_start_y + j * this->_step_y;
+    for(int i = 0; i != _size_x; ++i){
+        double x = _start_x + i * _step_x;
+        for(int j = 0; j != _size_y; ++j){
+            double y = _start_y + j * _step_y;
             V(i,j) = 0.5 * (std::pow(omega_x * x,2.) + std::pow(omega_y * y,2.));
         }
     }
 
-    this->_lambda = this->_omega_x / this->_omega_y;
-
-    this->_potential = V;
+    _lambda = _omega_y / _omega_x;
+    _potential = V;
 }
 
 

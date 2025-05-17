@@ -21,8 +21,6 @@ namespace GPES{
 template <Dimension Dim>
 class CrankNicolson;
 
-
-
 //********************************/***********/********************************//
 //                                                                             //
 //***************************/One dimensional solver/**************************//
@@ -41,15 +39,15 @@ private:
     Eigen::VectorXcd _Fin;
     Eigen::VectorXd _V_ext;
 
-    uint32_t _Num;
+    int _Num;
 
-    int _T, _t_step, _start, _step, _size;
-    double _g_scattering, _g_ddi, _g_lhy, _delta_t;
+    int _T, _t_step, _size;
+    double _g_scattering, _g_ddi, _g_lhy, _delta_t, _start, _step;
 
     std::complex<double> _lambda_x;
 
     std::unique_ptr<DipolarInteraction<Dimension::One>> F_ddi;
-    Eigen::VectorXcd _U_ddi;
+    Eigen::VectorXd _U_ddi;
     // vector of the energies
 
     std::vector<double> vec_Energy;
@@ -91,6 +89,7 @@ public:
     double calc_state_chem_potential();
     double calc_state_chem_potential(Eigen::VectorXcd &vec);
 
+
     //********************//Getters funcitons//*****************//
 
     void print_Mat_A_dim();
@@ -103,8 +102,9 @@ public:
     Eigen::VectorXcd get_m_Psi();
     Eigen::VectorXd get_m_Psi_prob();
 
-    Eigen::VectorXcd get_m_Fin();
-    Eigen::VectorXd get_m_Fin_prob();
+    // Eigen::VectorXcd get_Fin();
+    // Eigen::VectorXd get_Fin_prob();
+    void get_final_state(WaveFunction<Dimension::One>& fin);
 
     Eigen::VectorXd get_m_V();
     // void get_m_V_size(){
