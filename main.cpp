@@ -37,7 +37,7 @@ void draw_energy(std::vector<double>& x, std::vector<double>& Psi,  std::vector<
 std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat);
 void heatmap(const Eigen::MatrixXd& mat);
 
-
+  
 int main(int argc, char const *argv[]){
 
     if(argc != 2){
