@@ -7,98 +7,148 @@
 #include <cmath>
 #include <numbers>
 #include <vector>
+#include <memory>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
+#include "definitions.hpp"
+#include "grid.hpp"
+#include "wavefunciton.hpp"
+#include "dipoleinteraction.hpp"
 
-//---------//GLOBAL COMMENT//----------//
-// All functions with same names 
-// should be combined into ones without
-// _2D or _1D endings by introducing 
-// new variable wich will determine 
-// properties and functionality of the function.
-//---------//--------------//----------//
+namespace GPES{
+    
+template <Dimension Dim>
+class CrankNicolson;
 
 
-class CrankNicolson
-{
+
+//********************************/***********/********************************//
+//                                                                             //
+//***************************/One dimensional solver/**************************//
+//                                                                             //
+//********************************/***********/********************************//
+
+
+template <>
+class CrankNicolson<Dimension::One>{
+
 private:
-    Eigen::SparseMatrix<std::complex<double> > m_A;
-    Eigen::SparseMatrix<std::complex<double> > m_B;
+    Eigen::SparseMatrix<std::complex<double> > _A;
+    Eigen::SparseMatrix<std::complex<double> > _B;
 
-    Eigen::VectorXcd m_Psi;
-    Eigen::VectorXcd m_Fin;
-    Eigen::MatrixXd m_V;
-    int m_size, m_T, t_step;
-    double m_g_scattering, m_g_lhy;
-    double m_delta_t,m_h_step, V_0, m_omega_x, m_omega_y, m_N, m_chem_potential, _start, step;
-    std::complex<double> m_lambda_x, m_lambda_y;
+    Eigen::VectorXcd _Psi;
+    Eigen::VectorXcd _Fin;
+    Eigen::VectorXd _V_ext;
 
+    uint32_t _Num;
 
+    int _T, _t_step, _start, _step, _size;
+    double _g_scattering, _g_ddi, _g_lhy, _delta_t;
+
+    std::complex<double> _lambda_x;
+
+    std::unique_ptr<DipolarInteraction<Dimension::One>> F_ddi;
+    Eigen::VectorXcd _U_ddi;
     // vector of the energies
 
     std::vector<double> vec_Energy;
     std::vector<double> vec_Chem_potential;
 
-    //int _NUMBER_OF_DIMENTIONS;
 
 public:
+    CrankNicolson(Grid<Dimension::One>& grid, WaveFunction<Dimension::One>& Psi, double deltat, double T);
 
-//********************************/***********/********************************//
-//                                                                             //
-//********************************/1DFunctions/********************************//
-//                                                                             //
-//********************************/***********/********************************//
-
-    //1D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double p_x, double omega, double N, double a_s, double start);
-
-    //Thomas-Fermi ansatz
-    void init_chem_potential(double omega, double N, double a_s);
-    double thomas_fermi_state_1D(double x);
-
-    //Gauss wave function
-    std::complex<double> gauss_wave_packet_1D(double sigma_x, double x, double x_c, double p_x);
-    double square_func(double x);
-
-    //Initialization of starting 1D state
-    void init_start_state_1D(double x_c, double sigma_x, double p_x);
+    void init_g_scattering();
+    void init_g_ddi();
+    void init_g_lhy();
 
     //Function for calculating Dipole-Dipole Interaction
-    std::complex<double> calculate_1D_DDI(int grid_position, Eigen::VectorXcd& vec);
+    void calculate_DDI(Eigen::VectorXcd& vec);
 
-    void init_time_evolution_matrices_1D();
-    void update_time_evolution_matrices_1D(Eigen::VectorXcd &vec);
+    void init_time_evolution_matrices();
+    void update_time_evolution_matrices(Eigen::VectorXcd& vec);
 
 
-    Eigen::VectorXd create_harmonic_potential_1D();
-    Eigen::VectorXd create_potential_1D();
+    void simulation();
 
-    void simulation_1D();
-    Eigen::VectorXd  prob_1D(Eigen::VectorXcd &vec);
  
-    void init_Mat_A_1D(std::complex<double> r,Eigen::VectorXcd& d);
-    void init_Mat_B_1D(std::complex<double> r,Eigen::VectorXcd& d);
+    void init_Mat_A(std::complex<double> r,Eigen::VectorXcd& d);
+    void init_Mat_B(std::complex<double> r,Eigen::VectorXcd& d);
 
 
-    void normalize_1D(Eigen::VectorXcd &vec);
+    void normalize(Eigen::VectorXcd &vec);
 
-    Eigen::VectorXcd TM_state();
-    double vec_norm_1D(Eigen::VectorXcd &vec);
-    double vec_norm_1D(Eigen::VectorXd &vec);
+
+    Eigen::VectorXd  prob(Eigen::VectorXcd &vec);
+
+    double vec_norm(Eigen::VectorXcd &vec);
+    double vec_norm(Eigen::VectorXd &vec);
 
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
 
     double calc_state_chem_potential();
     double calc_state_chem_potential(Eigen::VectorXcd &vec);
-    
+
+    //********************//Getters funcitons//*****************//
+
+    void print_Mat_A_dim();
+    void print_Mat_B_dim();
+    void m_Psi_len();
+    void m_Fin_len();
+    void print_Mat_A();
+    void print_Mat_B();
+
+    Eigen::VectorXcd get_m_Psi();
+    Eigen::VectorXd get_m_Psi_prob();
+
+    Eigen::VectorXcd get_m_Fin();
+    Eigen::VectorXd get_m_Fin_prob();
+
+    Eigen::VectorXd get_m_V();
+    // void get_m_V_size(){
+    //     std::cout << "Size of V vector: " << _V_ext.size() << std::endl;
+    // }
+    Eigen::VectorXd real(Eigen::VectorXcd& vec);
+    Eigen::VectorXd imag(Eigen::VectorXcd& vec);
+
+    std::vector<double> get_vec_Energy(){ return vec_Energy;}
+
+};
+
+
+#include "CrankNicolson1D.inl"
+
+
+
 //********************************/***********/********************************//
 //                                                                             //
-//********************************/2DFunctions/********************************//
+//**************************/Two dimensional solver/***************************//
 //                                                                             //
 //********************************/***********/********************************//
 
+
+template <>
+class CrankNicolson<Dimension::Two>{
+private:
+    Eigen::SparseMatrix<std::complex<double> > _A;
+    Eigen::SparseMatrix<std::complex<double> > _B;
+
+    Eigen::VectorXcd _Psi;
+    Eigen::VectorXcd _Fin;
+    Eigen::MatrixXd _V;
+    int _size, _T, _t_step;
+    double _g_scattering, _g_ddi, _g_lhy;
+    double _delta_t, _h_step, V_0, _omega_x, _omega_y, _N, _chem_potential, _start, _step;
+    std::complex<double> _lambda_x, _lambda_y;
+
+    // vector of the energies
+
+    std::vector<double> vec_Energy;
+    std::vector<double> vec_Chem_potential;
+
+public: 
     //2D constructor
     CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double y_c, double sigma_y, double omega_x, double omega_y, double N, double a_s, double start);
     
@@ -110,24 +160,24 @@ public:
     void init_chem_potential(double omega_x, double omega_y, double N, double g);
 
     // Gauss Wave funciton
-    std::complex<double> gauss_wave_packet_2D(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
+    std::complex<double> gauss_wave_packet(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
     // Thomas-Fermi function
-    double thomas_fermi_state_2D(double x, double y);
-    Eigen::VectorXcd TM_state_2D();
+    double thomas_fermi_state(double x, double y);
+    Eigen::VectorXcd TM_state();
 
     //Function for calculating 2D DDI
 
-    std::complex<double> calculate_2D_DDI(int grid_position, Eigen::VectorXcd& vec);
+    std::complex<double> calculate_DDI(int grid_position, Eigen::VectorXcd& vec);
 
     //Methods for creating matrixes
-    void init_start_state_2D(double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
+    void init_start_state(double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
 
 
-    void init_time_evolution_matrices_2D();
-    void update_time_evolution_matrices_2D(Eigen::VectorXcd &vec);
+    void init_time_evolution_matrices();
+    void update_time_evolution_matrices(Eigen::VectorXcd &vec);
 
-    void init_Mat_A_2D(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d);
-    void init_Mat_B_2D(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d);
+    void init_Mat_A(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d);
+    void init_Mat_B(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d);
 
     Eigen::MatrixXd vec_to_mat(const Eigen::VectorXd& vec);
 
@@ -136,26 +186,22 @@ public:
     void save_matrix_to_csv(std::string filename, Eigen::MatrixXd mat);
     void save_vector_to_csv(std::string filename, Eigen::VectorXd mat);
 
-    void simulation_2D();
+    void simulation();
 
-    void normalize_2D(Eigen::VectorXcd &vec);
-    double vec_norm_2D(Eigen::VectorXcd &vec);
-    double vec_norm_2D(Eigen::VectorXd &vec);
+    void normalize(Eigen::VectorXcd &vec);
+    double vec_norm(Eigen::VectorXcd &vec);
+    double vec_norm(Eigen::VectorXd &vec);
 
 
-    double calc_state_energy_2D();
-    double calc_state_energy_2D(Eigen::VectorXcd &vec);
+    double calc_state_energy();
+    double calc_state_energy(Eigen::VectorXcd &vec);
     
     // Functions for create potential
     Eigen::MatrixXd create_potential_box();
-    Eigen::MatrixXd create_harmonic_potential_2D();
+    Eigen::MatrixXd create_harmonic_potential();
 
+    //Gettes Funcitons
 
-//********************************/***********/********************************//
-//                                                                             //
-//*****************************/Getters Functions/*****************************//
-//                                                                             //
-//********************************/***********/********************************//
     void print_Mat_A_dim();
     void print_Mat_B_dim();
     void m_Psi_len();
@@ -171,15 +217,18 @@ public:
 
     Eigen::VectorXd get_m_V();
     void get_m_V_size(){
-        std::cout << "Size of V vector: " << this->m_V.size() << std::endl;
+        std::cout << "Size of V vector: " << _V.size() << std::endl;
     }
     Eigen::VectorXd real(Eigen::VectorXcd& vec);
     Eigen::VectorXd imag(Eigen::VectorXcd& vec);
 
-    std::vector<double> get_vec_Energy(){ return this->vec_Energy;}
+    std::vector<double> get_vec_Energy(){ return vec_Energy;}
 
 
-};  
+};
+
+
+};
 
 
 #endif 
