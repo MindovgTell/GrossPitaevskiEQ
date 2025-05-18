@@ -393,7 +393,7 @@ void CrankNicolson::init_Mat_B_2D(std::complex<double> r_x, std::complex<double>
 }
 
 
-// Time evolution simulation for 1D Gross-Pitaevskii equation
+// Time evolution simulation for 2D Gross-Pitaevskii equation
 void CrankNicolson::simulation_2D(){
 
     int size = this->m_Psi.size();

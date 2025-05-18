@@ -39,9 +39,8 @@ private:
     Eigen::VectorXcd _Fin;
     Eigen::VectorXd _V_ext;
 
-    int _Num;
 
-    int _T, _t_step, _size;
+    unsigned int _Num, _T, _t_step, _size;
     double _g_scattering, _g_ddi, _g_lhy, _delta_t, _start, _step;
 
     std::complex<double> _lambda_x;
@@ -86,8 +85,8 @@ public:
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
 
-    double calc_state_chem_potential();
-    double calc_state_chem_potential(Eigen::VectorXcd &vec);
+    // double calc_state_chem_potential();
+    // double calc_state_chem_potential(Eigen::VectorXcd &vec);
 
 
     //********************//Getters funcitons//*****************//
@@ -137,10 +136,13 @@ private:
 
     Eigen::VectorXcd _Psi;
     Eigen::VectorXcd _Fin;
-    Eigen::MatrixXd _V;
-    int _size, _T, _t_step;
+    Eigen::MatrixXd _V_ext;
+    Eigen::VectorXd _U_ddi;
+    std::unique_ptr<DipolarInteraction<Dimension::Two>> F_ddi;
+
+    int _size_x, _size_y, _T, _t_step, _Num;
     double _g_scattering, _g_ddi, _g_lhy;
-    double _delta_t, _h_step, V_0, _omega_x, _omega_y, _N, _chem_potential, _start, _step;
+    double _delta_t, _h_step, _omega_x, _omega_y, _chem_potential, _start_x, _start_y, _step_x, _step_y;
     std::complex<double> _lambda_x, _lambda_y;
 
     // vector of the energies
@@ -150,28 +152,17 @@ private:
 
 public: 
     //2D constructor
-    CrankNicolson(double h, double deltat, double T, double x_c, double sigma_x, double y_c, double sigma_y, double omega_x, double omega_y, double N, double a_s, double start);
+    CrankNicolson(WaveFunction<Dimension::Two>& Psi, Grid<Dimension::Two>& grid, double T, double delta_t);
     
-    int get_m_index(int i,int j, int M);
+    int get_index(int i,int j) { return i * _size_x + j;}
 
-    double thomas_fermi_radius_x();
-    double thomas_fermi_radius_y();
 
-    void init_chem_potential(double omega_x, double omega_y, double N, double g);
-
-    // Gauss Wave funciton
-    std::complex<double> gauss_wave_packet(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
-    // Thomas-Fermi function
-    double thomas_fermi_state(double x, double y);
-    Eigen::VectorXcd TM_state();
+    void init_g_scattering();
+    void init_g_ddi();
+    void init_g_lhy();
 
     //Function for calculating 2D DDI
-
-    std::complex<double> calculate_DDI(int grid_position, Eigen::VectorXcd& vec);
-
-    //Methods for creating matrixes
-    void init_start_state(double x_c, double y_c, double sigma_x, double sigma_y); //, double p_x, double p_y
-
+    void calculate_DDI(Eigen::VectorXcd &vec);
 
     void init_time_evolution_matrices();
     void update_time_evolution_matrices(Eigen::VectorXcd &vec);
@@ -195,10 +186,6 @@ public:
 
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
-    
-    // Functions for create potential
-    Eigen::MatrixXd create_potential_box();
-    Eigen::MatrixXd create_harmonic_potential();
 
     //Gettes Funcitons
 
@@ -215,9 +202,11 @@ public:
     Eigen::VectorXcd get_m_Fin();
     Eigen::VectorXd get_m_Fin_prob();
 
+    void get_final_state(WaveFunction<Dimension::Two>& fin);
+
     Eigen::VectorXd get_m_V();
-    void get_m_V_size(){
-        std::cout << "Size of V vector: " << _V.size() << std::endl;
+    void get_V_size(){
+        std::cout << "Size of V vector: " << _V_ext.size() << std::endl;
     }
     Eigen::VectorXd real(Eigen::VectorXcd& vec);
     Eigen::VectorXd imag(Eigen::VectorXcd& vec);
@@ -227,6 +216,8 @@ public:
 
 };
 
+
+#include "CrankNicolson2D.inl"
 
 };
 

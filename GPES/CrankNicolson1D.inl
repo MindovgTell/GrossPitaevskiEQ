@@ -11,21 +11,24 @@ GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, W
     _start = grid.get_start_position();
     _V_ext = grid.get_potential();
 
+    _t_step = std::round(T/_delta_t) + 1;
+
     _Psi = Psi.get_wavefunction();
     _Fin = Eigen::VectorXcd::Zero(_size);
     _U_ddi = Eigen::VectorXd::Zero(_size);
 
-    _t_step = std::round(T/_delta_t) + 1;
+
 
     //Physics units
     _Num = Psi.get_Num();
     
     // Initialize interaction strengths
-    init_g_scattering();
-    init_g_ddi();
-    init_g_lhy();
 
-    _lambda_x = -1.0*_delta_t/(4*std::pow(_step,2));
+    _g_scattering = Psi.get_g_scat();
+    _g_ddi = -0.003; 
+    _g_lhy = 0.005; 
+
+    _lambda_x = std::complex<double>(-1.0*_delta_t/(4*std::pow(_step,2)),0);
 
     double L = std::abs(_start*2);
     double confinment_length = 1;
@@ -34,16 +37,12 @@ GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, W
     init_time_evolution_matrices();
 }
 
-void GPES::CrankNicolson<Dimension::One>::init_g_scattering(){
-    _g_scattering = 1; 
-}
-
 void GPES::CrankNicolson<Dimension::One>::init_g_ddi(){
-    _g_ddi = 1; 
+    
 }
 
 void GPES::CrankNicolson<Dimension::One>::init_g_lhy(){
-    _g_lhy = 1; 
+    
 }
 
 
@@ -76,8 +75,8 @@ void GPES::CrankNicolson<Dimension::One>::init_time_evolution_matrices(){
         // b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
 
         // TEST ADDED DDI
-        a(i) = 1.0 - 2.0*this->_lambda_x + U_potential + U_dd + U_lhy;
-        b(i) = 1.0 + 2.0*this->_lambda_x - U_potential - U_dd - U_lhy;
+        a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential ;//+ U_dd + U_lhy;
+        b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential ;//- U_dd - U_lhy;
     }
 
     this->init_Mat_A(_lambda_x, a);
@@ -107,8 +106,8 @@ void GPES::CrankNicolson<Dimension::One>::update_time_evolution_matrices(Eigen::
         // b(i) = 1.0 - 2.0*this->m_lambda_x + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
     
         // TEST ADDED DDI
-        a(i) = 1.0 - 2.0*this->_lambda_x + U_scattering + U_potential + U_dd + U_lhy;
-        b(i) = 1.0 + 2.0*this->_lambda_x - U_scattering - U_potential - U_dd - U_lhy;
+        a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential;// + U_dd + U_lhy;
+        b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential;// - U_dd - U_lhy;
     }
 
     this->init_Mat_A(_lambda_x, a);

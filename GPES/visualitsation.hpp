@@ -191,11 +191,7 @@ void draw(Grid<Dimension::Two>& grid) {
     }
 }
 
-
 std::vector<std::vector<double>> Eigen_to_vector2D(Grid<Dimension::Two>& mat) {
-
-
-
     std::vector<std::vector<double>> result(mat.get_size_of_grid_x(), std::vector<double>(mat.get_size_of_grid_y()));
     for (int i = 0; i < mat.get_size_of_grid_x(); ++i)
         for (int j = 0; j < mat.get_size_of_grid_y(); ++j)
@@ -217,6 +213,8 @@ void heatmap(Grid<Dimension::Two>& mat){
         plt::imshow(heatmap_data); //  , {{"cmap", "'plasma'"}, {"interpolation", "'nearest'"}}
         plt::colorbar();
         plt::title("Eigen Heatmap");
+        // plt::xlim(mat.get_start_position_x(), -1. * mat.get_start_position_x());
+        // plt::ylim(mat.get_start_position_y(), -1. * mat.get_start_position_y());
 
         plt::show();
     }
@@ -225,6 +223,41 @@ void heatmap(Grid<Dimension::Two>& mat){
     }
 
 }
+
+std::vector<std::vector<double>> Eigen_to_vector2D(WaveFunction<Dimension::Two>& wave) {
+    std::vector<std::vector<double>> result(wave.get_size_of_grid_x(), std::vector<double>(wave.get_size_of_grid_y()));
+    for (int i = 0; i < wave.get_size_of_grid_x(); ++i)
+        for (int j = 0; j < wave.get_size_of_grid_y(); ++j){
+            int index = wave.get_index(i, j);
+            result[i][j] = wave.prob(index);
+        }
+    return result;
+}
+
+void heatmap(WaveFunction<Dimension::Two>& wave){
+
+    try {
+        std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(wave);
+
+        // Optional: verify data
+        if (heatmap_data.empty() || heatmap_data[0].empty()) {
+            throw std::runtime_error("Data is empty.");
+        }
+
+        // Plot
+        plt::imshow(heatmap_data); //  , {{"cmap", "'plasma'"}, {"interpolation", "'nearest'"}}
+        plt::colorbar();
+        plt::title("Eigen Heatmap");
+        // plt::xlim(wave.get_start_position_x(), -1. * wave.get_start_position_x());
+        // plt::ylim(wave.get_start_position_y(), -1. * wave.get_start_position_y());
+        plt::show();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+
+}
+
 
 
 std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat) {

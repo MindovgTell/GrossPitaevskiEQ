@@ -52,18 +52,18 @@ public:
     double operator()(int i) const { return _potential(i); }
 };
 
-inline Grid<Dimension::One>::Grid(unsigned int number_of_nodes, double start): _size(number_of_nodes), _start(start) {
+Grid<Dimension::One>::Grid(unsigned int number_of_nodes, double start): _size(number_of_nodes), _start(start) {
     //Setting step
     _step = (-2 * _start) / _size;
     _omega = 0;
     init_grid();
 }
 
-void inline Grid<Dimension::One>::init_grid(){
+void Grid<Dimension::One>::init_grid(){
     _potential = Eigen::VectorXd::Zero(_size);
 }
 
-void inline Grid<Dimension::One>::set_harmonic_potential(double omega){
+void Grid<Dimension::One>::set_harmonic_potential(double omega){
     Eigen::VectorXd V(_size);
     V.setZero();
     for(int i = 0; i != _size - 0; ++i){
@@ -110,6 +110,8 @@ public:
     double get_start_position_y(){ return _start_y; }
     double get_step_size_x(){ return _step_x; }
     double get_step_size_y(){ return _step_y; }
+    double get_omega_x() {return _omega_x; }
+    double get_omega_y() {return _omega_y; }
     double get_lambda() {return _lambda;}
     Eigen::MatrixXd& get_potential() {return _potential;}
 
@@ -121,11 +123,11 @@ public:
 
 };
 
-inline Grid<Dimension::Two>::Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y):
+Grid<Dimension::Two>::Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y):
     _size_x(number_of_nodes_x), _size_y(number_of_nodes_y), _start_x(start_x), _start_y(start_y) {
         //Setting steps
-        _step_x = (-2 * _start_x) / _size_x;
-        _step_y = (-2 * _start_y) / _size_y;
+        _step_x = std::abs((2 * _start_x) / _size_x);
+        _step_y = std::abs((2 * _start_y) / _size_y);
 
         _omega_x = 0;
         _omega_y = 0;
@@ -134,11 +136,11 @@ inline Grid<Dimension::Two>::Grid(int number_of_nodes_x, int number_of_nodes_y, 
         init_grid();
 }
 
-void inline Grid<Dimension::Two>::init_grid(){
+void Grid<Dimension::Two>::init_grid(){
     _potential = Eigen::MatrixXd::Zero(_size_x,_size_y);
 }
 
-void inline Grid<Dimension::Two>::set_harmonic_potential(double omega_x, double omega_y){
+void Grid<Dimension::Two>::set_harmonic_potential(double omega_x, double omega_y){
     Eigen::MatrixXd V(_size_x, _size_y);
     V.setZero();
 

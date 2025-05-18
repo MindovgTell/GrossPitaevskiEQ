@@ -1,2 +1,5 @@
-Problem h       deltat      T       x_c     sigma_x     p_x     omega     N        a_s    start
-1       0.002   5e-3        5e+0     0       5         0       1       1000     100    -50. 
+Problem     grid    deltat  T       start   N       a_s     a_dd    x_c     sigma_x
+1           500     5e-3    1e+0    -20.    1000    1       1       0       10
+2           500     5e-3    1e+0    -20.    1000    4       1       0       10
+3           500     5e-3    1e+0    -30.    1000    -1       1       0       10
+4           500     5e-3    1e+0    -30.    1000    -4       1       0       10

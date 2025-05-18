@@ -164,7 +164,6 @@ public:
         
         for (int i = 0; i < Nx; ++i) {
             double kx = (i < Nx/2) ? (2.0 * M_PI * i / Lx) : (2.0 * M_PI * (i - Nx) / Lx);
-            
             for (int j = 0; j < Ny/2 + 1; ++j) {
                 double ky = 2.0 * M_PI * j / Ly;
                 double k_perp = std::sqrt(kx*kx + ky*ky);
@@ -179,15 +178,16 @@ public:
         }
     }
     
-    void compute_DDI_term(const Eigen::MatrixXcd& psi, Eigen::MatrixXd& Phi_DDI) {
+    void compute_DDI_term(const Eigen::VectorXcd& psi, Eigen::VectorXd& Phi_DDI) {
         // Copy |psi|^2 to real array
 
-        assert(psi.rows() == Nx && psi.cols() == Ny && "psi dimensions must match Nx x Ny");
+        assert(psi.size() == Nx * Ny && "psi dimensions must match Nx x Ny");
 
 
         for (int i = 0; i < Nx; ++i) {
             for (int j = 0; j < Ny; ++j) {
-                // density_real[i*Ny + j] = std::norm(psi(i, j));
+                int index = i * Ny + j;
+                density_real[i*Ny + j] = std::norm(psi(index));
             }
         }
         
