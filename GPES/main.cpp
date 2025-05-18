@@ -18,9 +18,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    simulation1D(argv[1]);
+    // simulation1D(argv[1]);
 
-    // simulation2D(argv[1]);
+    simulation2D(argv[1]);
 
     return 0;
 }
@@ -73,22 +73,51 @@ void simulation1D(std::string inputfile){
 
 
 void simulation2D(std::string inputfile){
-    GPES::Grid<Dimension::Two> grid(100,100, -20, -20);
-    grid.set_harmonic_potential(1,1);
 
-    GPES::WaveFunction<Dimension::Two> Psi(grid,0,0,1000);
+    std::ifstream input_data(inputfile);
 
-    Psi.set_state_Gauss(0,0,5,5);
+    std::string line;
+    double Problem, grid_size_x, grid_size_y, deltat, T, start_x, start_y, number_of_mol, a_s, a_dd, x_c, y_c, sigma_x, sigma_y;
 
-    GPES::CrankNicolson<Dimension::Two> solver(Psi,grid,0.005,0.5);
+    std::getline(input_data,line);
+    while(std::getline(input_data,line)) {//Skip first line in file
 
-    solver.simulation();
+        std::stringstream str_stream(line);
 
-    GPES::WaveFunction<Dimension::Two> Fin;
-    solver.get_final_state(Fin);
+        //str_stream.imbue(std::locale("C"));
+
+        if (str_stream >> Problem >> grid_size_x >> grid_size_y >> deltat >> T >> start_x >> start_y >> number_of_mol >> a_s >> a_dd >> x_c >> y_c >> sigma_x >> sigma_y) {
+            int width = 10;
+            std::cout << std::setw(width) << "Problem" << std::setw(width) << "grid_size_x" << std::setw(width) << "grid_size_y" << std::setw(width) << "deltat" << std::setw(width) << "T" << std::setw(width)
+            << "start_x" << std::setw(width) << "start_y" << std::setw(width) << "N_of_mol"  << std::setw(width) << "a_s" << std::setw(width) << "a_dd" << std::setw(width)
+            << "x_c"  << std::setw(width) << "y_c" << std::setw(width) << "sigma_x" << std::setw(width) << "sigma_y" << std::endl;
+
+            std::cout << std::setw(width) << Problem << std::setw(width) << grid_size_x << std::setw(width) << grid_size_y << std::setw(width) << deltat << std::setw(width) << T << std::setw(width)
+            << start_x << std::setw(width) << start_y << std::setw(width) << number_of_mol << std::setw(width) << a_s << std::setw(width) << a_dd << std::setw(width) << x_c << std::setw(width)
+            << y_c << std::setw(width) << sigma_x  << std::setw(width) << sigma_y << std::endl;
+        }
+        else
+            std::cout << "Error reading values from string!" << std::endl;
+        
+
+        GPES::Grid<Dimension::Two> grid(grid_size_x,grid_size_y, start_x, start_y);
+        grid.set_harmonic_potential(1,1);
+
+        GPES::WaveFunction<Dimension::Two> Psi(grid,a_s, a_dd,number_of_mol);
+
+        Psi.set_state_Gauss(x_c,y_c,sigma_x,sigma_y);
+
+        GPES::CrankNicolson<Dimension::Two> solver(Psi,grid,deltat,T);
+
+        solver.simulation();
+
+        GPES::WaveFunction<Dimension::Two> Fin;
+        solver.get_final_state(Fin);
 
 
-    GPES::heatmap(Psi);
-    GPES::heatmap(Fin);
-    GPES::heatmap(grid);
+        GPES::heatmap(Psi);
+        GPES::heatmap(Fin);
+        GPES::heatmap(grid);
+
+    }
 }
