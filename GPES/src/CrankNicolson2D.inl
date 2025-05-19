@@ -33,7 +33,7 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
 
     double Lx = std::abs(2*_start_x);
     double Ly = std::abs(2*_start_y);
-    F_ddi = std::make_unique<DipolarInteraction<Dimension::Two>>(_size_x,_size_y,Lx,Ly,1,_C_dd);
+    F_ddi = std::make_unique<DipolarInteraction<Dimension::Two>>(_size_x,_size_y,Lx,Ly,0.1414,_C_dd);
 
     vec_Energy.reserve(_t_step);
 
@@ -45,11 +45,11 @@ void  GPES::CrankNicolson<Dimension::Two>::calc_g_scattering(double a_s){
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calc_C_dd(double a_dd){
-    _C_dd = 1; 
+    _C_dd = 12. * a_dd * M_PI; 
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calc_g_lhy(double a_s, double a_dd){
-    _g_lhy = 1; 
+    _g_lhy = (128. / 3) * std::sqrt(M_PI) * std::pow(a_s, 2.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.)); 
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calculate_DDI(Eigen::VectorXcd& vec)
@@ -70,7 +70,7 @@ void GPES::CrankNicolson<Dimension::Two>::init_time_evolution_matrices(){
     b.setZero();
 
     // Eigen::MatrixXcd mat = vec_to_mat(_Psi);
-    // calculate_DDI(_Psi);
+    calculate_DDI(_Psi);
 
     for(int k = 0; k < _size_x; ++k){
         for(int l = 0; l < _size_y; ++l){
@@ -79,15 +79,15 @@ void GPES::CrankNicolson<Dimension::Two>::init_time_evolution_matrices(){
             std::complex<double> U_potential = 1.0*(_delta_t * 0.5) * std::complex<double>(_V_ext(k,l));
             std::complex<double> U_contact = 1.0*(_delta_t * 0.5) * _g_scattering * std::norm(_Psi(index));
             std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(index);
-            std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(_Psi(index)), 2.5);
+            std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(_Psi(index)), 1.5);
 
             // //Real time evolution matrices
             // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential; // + U_dd + U_lhy;
-            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential; //  - U_dd - U_lhy;
+            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential + U_dd + U_lhy;
+            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential - U_dd - U_lhy;
         }
     }
     this->init_Mat_A(_lambda_x, _lambda_y,a);
@@ -104,7 +104,7 @@ void GPES::CrankNicolson<Dimension::Two>::update_time_evolution_matrices(Eigen::
 
     // Eigen::MatrixXcd mat = vec_to_mat(vec);
 
-    // calculate_DDI(vec);
+    calculate_DDI(vec);
 
     for(int k = 0; k < _size_x; ++k){
         for(int l = 0; l < _size_y; ++l){
@@ -113,15 +113,15 @@ void GPES::CrankNicolson<Dimension::Two>::update_time_evolution_matrices(Eigen::
             std::complex<double> U_potential = 1.0 * (_delta_t * 0.5)*std::complex<double>(_V_ext(k,l));
             std::complex<double> U_contact = 1.0 * (_delta_t * 0.5)*std::norm(vec(index));
             std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(index);
-            std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(vec(index)), 2.5);
+            std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(vec(index)), 1.5);
 
             // //Real time evolution matrices
             // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential;// + U_dd + U_lhy;
-            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential;//  - U_dd - U_lhy;
+            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential + U_dd + U_lhy;
+            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential - U_dd - U_lhy;
         }
     }
     this->init_Mat_A(_lambda_x,_lambda_y,a);
@@ -292,7 +292,7 @@ void GPES::CrankNicolson<Dimension::Two>::simulation(){
         // Update b for the next iteration
         b = x;
 
-        if(i % 1 == 0)
+        if(i % 50 == 0)
             std::cout << "Simulation step: #" << i << '\n';
 
         _Fin = x;
@@ -392,9 +392,9 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(Eigen::VectorXcd &
             double ddi = 0.5 * _U_ddi(index) * std::norm(vec(index)); 
 
             //LHY correction term energy
-            double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(index)), 2.5);
+            double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(index)), 3);
 
-            energy += _step_x * _step_y * (kinetic + potential + interaction ); //+ ddi + lhy
+            energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); // 
         }
     }
     return energy;
@@ -423,7 +423,7 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(GPES::WaveFunction
             //LHY correction term energy
             double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(index)), 2.5);
 
-            energy += _step_x * _step_y * (kinetic + potential + interaction ); // + ddi + lhy
+            energy += _step_x * _step_y * (kinetic + potential + interaction  + ddi + lhy); // 
         }   
     }
     return energy;

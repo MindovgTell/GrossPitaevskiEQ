@@ -42,9 +42,8 @@ void GPES::CrankNicolson<Dimension::One>::calc_C_dd(double a_dd){
 }
  
 void GPES::CrankNicolson<Dimension::One>::calc_g_lhy(double a_s, double a_dd){
-    _g_lhy = 1.;
+    _g_lhy = (128. / 3) * std::sqrt(M_PI) * std::pow(a_s, 2.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
 }
-
 
 void GPES::CrankNicolson<Dimension::One>::calculate_DDI(Eigen::VectorXcd& vec){
     if(this->F_ddi)
@@ -71,7 +70,7 @@ void GPES::CrankNicolson<Dimension::One>::calculate_DDI_not_FFT(Eigen::VectorXcd
             double alfa = std::abs(pos) / (std::sqrt(2) * l_transv);
 
             //Firstly calculating V_1d
-            V_1d = _C_dd * (2 * l_transv * std::abs(pos) - std::sqrt(2 * M_PI) * (std::pow(l_transv,2) + std::pow(pos, 2)) * std::erfc(alfa) * std::exp(alfa*alfa));
+            V_1d = _C_dd / (4*M_PI) * (2 * l_transv * std::abs(pos) - std::sqrt(2 * M_PI) * (std::pow(l_transv,2) + std::pow(pos, 2)) * std::erfc(alfa) * std::exp(alfa*alfa));
 
             answ += V_1d * std::norm(vec(j)) * _step;
         }
@@ -90,13 +89,13 @@ void GPES::CrankNicolson<Dimension::One>::init_time_evolution_matrices(){
     Eigen::VectorXcd b(_size);
 
     // calculate_DDI(_Psi);
-    calculate_DDI_not_FFT(_Psi);
+    // calculate_DDI_not_FFT(_Psi);
     for(int i = 0; i < _size; ++i){
 
         std::complex<double> U_potential = 1.0 * (_delta_t*0.5)*std::complex<double>(_V_ext(i));
         std::complex<double> U_scattering =  1.0 * (_delta_t*0.5 * _g_scattering)*std::norm(_Psi(i));
         std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(i);
-        std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(_Psi(i)), 2.5);
+        std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(_Psi(i)), 0.5);
         
         // // Real time evolution matrices
         // a(i) = (1.0 - 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
@@ -121,13 +120,13 @@ void GPES::CrankNicolson<Dimension::One>::update_time_evolution_matrices(Eigen::
     Eigen::VectorXcd b(size);
 
     // calculate_DDI(vec);
-    calculate_DDI_not_FFT(vec);
+    // calculate_DDI_not_FFT(vec);
     for(int i = 0; i < size; ++i){
 
         std::complex<double> U_potential = 1.0 * (_delta_t*0.5)*std::complex<double>(_V_ext(i));
         std::complex<double> U_scattering =  1.0 * (_delta_t*0.5 * _g_scattering)*std::norm(vec(i));
         std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(i);
-        std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(vec(i)), 2.5);
+        std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(vec(i)), 0.5);
         
         
         // // Real time evolution matrices
@@ -146,7 +145,6 @@ void GPES::CrankNicolson<Dimension::One>::update_time_evolution_matrices(Eigen::
     this->init_Mat_A(_lambda_x, a);
     this->init_Mat_B(-1.0 * _lambda_x, b); 
 }
-
 
 //Function for initialization left-hand side matrix according to Crank Nicolson algorithm
 void GPES::CrankNicolson<Dimension::One>::init_Mat_A(std::complex<double> r, Eigen::VectorXcd& d){

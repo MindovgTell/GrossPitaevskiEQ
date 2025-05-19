@@ -208,7 +208,7 @@ public:
         // Copy result to Eigen matrix and normalize
         for (int i = 0; i < Nx; ++i) {
             for (int j = 0; j < Ny; ++j) {
-                Phi_DDI(i, j) = potential_real[i*Ny + j] / (Nx * Ny);
+                Phi_DDI(i*Ny + j) = potential_real[i*Ny + j] / (Nx * Ny);
             }
         }
     } 

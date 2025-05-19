@@ -1,2 +1,2 @@
 Problem     grid_x  grid_y      deltat  T       start_x     start_y     N       a_s     a_dd    x_c     y_c     sigma_x     sigma_y     omega_x     omega_y
-1           100     100         1e-2    1e-0    -50.        -50.        1000    100       1       0       0       10          10          1           1
+1           150     150         1e-3    1.2e-1    -30.        -30.        1000    0.1       -0.5       0       0       5          5          1           6
