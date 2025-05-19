@@ -41,7 +41,7 @@ private:
 
 
     unsigned int _Num, _T, _t_step, _size;
-    double _g_scattering, _g_ddi, _g_lhy, _delta_t, _start, _step;
+    double _g_scattering, _C_dd, _g_lhy, _delta_t, _start, _step;
 
     std::complex<double> _lambda_x;
 
@@ -56,12 +56,12 @@ private:
 public:
     CrankNicolson(Grid<Dimension::One>& grid, WaveFunction<Dimension::One>& Psi, double deltat, double T);
 
-    void init_g_scattering();
-    void init_g_ddi();
-    void init_g_lhy();
+    void calc_C_dd(double a_dd);
+    void calc_g_lhy(double a_s, double a_dd);
 
     //Function for calculating Dipole-Dipole Interaction
     void calculate_DDI(Eigen::VectorXcd& vec);
+    void calculate_DDI_not_FFT(Eigen::VectorXcd& vec);
 
     void init_time_evolution_matrices();
     void update_time_evolution_matrices(Eigen::VectorXcd& vec);
@@ -84,6 +84,7 @@ public:
 
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
+    double calc_state_energy(WaveFunction<Dimension::One>& vec);
 
     // double calc_state_chem_potential();
     // double calc_state_chem_potential(Eigen::VectorXcd &vec);
@@ -141,7 +142,7 @@ private:
     std::unique_ptr<DipolarInteraction<Dimension::Two>> F_ddi;
 
     int _size_x, _size_y, _T, _t_step, _Num;
-    double _g_scattering, _g_ddi, _g_lhy;
+    double _g_scattering, _C_dd, _g_lhy;
     double _delta_t, _h_step, _omega_x, _omega_y, _chem_potential, _start_x, _start_y, _step_x, _step_y;
     std::complex<double> _lambda_x, _lambda_y;
 
@@ -157,9 +158,9 @@ public:
     int get_index(int i,int j) { return i * _size_x + j;}
 
 
-    void init_g_scattering();
-    void init_g_ddi();
-    void init_g_lhy();
+    void calc_g_scattering(double a_s);
+    void calc_C_dd(double a_dd);
+    void calc_g_lhy(double a_s, double a_dd);
 
     //Function for calculating 2D DDI
     void calculate_DDI(Eigen::VectorXcd &vec);
@@ -186,6 +187,7 @@ public:
 
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
+    double calc_state_energy(WaveFunction<Dimension::Two> &vec);
 
     //Gettes Funcitons
 

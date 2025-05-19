@@ -14,6 +14,12 @@ namespace GPES
 template<Dimension dim>
 class WaveFunction;
 
+//********************************/***********/********************************//
+//                                                                             //
+//************************/One dimensional wavefunction/***********************//
+//                                                                             //
+//********************************/***********/********************************//
+
 template<>
 class WaveFunction<Dimension::One> {
 private:
@@ -23,7 +29,6 @@ private:
 
     double _step, _start;
 
-
 public:
     WaveFunction(): _a_s(0), _a_dd(0), _Num(0), _size(0), _step(0), _start(0), _g_scattering(0), _Psi(Eigen::VectorXcd(0)) {}
 
@@ -32,7 +37,7 @@ public:
         _size = grid.get_size_of_grid();
         _step = grid.get_step_size();
         _start = grid.get_start_position();
-        _g_scattering = -2. / _a_s;
+        _g_scattering = 2. / _a_s;
         _Psi = Eigen::VectorXcd::Zero(_size);
     }
 
@@ -59,7 +64,7 @@ public:
     double square_func(double x);
 
     //Initialization of starting 1D state
-    void set_state_TM(double x_c);
+    void set_state_TF(double x_c);
     void set_state_Square(double x_c);
     void set_state_Gauss(double x_c, double sigma_x);
 
@@ -75,7 +80,9 @@ public:
     unsigned int get_size_of_grid() {return _size; }
     double get_start_position() { return _start; }
     double get_step_size() { return _step; }
-    double get_g_scat() { return _g_scattering;}
+    double get_g_scat() { return _g_scattering; }
+    double get_a_s() {return _a_s; }
+    double get_a_dd() {return _a_dd; }
     // Acceptors function
 
     int size() { return _Psi.size(); }
@@ -86,11 +93,11 @@ public:
     std::complex<double>& operator()(int i) { return _Psi(i); }
     std::complex<double> operator()(int i) const{ return _Psi(i); }
 
-
+    //Functions for saving vectors into csv tables
     void save_vector_to_csv(std::string filename, const Eigen::VectorXd& v);
+    void save_state_to_csv(std::string filename);
 
     void normalize(Eigen::VectorXcd& vec);
-
     Eigen::VectorXd prob(Eigen::VectorXcd &vec);
     Eigen::VectorXd prob();
 
@@ -145,7 +152,7 @@ Eigen::VectorXcd WaveFunction<Dimension::One>::TM_state(){
     return U;
 }
 
-void WaveFunction<Dimension::One>::set_state_TM(double x_c){
+void WaveFunction<Dimension::One>::set_state_TF(double x_c){
     Eigen::VectorXcd U(_size);
     double psum = 0;
     double x = _start;
@@ -212,7 +219,6 @@ Eigen::VectorXd WaveFunction<Dimension::One>::prob()
     return pr;
 }
 
-
 void WaveFunction<Dimension::One>::normalize(Eigen::VectorXcd &vec){
         int size = vec.size();
         std::complex<double> psum = 0;
@@ -224,7 +230,6 @@ void WaveFunction<Dimension::One>::normalize(Eigen::VectorXcd &vec){
     }
 
 void WaveFunction<Dimension::One>::save_vector_to_csv(std::string filename, const Eigen::VectorXd& v){
-
     const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
     int size = v.size();
     Eigen::VectorXd vector(size);
@@ -237,22 +242,31 @@ void WaveFunction<Dimension::One>::save_vector_to_csv(std::string filename, cons
     }
 }
 
+void WaveFunction<Dimension::One>::save_state_to_csv(std::string filename){
+    Eigen::VectorXd pr = prob();
+    save_vector_to_csv(filename, pr);
+}
 
 
 
 
+//********************************/***********/********************************//
+//                                                                             //
+//************************/Two dimensional wavefunction/***********************//
+//                                                                             //
+//********************************/***********/********************************//
 
 template<>
 class WaveFunction<Dimension::Two> {
 private:
-    double _a_s, _a_dd, _omega_x, _omega_y;
+    double _a_s, _a_dd, _omega_x, _omega_y, _g_scattering;
     unsigned int _Num, _size_x, _size_y;
     double _step_x, _step_y, _start_x, _start_y;
 
     Eigen::VectorXcd _Psi;
 
 public:
-    WaveFunction(): _a_s(0), _a_dd(0), _Num(0), _size_x(0), _step_x(0), _start_x(0), _size_y(0), _step_y(0), _start_y(0), _Psi(Eigen::VectorXcd(0)) {}
+    WaveFunction(): _a_s(0), _g_scattering(0), _a_dd(0), _Num(0), _size_x(0), _step_x(0), _start_x(0), _size_y(0), _step_y(0), _start_y(0), _Psi(Eigen::VectorXcd(0)) {}
 
     WaveFunction(Grid<Dimension::Two>& grid, double a_s, double a_dd, int number_of_particles): _a_s(a_s), _a_dd(a_dd), _Num(number_of_particles) {
         _omega_x = grid.get_omega_x();
@@ -263,6 +277,7 @@ public:
         _step_y = grid.get_step_size_y();
         _start_x = grid.get_start_position_x();
         _start_y = grid.get_start_position_y();
+        _g_scattering = std::sqrt(8. * M_PI) * a_s;
         _Psi = Eigen::VectorXcd::Zero(_size_x * _size_y);
     }
 
@@ -300,6 +315,10 @@ public:
     double get_start_position_y() { return _start_y; }
     double get_step_size_x() { return _step_x; }
     double get_step_size_y() { return _step_y; }
+
+    double get_g_scattering() { return _g_scattering;}
+    double get_a_s() { return _a_s;}
+    double get_a_dd() { return _a_dd;}
     // Acceptors function
 
     unsigned int size() { return _Psi.size(); }
@@ -316,7 +335,6 @@ public:
     Eigen::VectorXd prob();
     double prob(int index);
 };
-
 
 double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(){
     double numerator = 4.0 * _omega_y * _Num;

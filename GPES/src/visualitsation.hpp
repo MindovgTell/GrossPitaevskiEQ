@@ -117,6 +117,23 @@ void draw_energy(std::vector<double>& x, std::vector<double>& vec, std::vector<d
     plt::show(); 
 }
 
+void draw_energy(std::vector<double>& vec_of_energies, std::vector<double>& TM_en){
+
+    std::vector<double> en_len(vec_of_energies.size());
+    std::iota(en_len.begin(), en_len.end(), 1);
+
+    std::vector<double> x_vec(en_len.data(), en_len.data() + en_len.size());
+
+    plt::figure();
+    plt::plot(x_vec, vec_of_energies, std::string("b-"),{{"label", "data trend"}});
+    plt::plot(x_vec, TM_en, std::string("g--"),{{"label", "TM state energy"}});
+    plt::xlabel("time [s]");
+    plt::ylabel("observation [m]");
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
+
 
 void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin, Eigen::VectorXd& V){
     std::vector<double> x_vec(x.data(), x.data() + x.size());
