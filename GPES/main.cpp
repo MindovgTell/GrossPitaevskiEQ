@@ -20,9 +20,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    simulation1D(argv[1]);
+    // simulation1D(argv[1]);
 
-    // simulation2D(argv[1]);
+    simulation2D(argv[1]);
 
     // test();
 
