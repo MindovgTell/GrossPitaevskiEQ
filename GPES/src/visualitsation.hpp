@@ -2,6 +2,7 @@
 #define VISUALISATION_HPP
 
 
+#include <vector>
 #include <Eigen/Dense>
 #include "grid.hpp"
 #include "wavefunciton.hpp"
@@ -11,6 +12,23 @@ namespace plt = matplotlibcpp;
 
 namespace GPES {
 
+
+// void draw(std::vector<double>& vec){
+//     int size = vec.size();
+
+//     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0);
+
+//     std::vector<double> x_vec(x.data(), x.data() + x.size());
+
+
+//     plt::figure();
+//     plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}});
+//     plt::xlabel("time [s]");
+//     plt::ylabel("observation [m]");
+//     plt::legend();
+//     plt::grid();
+//     plt::show(); 
+// }
 
 void draw(Grid<Dimension::One>& grid){
     int size = grid.get_size_of_grid();

@@ -89,6 +89,9 @@ void simulation2D(std::string inputfile){
     std::string line;
     double Problem, grid_size_x, grid_size_y, deltat, T, start_x, start_y, number_of_mol, a_s, a_dd, x_c, y_c, sigma_x, sigma_y, omega_x, omega_y;
 
+    std::vector<double> energies_for_diff_grid;
+    energies_for_diff_grid.reserve(8);
+
     std::getline(input_data,line);
     while(std::getline(input_data,line)) {//Skip first line in file
 
@@ -139,9 +142,13 @@ void simulation2D(std::string inputfile){
         std::vector<double> E = solver.get_vec_Energy();
         std::vector<double> TM_en(E.size(), TM_energy);
 
+        energies_for_diff_grid.push_back(E.back());
         GPES::draw_energy(E, TM_en);
 
     }
+
+    
+
 }
 
 
