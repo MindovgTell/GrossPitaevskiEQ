@@ -1,0 +1,2 @@
+Problem     grid    deltat  T       start   N       a_s     a_dd    x_c     sigma_x
+1           500     5e-4    1e-0    -40.    10000    80       -100       0       10
