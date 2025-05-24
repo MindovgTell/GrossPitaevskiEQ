@@ -13,22 +13,22 @@ namespace plt = matplotlibcpp;
 namespace GPES {
 
 
-// void draw(std::vector<double>& vec){
-//     int size = vec.size();
+void draw(std::vector<double>& vec){
+    int size = vec.size();
 
-//     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0);
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0, size);
 
-//     std::vector<double> x_vec(x.data(), x.data() + x.size());
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
 
 
-//     plt::figure();
-//     plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}});
-//     plt::xlabel("time [s]");
-//     plt::ylabel("observation [m]");
-//     plt::legend();
-//     plt::grid();
-//     plt::show(); 
-// }
+    plt::figure();
+    plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}});
+    plt::xlabel("time [s]");
+    plt::ylabel("observation [m]");
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
 
 void draw(Grid<Dimension::One>& grid){
     int size = grid.get_size_of_grid();
@@ -145,6 +145,22 @@ void draw_energy(std::vector<double>& vec_of_energies, std::vector<double>& TM_e
     plt::figure();
     plt::plot(x_vec, vec_of_energies, std::string("b-"),{{"label", "data trend"}});
     plt::plot(x_vec, TM_en, std::string("g--"),{{"label", "TM state energy"}});
+    plt::xlabel("time [s]");
+    plt::ylabel("observation [m]");
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
+
+void draw_energy(std::vector<double>& vec_of_energies){
+
+    std::vector<double> en_len(vec_of_energies.size());
+    std::iota(en_len.begin(), en_len.end(), 1);
+
+    std::vector<double> x_vec(en_len.data(), en_len.data() + en_len.size());
+
+    plt::figure();
+    plt::plot(x_vec, vec_of_energies, std::string("b-"),{{"label", "data trend"}});
     plt::xlabel("time [s]");
     plt::ylabel("observation [m]");
     plt::legend();

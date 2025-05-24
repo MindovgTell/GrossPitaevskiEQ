@@ -11,7 +11,7 @@ GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, W
     _start = grid.get_start_position();
     _V_ext = grid.get_potential();
 
-    _t_step = std::round(T/_delta_t) + 1;
+    _t_step = std::round(1/_delta_t) + 1;
 
     _Psi = Psi.get_wavefunction();
     _Fin = Eigen::VectorXcd::Zero(_size);
@@ -22,7 +22,7 @@ GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, W
     
     // Initialize interaction strengths
 
-    _g_scattering = Psi.get_g_scat();
+    calc_g_scattering(Psi.get_a_s());
     calc_C_dd(Psi.get_a_dd()); 
     calc_g_lhy(Psi.get_a_s(), Psi.get_a_dd()); 
 
@@ -35,6 +35,10 @@ GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, W
     vec_Energy.reserve(_t_step);
 
     init_time_evolution_matrices();
+}
+
+void GPES::CrankNicolson<Dimension::One>::calc_g_scattering(double a_s) {
+    _g_scattering = - 2. / a_s;
 }
 
 void GPES::CrankNicolson<Dimension::One>::calc_C_dd(double a_dd){
@@ -203,9 +207,27 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
     // Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> solver;
     Eigen::SimplicialLLT<Eigen::SparseMatrix<std::complex<double>>> solver;
     // Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>> solver;
+    
+    // for (int i = 1; i < _t_step; ++i) {
+    //     normalize(b);
+    //     update_time_evolution_matrices(b);
+    //     solver.compute(_A);
+    //     // Update the right-hand side vector b
+    //     b = _B * b;
+    //     // // Solve the system A * x = b
+    //     x = solver.solve(b);
+    //     // Update b for the next iteration
+    //     b = x;
+    //     if(i % 100 == 0)
+    //         std::cout << "Simulation step: #" << i << '\n';
+    //     _Fin = x;
+    //     normalize(_Fin);
+    //     this->vec_Energy.push_back(calc_state_energy(_Fin));
+    // }
 
-    for (int i = 1; i < _t_step; ++i) {
+    int i = 0;
 
+    do {
         normalize(b);
         update_time_evolution_matrices(b);
 
@@ -224,9 +246,10 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
 
         _Fin = x;
         normalize(_Fin);
-
-        this->vec_Energy.push_back(calc_state_energy(_Fin));
-    }
+        double current_energy = calc_state_energy(_Fin);
+        this->vec_Energy.push_back(current_energy);
+        ++i;
+    } while(simulation_stop(i));
 }
 
 void GPES::CrankNicolson<Dimension::One>::normalize(Eigen::VectorXcd &vec){
@@ -301,6 +324,28 @@ double GPES::CrankNicolson<Dimension::One>::calc_state_energy(GPES::WaveFunction
         energy += _step * (kinetic + potential + interaction + ddi + lhy); 
     }
     return energy;
+}
+
+inline bool GPES::CrankNicolson<Dimension::One>::simulation_stop(int i)
+{
+
+    if(i > 5000)
+        return false;
+
+    double epsilon = 10e-10, last, before_last;
+
+    if (vec_Energy.size() >= 2) {
+    last = *vec_Energy.rbegin();
+    before_last = *(vec_Energy.rbegin() + 1);
+    }
+    else 
+        return true;
+    
+    double diff = std::abs((last - before_last) / last);
+
+    if(diff < epsilon)
+        return false;
+    return true;
 }
 
 void GPES::CrankNicolson<Dimension::One>::get_final_state(GPES::WaveFunction<Dimension::One>& fin){ 

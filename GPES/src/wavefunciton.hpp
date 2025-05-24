@@ -37,7 +37,7 @@ public:
         _size = grid.get_size_of_grid();
         _step = grid.get_step_size();
         _start = grid.get_start_position();
-        _g_scattering = 2. / _a_s;
+        _g_scattering = -2. / _a_s;
         _Psi = Eigen::VectorXcd::Zero(_size);
     }
 

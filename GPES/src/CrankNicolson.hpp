@@ -56,6 +56,7 @@ private:
 public:
     CrankNicolson(Grid<Dimension::One>& grid, WaveFunction<Dimension::One>& Psi, double deltat, double T);
 
+    void calc_g_scattering(double a_s);
     void calc_C_dd(double a_dd);
     void calc_g_lhy(double a_s, double a_dd);
 
@@ -85,6 +86,9 @@ public:
     double calc_state_energy();
     double calc_state_energy(Eigen::VectorXcd &vec);
     double calc_state_energy(WaveFunction<Dimension::One>& vec);
+
+    bool simulation_stop(int i); // Simulation stop function due to the small energy difference between steps
+
 
     // double calc_state_chem_potential();
     // double calc_state_chem_potential(Eigen::VectorXcd &vec);

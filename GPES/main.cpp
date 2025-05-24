@@ -20,9 +20,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    // simulation1D(argv[1]);
+    simulation1D(argv[1]);
 
-    simulation2D(argv[1]);
+    // simulation2D(argv[1]);
 
     // test();
 
@@ -59,6 +59,7 @@ void simulation1D(std::string inputfile){
         GPES::WaveFunction<Dimension::One> Psi(grid, a_s, a_dd, number_of_mol);
         GPES::WaveFunction<Dimension::One> Psi2(grid, a_s, a_dd, number_of_mol); //(Grid, )
         Psi.set_state_Gauss(x_c, sigma_x);
+        // Psi.set_state_TF(x_c);
         Psi2.set_state_TF(x_c);
 
         GPES::CrankNicolson<Dimension::One> solver(grid,Psi, deltat, T);
@@ -129,9 +130,9 @@ void simulation2D(std::string inputfile){
         solver.get_final_state(Fin);
 
 
-        GPES::heatmap(Psi);
-        GPES::heatmap(Fin);
-        GPES::heatmap(Psi2);
+        // GPES::heatmap(Psi);
+        // GPES::heatmap(Fin);
+        // GPES::heatmap(Psi2);
 
 
 
@@ -143,11 +144,11 @@ void simulation2D(std::string inputfile){
         std::vector<double> TM_en(E.size(), TM_energy);
 
         energies_for_diff_grid.push_back(E.back());
-        GPES::draw_energy(E, TM_en);
+        // GPES::draw_energy(E, TM_en);
 
     }
 
-    
+    GPES::draw_energy(energies_for_diff_grid);
 
 }
 
