@@ -35,6 +35,8 @@ void simulation1D(std::string inputfile){
 
     std::string line;
     double Problem,grid_size, deltat, T, start, number_of_mol, a_s, a_dd, x_c, sigma_x;
+    std::vector<double> energies_for_diff_grid;
+    energies_for_diff_grid.reserve(8);
 
     std::getline(input_data,line);
     while(std::getline(input_data,line)) {//Skip first line in file
@@ -48,9 +50,10 @@ void simulation1D(std::string inputfile){
             std::cout << std::setw(width) << Problem << std::setw(width) << grid_size << std::setw(width) << deltat << std::setw(width) << T << std::setw(width) << start << std::setw(width)
             << number_of_mol << std::setw(width) << a_s << std::setw(width) << a_dd << std::setw(width) << x_c << std::setw(width) << sigma_x << std::endl;
         }
-        else
+        else {
             std::cout << "Error reading values from string!" << std::endl;
-        
+            return;
+        }
         //initialize grid
         GPES::Grid<Dimension::One> grid(grid_size, start); // grid(Number_of_grid_nodes, starting_position)
         grid.set_harmonic_potential(1);
@@ -59,7 +62,7 @@ void simulation1D(std::string inputfile){
         GPES::WaveFunction<Dimension::One> Psi(grid, a_s, a_dd, number_of_mol);
         GPES::WaveFunction<Dimension::One> Psi2(grid, a_s, a_dd, number_of_mol); //(Grid, )
         Psi.set_state_Gauss(x_c, sigma_x);
-        // Psi.set_state_TF(x_c);
+        // Psi.set_state_Square(x_c);
         Psi2.set_state_TF(x_c);
 
         GPES::CrankNicolson<Dimension::One> solver(grid,Psi, deltat, T);
@@ -70,6 +73,7 @@ void simulation1D(std::string inputfile){
 
         GPES::draw(Psi,Fin);
         GPES::draw(Psi2,Fin);
+        GPES::draw(Psi,Fin, Psi2);
 
         //Calculating energy the energy during simulation
 
@@ -79,7 +83,10 @@ void simulation1D(std::string inputfile){
         std::vector<double> TM_en(E.size(), TM_energy);
 
         GPES::draw_energy(E, TM_en);
+        energies_for_diff_grid.push_back(E.back());
+        std::cout << E.back() << std::endl;
     }
+    GPES::draw_energy(energies_for_diff_grid);
 }
 
 
@@ -130,9 +137,9 @@ void simulation2D(std::string inputfile){
         solver.get_final_state(Fin);
 
 
-        // GPES::heatmap(Psi);
-        // GPES::heatmap(Fin);
-        // GPES::heatmap(Psi2);
+        GPES::heatmap(Psi, "Initial state");
+        GPES::heatmap(Fin, "Final state");
+        GPES::heatmap(Psi2, "Thomas-Fermi limit");
 
 
 
@@ -144,7 +151,7 @@ void simulation2D(std::string inputfile){
         std::vector<double> TM_en(E.size(), TM_energy);
 
         energies_for_diff_grid.push_back(E.back());
-        // GPES::draw_energy(E, TM_en);
+        GPES::draw_energy(E, TM_en);
 
     }
 

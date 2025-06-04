@@ -37,7 +37,10 @@ public:
         _size = grid.get_size_of_grid();
         _step = grid.get_step_size();
         _start = grid.get_start_position();
-        _g_scattering = -2. / _a_s;
+        if (_a_s != 0)
+            _g_scattering =  _a_s;
+        else
+            _g_scattering = 0;
         _Psi = Eigen::VectorXcd::Zero(_size);
     }
 
@@ -106,7 +109,7 @@ public:
 
 double WaveFunction<Dimension::One>::square_func(double x){
     double R_tf = std::cbrt(1.5 * _Num * _g_scattering);
-    double high = this->_Num / R_tf;
+    double high = _Num / R_tf;
     double potential = R_tf * R_tf * 0.5;
     double out = potential * (1 - std::pow(x/R_tf,2.));
 
@@ -118,7 +121,7 @@ double WaveFunction<Dimension::One>::square_func(double x){
 }
 
 std::complex<double> WaveFunction<Dimension::One>::gauss_wave_packet(double sigma_x,  double x,  double x_c){
-    std::complex<double> i(0, 1); // Define the imaginary unit
+    // std::complex<double> i(0, 1); // Define the imaginary unit
     double exponent = -(pow(x-x_c,2) / (2 * pow(sigma_x,2))); //this->m_size/2 //-x_c
     //std::complex<double> phase = i * p_x * (x - x_c); 
     return std::exp(exponent); //+ phase

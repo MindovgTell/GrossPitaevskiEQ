@@ -120,7 +120,33 @@ void draw(WaveFunction<Dimension::One>& first_wave,  WaveFunction<Dimension::One
     plt::show(); 
 }
 
+void draw(WaveFunction<Dimension::One>& first_wave,  WaveFunction<Dimension::One>& second_wave, WaveFunction<Dimension::One>& third_wave ){
+    //Add support for exceptions with different size of vectors
 
+    int size = first_wave.get_size_of_grid();
+    double start = first_wave.get_start_position();
+
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, start, -1 * start);
+
+    Eigen::VectorXd Psi = first_wave.prob();
+    Eigen::VectorXd Fin = second_wave.prob();
+    Eigen::VectorXd TF  = third_wave.prob();
+
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
+    std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
+    std::vector<double> z_vec(Fin.data(), Fin.data() + Fin.size());
+    std::vector<double> t_vec(TF.data(), TF.data() + TF.size());
+
+    plt::figure();
+    plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "Initial state"}});
+    plt::plot(x_vec,z_vec, std::string("r-"),{{"label", "Final state"}});
+    plt::plot(x_vec,t_vec, std::string("g-"),{{"label", "Thomas-Fermi limit"}});
+    plt::xlabel("x / l$_{\\perp}$",{{"fontsize", "20"}});
+    plt::ylabel("$|\\Psi(x)|^2$", {{"fontsize", "20"}});
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
 
 void draw_energy(std::vector<double>& x, std::vector<double>& vec, std::vector<double>& TM_en){
     std::vector<double> x_vec(x.data(), x.data() + x.size());
@@ -145,8 +171,8 @@ void draw_energy(std::vector<double>& vec_of_energies, std::vector<double>& TM_e
     plt::figure();
     plt::plot(x_vec, vec_of_energies, std::string("b-"),{{"label", "data trend"}});
     plt::plot(x_vec, TM_en, std::string("g--"),{{"label", "TM state energy"}});
-    plt::xlabel("time [s]");
-    plt::ylabel("observation [m]");
+    plt::xlabel("simulation step");
+    plt::ylabel("final state energy, $\\hbar \\omega$");
     plt::legend();
     plt::grid();
     plt::show(); 
@@ -266,7 +292,10 @@ void heatmap(Grid<Dimension::Two>& mat){
         plt::title("Eigen Heatmap");
         // plt::xlim(mat.get_start_position_x(), -1. * mat.get_start_position_x());
         // plt::ylim(mat.get_start_position_y(), -1. * mat.get_start_position_y());
-
+        
+        plt::xlabel("X");
+        plt::ylabel("Y");
+        plt::legend();
         plt::show();
     }
     catch (const std::exception& e) {
@@ -285,7 +314,7 @@ std::vector<std::vector<double>> Eigen_to_vector2D(WaveFunction<Dimension::Two>&
     return result;
 }
 
-void heatmap(WaveFunction<Dimension::Two>& wave){
+void heatmap(WaveFunction<Dimension::Two>& wave, std::string name){
 
     try {
         std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(wave);
@@ -298,9 +327,11 @@ void heatmap(WaveFunction<Dimension::Two>& wave){
         // Plot
         plt::imshow(heatmap_data); //  , {{"cmap", "'plasma'"}, {"interpolation", "'nearest'"}}
         plt::colorbar();
-        plt::title("Eigen Heatmap");
+        plt::title(name);
         // plt::xlim(wave.get_start_position_x(), -1. * wave.get_start_position_x());
         // plt::ylim(wave.get_start_position_y(), -1. * wave.get_start_position_y());
+        plt::xlabel("X", {{"fontsize", "18"}});
+        plt::ylabel("Y", {{"fontsize", "18"}});
         plt::show();
     }
     catch (const std::exception& e) {

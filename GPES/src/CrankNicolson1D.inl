@@ -38,7 +38,7 @@ GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, W
 }
 
 void GPES::CrankNicolson<Dimension::One>::calc_g_scattering(double a_s) {
-    _g_scattering = - 2. / a_s;
+    _g_scattering =  a_s;
 }
 
 void GPES::CrankNicolson<Dimension::One>::calc_C_dd(double a_dd){
@@ -110,8 +110,8 @@ void GPES::CrankNicolson<Dimension::One>::init_time_evolution_matrices(){
         // b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
 
         // TEST ADDED DDI
-        a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential + U_dd + U_lhy;
-        b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential - U_dd - U_lhy;
+        a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential;// + U_dd ;// + U_lhy;
+        b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential;// - U_dd ;//- U_lhy;
     }
 
     this->init_Mat_A(_lambda_x, a);
@@ -142,8 +142,8 @@ void GPES::CrankNicolson<Dimension::One>::update_time_evolution_matrices(Eigen::
         // b(i) = 1.0 - 2.0*this->m_lambda_x + (m_delta_t*0.5)*std::complex<double>(m_V(i)) + (m_delta_t*0.5 * m_g)*std::norm(vec(i));
     
         // TEST ADDED DDI
-        a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential + U_dd + U_lhy;
-        b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential - U_dd - U_lhy;
+        a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential;// + U_dd; // + U_lhy;
+        b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential;// - U_dd; // - U_lhy;
     }
 
     this->init_Mat_A(_lambda_x, a);
@@ -222,7 +222,7 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
     //         std::cout << "Simulation step: #" << i << '\n';
     //     _Fin = x;
     //     normalize(_Fin);
-    //     this->vec_Energy.push_back(calc_state_energy(_Fin));
+    //     vec_Energy.push_back(calc_state_energy(_Fin));
     // }
 
     int i = 0;
@@ -247,7 +247,7 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
         _Fin = x;
         normalize(_Fin);
         double current_energy = calc_state_energy(_Fin);
-        this->vec_Energy.push_back(current_energy);
+        vec_Energy.push_back(current_energy);
         ++i;
     } while(simulation_stop(i));
 }
@@ -292,16 +292,16 @@ double GPES::CrankNicolson<Dimension::One>::calc_state_energy(Eigen::VectorXcd &
         std::complex<double> derivative = (vec(i + 1) - vec(i - 1)) * (1. / (2 * _step));
         double kinetic = std::norm(derivative) * 0.5;
         double potential = _V_ext(i) * std::norm(vec(i));
-        double interaction = 0.5 * std::norm(vec(i)) * std::norm(vec(i));
+        double interaction = 0.5 * _g_scattering * std::norm(vec(i)) * std::norm(vec(i));
 
         //Dipole-Dipole interaction energy
         double ddi = 0.5 * _U_ddi(i) * std::norm(vec(i)); 
 
         //LHY correction term energy
-        double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(i)), 2.5);
+        double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(i)), 2.5); //
 
 
-        energy += _step * (kinetic + potential + interaction + ddi + lhy); 
+        energy += _step * (kinetic + potential + interaction ); //  + ddi + lhy
     }
     return energy;
 }
@@ -313,7 +313,7 @@ double GPES::CrankNicolson<Dimension::One>::calc_state_energy(GPES::WaveFunction
         std::complex<double> derivative = (vec(i + 1) - vec(i - 1)) * (1. / (2 * _step));
         double kinetic = std::norm(derivative) * 0.5;
         double potential = _V_ext(i) * std::norm(vec(i));
-        double interaction = 0.5 * std::norm(vec(i)) * std::norm(vec(i));
+        double interaction = 0.5 * _g_scattering * std::norm(vec(i)) * std::norm(vec(i));
 
         //Dipole-Dipole interaction energy
         double ddi = 0.5 * _U_ddi(i) * std::norm(vec(i)); 
@@ -321,7 +321,7 @@ double GPES::CrankNicolson<Dimension::One>::calc_state_energy(GPES::WaveFunction
         //LHY correction term energy
         double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(i)), 2.5);
 
-        energy += _step * (kinetic + potential + interaction + ddi + lhy); 
+        energy += _step * (kinetic + potential + interaction); // + ddi + lhy
     }
     return energy;
 }
@@ -329,7 +329,7 @@ double GPES::CrankNicolson<Dimension::One>::calc_state_energy(GPES::WaveFunction
 inline bool GPES::CrankNicolson<Dimension::One>::simulation_stop(int i)
 {
 
-    if(i > 5000)
+    if(i > 8000)
         return false;
 
     double epsilon = 10e-10, last, before_last;
