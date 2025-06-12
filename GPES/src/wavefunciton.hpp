@@ -1,9 +1,13 @@
 #ifndef WAVEFUNCTION_HPP
 #define WAVEFUNCTION_HPP
 
+#include <iostream>
 #include <fstream>
 #include <Eigen/Dense>
 #include <complex>
+#include <vector>
+#include <iomanip>
+#include <map>
 #include "definitions.hpp"
 #include "grid.hpp"
 
@@ -11,8 +15,24 @@
 namespace GPES
 {
 
+using ParamList = std::map<std::string,double>;
+
 template<Dimension dim>
 class WaveFunction;
+
+
+static std::vector<std::string> split(const std::string& str, char delim = ',')
+{
+    std::vector<std::string> tokens;
+    std::stringstream        ss(str);
+    std::string              item;
+
+    while (std::getline(ss, item, delim))
+        tokens.emplace_back(item);
+
+    return tokens;
+}
+
 
 //********************************/***********/********************************//
 //                                                                             //
@@ -26,7 +46,6 @@ private:
     double _a_s, _a_dd, _omega, _g_scattering;
     unsigned int _Num, _size;
     Eigen::VectorXcd _Psi;
-
     double _step, _start;
 
 public:
@@ -71,21 +90,24 @@ public:
     void set_state_Square(double x_c);
     void set_state_Gauss(double x_c, double sigma_x);
 
-    void set_vec(Eigen::VectorXcd& vec) {_Psi = vec;}
-    void set_Num(unsigned int Num) {_Num = Num;}
-    void set_size_of_grid(unsigned int size) {_size = size;}
-    void set_start_position(double start) {_start = start;}
-    void set_step_size(double step) {_step = step;}
+    void set_vec(Eigen::VectorXcd& vec)         { _Psi = vec; }
+    void set_Num(unsigned int Num)              { _Num = Num; }
+    void set_size_of_grid(unsigned int size)    { _size = size; }
+    void set_start_position(double start)       { _start = start; }
+    void set_step_size(double step)             { _step = step; }
+    void set_a_s(double a_s)                    { _a_s = a_s; }
+    void set_a_dd(double a_dd)                  { _a_dd = a_dd; }
+    void set_omega(double omega)                { _omega = omega; }
 
     //Getters
-    Eigen::VectorXcd& get_wavefunction() {return _Psi;}
-    int get_Num() { return _Num; }
-    unsigned int get_size_of_grid() {return _size; }
-    double get_start_position() { return _start; }
-    double get_step_size() { return _step; }
-    double get_g_scat() { return _g_scattering; }
-    double get_a_s() {return _a_s; }
-    double get_a_dd() {return _a_dd; }
+    Eigen::VectorXcd& get_wavefunction()        { return _Psi; }
+    int get_Num()                               { return _Num; }
+    unsigned int get_size_of_grid()             { return _size; }
+    double get_start_position()                 { return _start; }
+    double get_step_size()                      { return _step; }
+    double get_g_scat()                         { return _g_scattering; }
+    double get_a_s()                            { return _a_s; }
+    double get_a_dd()                           { return _a_dd; }
     // Acceptors function
 
     int size() { return _Psi.size(); }
@@ -97,8 +119,19 @@ public:
     std::complex<double> operator()(int i) const{ return _Psi(i); }
 
     //Functions for saving vectors into csv tables
-    void save_vector_to_csv(std::string filename, const Eigen::VectorXd& v);
-    void save_state_to_csv(std::string filename);
+    void savecsv(const std::string filename, const Eigen::VectorXd& v);
+    void savecsv(const std::string filename, const Eigen::VectorXcd& v);
+    void savecsv_prob(const std::string filename);
+    void savecsv_state(const std::string filename);
+
+    void readcsv(const std::string filename);
+    // WaveFunction<Dimension::One> read_from_csv(
+    //                                            const std::string&               filename,
+    //                                            Eigen::VectorXcd&                v
+    //                                           );
+
+    void print_params();
+
 
     void normalize(Eigen::VectorXcd& vec);
     Eigen::VectorXd prob(Eigen::VectorXcd &vec);
@@ -232,22 +265,188 @@ void WaveFunction<Dimension::One>::normalize(Eigen::VectorXcd &vec){
         vec *= std::abs(normalization_factor);
     }
 
-void WaveFunction<Dimension::One>::save_vector_to_csv(std::string filename, const Eigen::VectorXd& v){
+void WaveFunction<Dimension::One>::savecsv(std::string filename, const Eigen::VectorXd& v){
     const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
-    int size = v.size();
-    Eigen::VectorXd vector(size);
-
     std::ofstream file(filename);
-    if(file.is_open()){
+    if(file.is_open()){    
         //file << vec.format(CSVFormat) << '\n';
-        file << vector.format(CSVFormat);
+        file << v.format(CSVFormat);
         file.close();
     }
 }
 
-void WaveFunction<Dimension::One>::save_state_to_csv(std::string filename){
+// void WaveFunction<Dimension::One>::savecsv(std::string filename, const Eigen::VectorXcd& v){
+//     const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
+//     std::ofstream file(filename);
+//     if(file.is_open()){    
+//         //file << vec.format(CSVFormat) << '\n';
+//         file << v.format(CSVFormat);
+//         file.close();
+//     }
+// }
+
+//test
+void WaveFunction<Dimension::One>::savecsv(const std::string filename, const Eigen::VectorXcd& v){
+
+
+    std::ofstream file(filename);
+    if (!file.is_open())
+        throw std::runtime_error("Could not open file: " + filename);
+
+
+    ParamList params{
+        {"a_s",              _a_s},
+        {"a_dd",             _a_dd},
+        {"omega",            _omega},
+        {"Num_of_particle",  static_cast<double>(_Num)},
+        {"size_of_grid",     static_cast<double>(_size)},
+        {"step_size",        _step},
+        {"grid_start_point", _start}
+    };
+
+    /* ---------- 1) metadata names ---------- */
+    bool first = true;
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.first;
+        first = false;
+    }
+    file << '\n';
+
+    /* ---------- 2) metadata values ---------- */
+    first = true;
+    file << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.second;
+        first = false;
+    }
+    file << "\n\n";                           // blank line before the data block
+
+    /* ---------- 3) the actual wave-function ---------- */
+    file << "index,real,imag\n";
+    for (Eigen::Index i = 0; i < v.size(); ++i) {
+        file << i << ',' << v[i].real() << ',' << v[i].imag() << '\n';
+    }
+}
+
+void WaveFunction<Dimension::One>::savecsv_prob(const std::string filename){
     Eigen::VectorXd pr = prob();
-    save_vector_to_csv(filename, pr);
+    savecsv(filename, pr);
+}
+
+
+void WaveFunction<Dimension::One>::savecsv_state(const std::string filename){
+    savecsv(filename, _Psi);
+}
+
+
+
+void WaveFunction<Dimension::One>::readcsv(const std::string filename){
+    // Open and check file competability
+    std::ifstream file(filename);
+    if (!file.is_open())
+        throw std::runtime_error("Cannot open file: " + filename);
+
+    /* Physical parameters keys */
+    std::string line;
+    if (!std::getline(file, line))
+        throw std::runtime_error("File is empty: " + filename);
+    std::vector<std::string> keys = split(line);
+
+    /* Physical parameters values */
+    if (!std::getline(file, line))
+        throw std::runtime_error("Missing value line in " + filename);
+    std::vector<std::string> valStr = split(line);
+
+    if (keys.size() != valStr.size())
+        throw std::runtime_error("Key/value count mismatch in " + filename);
+
+    ParamList params;
+    for (std::size_t i = 0; i < keys.size(); ++i)
+        params[keys[i]] = std::stod(valStr[i]);
+
+    /* ---------- 3) skip blank lines + verify data header ------------------ */
+    while (std::getline(file, line) && line.empty()) /*skip*/ ;
+    if (line != "index,real,imag")
+        throw std::runtime_error("Unexpected data header: " + line);
+
+    /* ---------- 4) read the complex vector -------------------------------- */
+    std::vector<std::complex<double>> data;
+    while (std::getline(file, line))
+    {
+        if (line.empty()) continue;
+        auto cols = split(line);
+        if (cols.size() != 3)
+            throw std::runtime_error("Bad data row: " + line);
+        data.emplace_back(std::stod(cols[1]), std::stod(cols[2]));
+    }
+
+    Eigen::VectorXcd vec(data.size());
+    for (Eigen::Index i = 0; i < vec.size(); ++i) vec[i] = data[i];
+
+    /*Initialization of wavefunciton parameters*/
+    _Psi    =   vec;
+    _a_dd   =   params.at("a_dd");
+    _a_s    =   params.at("a_s");
+    _omega  =   params.at("omega");
+    _Num    =   static_cast<std::size_t>(params.at("Num_of_particle"));
+    _size   =   static_cast<std::size_t>(params.at("size_of_grid"));
+    _step   =   params.at("step_size");
+    _start  =   params.at("grid_start_point");
+}
+
+
+// WaveFunction<Dimension::One> WaveFunction<Dimension::One>::read_from_csv(
+//                                                                          const std::string&               filename,
+//                                                                          Eigen::VectorXcd&                v
+//                                                                         ) {
+//     std::ifstream file(filename);
+//     if (!file.is_open())
+//         throw std::runtime_error("Cannot open file: " + filename);
+//     /* ---------- 1) metadata keys ---------- */
+//     std::string line;
+//     if (!std::getline(file, line))
+//         throw std::runtime_error("File is empty: " + filename);
+//     std::vector<std::string> keys = split(line);
+//     /* ---------- 2) metadata values -------- */
+//     if (!std::getline(file, line))
+//         throw std::runtime_error("Missing value line in " + filename);
+//     std::vector<std::string> valStr = split(line);
+//     if (keys.size() != valStr.size())
+//         throw std::runtime_error("Key/value count mismatch in " + filename);
+//     ParamList params;
+//     params.reserve(keys.size());
+//     for (std::size_t i = 0; i < keys.size(); ++i)
+//         params.emplace_back(keys[i], std::stod(valStr[i]));
+//     /* ---------- 3) skip blank lines + verify data header ------------------ */
+//     while (std::getline(file, line) && line.empty()) /*skip*/ ;
+//     if (line != "index,real,imag")
+//         throw std::runtime_error("Unexpected data header: " + line);
+//     /* ---------- 4) read the complex vector -------------------------------- */
+//     std::vector<std::complex<double>> data;
+//     while (std::getline(file, line))
+//     {
+//         if (line.empty()) continue;
+//         auto cols = split(line);
+//         if (cols.size() != 3)
+//             throw std::runtime_error("Bad data row: " + line);
+//         data.emplace_back(std::stod(cols[1]), std::stod(cols[2]));
+//     }
+//     Eigen::VectorXcd vec(data.size());
+//     for (Eigen::Index i = 0; i < vec.size(); ++i) vec[i] = data[i];
+//     /* ---------- 5) build and return the object ---------------------------- */
+//     return WaveFunction<Dimension::One>(std::move(vec), std::move(params));
+// }
+
+
+void WaveFunction<Dimension::One>::print_params(){
+    int width = 10;
+    std::cout << std::setw(width) << "grid_size" << std::setw(width) << "start" << std::setw(width) << "N_of_mol"  << std::setw(width) << "a_s" 
+    << std::setw(width) << "a_dd" << std::setw(width) << std::endl;
+
+    std::cout << std::setw(width) << _size << std::setw(width) << _start << std::setw(width)
+    << _Num << std::setw(width) << _a_s << std::setw(width) << _a_dd << std::setw(width) << std::endl;
 }
 
 
@@ -272,16 +471,16 @@ public:
     WaveFunction(): _a_s(0), _g_scattering(0), _a_dd(0), _Num(0), _size_x(0), _step_x(0), _start_x(0), _size_y(0), _step_y(0), _start_y(0), _Psi(Eigen::VectorXcd(0)) {}
 
     WaveFunction(Grid<Dimension::Two>& grid, double a_s, double a_dd, int number_of_particles): _a_s(a_s), _a_dd(a_dd), _Num(number_of_particles) {
-        _omega_x = grid.get_omega_x();
-        _omega_y = grid.get_omega_y();
-        _size_x = grid.get_size_of_grid_x();
-        _size_y = grid.get_size_of_grid_y();
-        _step_x = grid.get_step_size_x();
-        _step_y = grid.get_step_size_y();
-        _start_x = grid.get_start_position_x();
-        _start_y = grid.get_start_position_y();
-        _g_scattering = std::sqrt(8. * M_PI) * a_s;
-        _Psi = Eigen::VectorXcd::Zero(_size_x * _size_y);
+        _omega_x        =   grid.get_omega_x();
+        _omega_y        =   grid.get_omega_y();
+        _size_x         =   grid.get_size_of_grid_x();
+        _size_y         =   grid.get_size_of_grid_y();
+        _step_x         =   grid.get_step_size_x();
+        _step_y         =   grid.get_step_size_y();
+        _start_x        =   grid.get_start_position_x();
+        _start_y        =   grid.get_start_position_y();
+        _g_scattering   =   std::sqrt(8. * M_PI) * a_s;
+        _Psi            =   Eigen::VectorXcd::Zero(_size_x * _size_y);
     }
 
 
@@ -322,6 +521,9 @@ public:
     double get_g_scattering() { return _g_scattering;}
     double get_a_s() { return _a_s;}
     double get_a_dd() { return _a_dd;}
+
+    Eigen::VectorXd get_x_slice();
+    Eigen::VectorXd get_y_slice();
     // Acceptors function
 
     unsigned int size() { return _Psi.size(); }
@@ -337,6 +539,15 @@ public:
     Eigen::VectorXd prob(Eigen::VectorXcd &vec);
     Eigen::VectorXd prob();
     double prob(int index);
+
+    void savecsv(const std::string filename, const Eigen::VectorXcd& v);
+    void savecsv_state(const std::string filename);
+    void savecsv_prob(const std::string filename);
+
+    void readcsv(const std::string filename);
+
+    void print_params();
+
 };
 
 double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(){
@@ -473,9 +684,153 @@ double WaveFunction<Dimension::Two>::prob(int index){
         return 0;
 }
 
-
-
-    
+Eigen::VectorXd WaveFunction<Dimension::Two>::get_x_slice(){
+    int y_center = _size_y / 2;
+    Eigen::VectorXd slice(_size_x);
+    for(int i = 0; i < _size_x; ++i){
+        slice(i) = std::norm(_Psi(y_center * _size_x + i));
+    }
+    return slice;
 }
+
+
+Eigen::VectorXd WaveFunction<Dimension::Two>::get_y_slice(){
+    int x_center = _size_x / 2;
+    Eigen::VectorXd slice(_size_y);
+    for(int j = 0; j < _size_y; ++j){
+        slice(j) = std::norm(_Psi(j * _size_x + x_center));
+    }
+    return slice;
+}
+    
+void WaveFunction<Dimension::Two>::savecsv(const std::string filename, const Eigen::VectorXcd& v){
+
+    std::ofstream file(filename);
+    if (!file.is_open())
+        throw std::runtime_error("Could not open file: " + filename);
+
+
+    ParamList params{
+        {"a_s",                _a_s                        },
+        {"a_dd",               _a_dd                       },
+        {"omega_x",            _omega_x                    },
+        {"omega_y",            _omega_y                    },
+        {"Num_of_particle",    static_cast<double>(_Num)   },
+        {"size_of_grid_x",     static_cast<double>(_size_x)},
+        {"size_of_grid_y",     static_cast<double>(_size_y)},
+        {"step_size_x",        _step_x                     },
+        {"step_size_y",        _step_y                     },
+        {"grid_start_point_x", _start_x                    },
+        {"grid_start_point_y", _start_y                    }
+    };
+
+    /* ---------- 1) metadata names ---------- */
+    bool first = true;
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.first;
+        first = false;
+    }
+    file << '\n';
+
+    /* ---------- 2) metadata values ---------- */
+    first = true;
+    file << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.second;
+        first = false;
+    }
+    file << "\n\n";                           // blank line before the data block
+
+    /* ---------- 3) the actual wave-function ---------- */
+    file << "index,real,imag\n";
+    for (Eigen::Index i = 0; i < v.size(); ++i) {
+        file << i << ',' << v[i].real() << ',' << v[i].imag() << '\n';
+    }
+}
+
+void WaveFunction<Dimension::Two>::savecsv_prob(const std::string filename){
+    Eigen::VectorXd pr = prob();
+    savecsv(filename, pr);
+}
+
+void WaveFunction<Dimension::Two>::savecsv_state(const std::string filename){
+    savecsv(filename, _Psi);
+}
+
+void WaveFunction<Dimension::Two>::readcsv(const std::string filename){
+    // Open and check file competability
+    std::ifstream file(filename);
+    if (!file.is_open())
+        throw std::runtime_error("Cannot open file: " + filename);
+
+    /* Physical parameters keys */
+    std::string line;
+    if (!std::getline(file, line))
+        throw std::runtime_error("File is empty: " + filename);
+    std::vector<std::string> keys = split(line);
+
+    /* Physical parameters values */
+    if (!std::getline(file, line))
+        throw std::runtime_error("Missing value line in " + filename);
+    std::vector<std::string> valStr = split(line);
+
+    if (keys.size() != valStr.size())
+        throw std::runtime_error("Key/value count mismatch in " + filename);
+
+    ParamList params;
+    for (std::size_t i = 0; i < keys.size(); ++i)
+        params[keys[i]] = std::stod(valStr[i]);
+
+    /* ---------- 3) skip blank lines + verify data header ------------------ */
+    while (std::getline(file, line) && line.empty()) /*skip*/ ;
+    if (line != "index,real,imag")
+        throw std::runtime_error("Unexpected data header: " + line);
+
+    /* ---------- 4) read the complex vector -------------------------------- */
+    std::vector<std::complex<double>> data;
+    while (std::getline(file, line))
+    {
+        if (line.empty()) continue;
+        auto cols = split(line);
+        if (cols.size() != 3)
+            throw std::runtime_error("Bad data row: " + line);
+        data.emplace_back(std::stod(cols[1]), std::stod(cols[2]));
+    }
+
+    Eigen::VectorXcd vec(data.size());
+    for (Eigen::Index i = 0; i < vec.size(); ++i) vec[i] = data[i];
+
+    /*Initialization of wavefunciton parameters*/
+    _Psi        =   vec;
+    _a_dd       =   params.at("a_dd");
+    _a_s        =   params.at("a_s");
+    _omega_x    =   params.at("omega_x");
+    _omega_y    =   params.at("omega_y");
+    _Num        =   static_cast<std::size_t>(params.at("Num_of_particle"));
+    _size_x     =   static_cast<std::size_t>(params.at("size_of_grid_x"));
+    _size_y     =   static_cast<std::size_t>(params.at("size_of_grid_y"));
+    _step_x     =   params.at("step_size_x");
+    _step_y     =   params.at("step_size_y");
+    _start_x    =   params.at("grid_start_point_x");
+    _start_y    =   params.at("grid_start_point_y");
+}
+
+
+void WaveFunction<Dimension::Two>::print_params(){
+    int width = 10;
+    std::cout << std::setw(width) << "grid_size_x"<< std::setw(width) << "grid_size_y" << std::setw(width) << "start_x" << std::setw(width) << "start_y"
+    << std::setw(width) << "N_of_mol"  << std::setw(width) << "a_s"  << std::setw(width) << "a_dd"  << std::setw(width) << "omega_x" << std::setw(width) << "omega_y" << std::setw(width) << std::endl;
+
+    std::cout << std::setw(width) << _size_x << std::setw(width) << _size_y  << std::setw(width) << _start_x << std::setw(width) << _start_y << std::setw(width)
+    << _Num << std::setw(width) << _a_s << std::setw(width) << _a_dd << std::setw(width) << _omega_x << std::setw(width) << _omega_y << std::setw(width) << std::endl;
+}
+
+
+
+
+
+} // end of the namespace
 
 #endif

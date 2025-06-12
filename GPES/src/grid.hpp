@@ -22,7 +22,7 @@ class Grid<Dimension::One> {
 
 private: 
     unsigned int _size;
-    double _step, _start, _omega;
+    double _step, _start, _omega, _omega_t;
 
     Eigen::VectorXd _potential;
     
@@ -42,10 +42,12 @@ public:
     double get_start_position() { return _start; }
     double get_step_size() { return _step; }
     double get_omega() { return _omega; }
+    double get_omega_t() { return _omega_t; }
     Eigen::VectorXd& get_potential(){ return _potential;}
     
     //Setters
     void set_harmonic_potential(double omega);
+    void set_transverse(double omega) { _omega_t = omega;}
 
     //operator() overloading
     double& operator()(int i) { return _potential(i); }
@@ -56,6 +58,7 @@ Grid<Dimension::One>::Grid(unsigned int number_of_nodes, double start): _size(nu
     //Setting step
     _step = (-2 * _start) / _size;
     _omega = 0;
+    _omega_t = 0;
     init_grid();
 }
 
@@ -89,7 +92,7 @@ private:
     double _step_x, _step_y, _start_x, _start_y;
     
     //harmonic potential frequencies
-    double _omega_x, _omega_y, _lambda;
+    double _omega_x, _omega_y, _omega_z;
 
     Eigen::MatrixXd _potential;
 
@@ -112,7 +115,7 @@ public:
     double get_step_size_y(){ return _step_y; }
     double get_omega_x() {return _omega_x; }
     double get_omega_y() {return _omega_y; }
-    double get_lambda() {return _lambda;}
+    double get_omega_z() {return _omega_z; }
     Eigen::MatrixXd& get_potential() {return _potential;}
 
     void set_harmonic_potential(double omega_x, double omega_y);
@@ -120,6 +123,8 @@ public:
     //operator() overloading
     double& operator()(int i, int j) { return _potential(i, j); }
     double operator()(int i, int j) const { return _potential(i, j); }
+
+    void set_z_freq(double omega_z) {_omega_z = omega_z;}
 
 };
 
@@ -131,7 +136,7 @@ Grid<Dimension::Two>::Grid(int number_of_nodes_x, int number_of_nodes_y, double 
 
         _omega_x = 0;
         _omega_y = 0;
-        _lambda = 0;
+        _omega_z = 0;
 
         init_grid();
 }
@@ -154,10 +159,9 @@ void Grid<Dimension::Two>::set_harmonic_potential(double omega_x, double omega_y
             V(i,j) = 0.5 * (std::pow(omega_x * x,2.) + std::pow(omega_y * y,2.));
         }
     }
-
-    _lambda = _omega_y / _omega_x;
     _potential = V;
 }
+
 
 
 } // namespace GPES

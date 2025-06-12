@@ -4,97 +4,93 @@
 #include "CrankNicolson.hpp"
 
 GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>& Psi, Grid<Dimension::Two>& grid, double delta_t,double T):  _delta_t(delta_t), _T(T) {
-    _omega_x = grid.get_omega_x();
-    _omega_y = grid.get_omega_y();
-    _size_x = grid.get_size_of_grid_x();
-    _size_y = grid.get_size_of_grid_y();
-    _step_x = grid.get_step_size_x();
-    _step_y = grid.get_step_size_y();
-    _start_x = grid.get_start_position_x();
-    _start_y = grid.get_start_position_y();
+    _omega_x        =   grid.get_omega_x();
+    _omega_y        =   grid.get_omega_y();
+    _omega_z        =   grid.get_omega_z();
+    _size_x         =   grid.get_size_of_grid_x();
+    _size_y         =   grid.get_size_of_grid_y();
+    _step_x         =   grid.get_step_size_x();
+    _step_y         =   grid.get_step_size_y();
+    _start_x        =   grid.get_start_position_x();
+    _start_y        =   grid.get_start_position_y();
     
-    _t_step = std::round(T/_delta_t) + 1;
+    _t_step         =   std::round(T/_delta_t) + 1;
 
-    _Psi = Psi.get_wavefunction();
-    _Fin = Eigen::VectorXcd::Zero(_size_x * _size_y);
-    _U_ddi = Eigen::VectorXd::Zero(_size_x * _size_y);
-    _V_ext = grid.get_potential();
+    _Psi            =   Psi.get_wavefunction();
+    _Fin            =   Eigen::VectorXcd::Zero(_size_x * _size_y);
+    _U_ddi          =   Eigen::VectorXd::Zero(_size_x * _size_y);
+    _V_ext          =   grid.get_potential();
 
     //Physics units
-    _Num = Psi.get_Num();
+    _Num            =   Psi.get_Num();
+    _lam_y          =   _omega_y / _omega_x;
+    _lam_z          =   _omega_z / _omega_x;
 
     // Initialize interaction strengths
     calc_g_scattering(Psi.get_a_s());
-    calc_C_dd(Psi.get_a_dd());
+    calc_V_dd(Psi.get_a_dd());
     calc_g_lhy(Psi.get_a_s(), Psi.get_a_dd());
 
-    _lambda_x = -1.0*_delta_t/(4*std::pow(_step_x,2));
-    _lambda_y = -1.0*_delta_t/(4*std::pow(_step_y,2));
+    _lambda_x       =   -1.0*_delta_t/(4*std::pow(_step_x,2));
+    _lambda_y       =   -1.0*_delta_t/(4*std::pow(_step_y,2));
 
-    double Lx = std::abs(2*_start_x);
-    double Ly = std::abs(2*_start_y);
-    F_ddi = std::make_unique<DipolarInteraction<Dimension::Two>>(_size_x,_size_y,Lx,Ly,0.1414,_C_dd);
+    double Lx       =   std::abs(2*_start_x);
+    double Ly       =   std::abs(2*_start_y);
+    F_ddi           =   std::make_unique<DipolarInteraction<Dimension::Two>>(_size_x,_size_y,Lx,Ly,0.1414,_V_dd);
 
     vec_Energy.reserve(_t_step);
 
-    init_time_evolution_matrices();
+    calc_time_evolution_matrices(_Psi);
 }
 
-void  GPES::CrankNicolson<Dimension::Two>::calc_g_scattering(double a_s){
-    _g_scattering = std::sqrt(8. * M_PI) * a_s;
+void  GPES::CrankNicolson<Dimension::Two>::calc_g_scattering(double a_s) {
+    _g_scattering = std::sqrt(8. * M_PI) * a_s * std::sqrtf(_lam_z);
 }
 
-void GPES::CrankNicolson<Dimension::Two>::calc_C_dd(double a_dd){
-    _C_dd = 12. * a_dd * M_PI; 
+void GPES::CrankNicolson<Dimension::Two>::calc_V_dd(double a_dd) {
+    
 }
 
-void GPES::CrankNicolson<Dimension::Two>::calc_g_lhy(double a_s, double a_dd){
-    _g_lhy = (128. / 3) * std::sqrt(M_PI) * std::pow(a_s, 2.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.)); 
+void GPES::CrankNicolson<Dimension::Two>::calc_g_lhy(double a_s, double a_dd) {
+    _g_lhy = (128. / 3) * std::sqrt(M_PI) * std::pow(a_s, 2.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.)) ; 
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calculate_DDI(Eigen::VectorXcd& vec)
 {
     if(this->F_ddi)
         F_ddi->compute_DDI_term(vec, _U_ddi);
-
 }
 
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
-void GPES::CrankNicolson<Dimension::Two>::init_time_evolution_matrices(){
-    int mat_size = _size_x * _size_y;
-    Eigen::VectorXcd a(mat_size);
-    Eigen::VectorXcd b(mat_size);
+// void GPES::CrankNicolson<Dimension::Two>::init_time_evolution_matrices(){
+//     int mat_size = _size_x * _size_y;
+//     Eigen::VectorXcd a(mat_size);
+//     Eigen::VectorXcd b(mat_size);
+//     a.setZero();
+//     b.setZero();
+//     // Eigen::MatrixXcd mat = vec_to_mat(_Psi);
+//     calculate_DDI(_Psi);
+//     for(int k = 0; k < _size_x; ++k){
+//         for(int l = 0; l < _size_y; ++l){
+//             int index = get_index(k,l);
+//             std::complex<double> U_potential = 1.0*(_delta_t * 0.5) * std::complex<double>(_V_ext(k,l));
+//             std::complex<double> U_contact = 1.0*(_delta_t * 0.5) * _g_scattering * std::norm(_Psi(index));
+//             std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(index);
+//             std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(_Psi(index)), 1.5);
+//             // //Real time evolution matrices
+//             // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
+//             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
+//             //Imaginary time evolution matrices
+//             a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential;// + U_dd + U_lhy;
+//             b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential;// - U_dd - U_lhy;
+//         }
+//     }
+//     this->init_Mat_A(_lambda_x, _lambda_y,a);
+//     this->init_Mat_B(-1.0 * _lambda_x,-1.0 *_lambda_y,b); 
+// }
 
-    a.setZero();
-    b.setZero();
-
-    // Eigen::MatrixXcd mat = vec_to_mat(_Psi);
-    calculate_DDI(_Psi);
-
-    for(int k = 0; k < _size_x; ++k){
-        for(int l = 0; l < _size_y; ++l){
-            int index = get_index(k,l);
-
-            std::complex<double> U_potential = 1.0*(_delta_t * 0.5) * std::complex<double>(_V_ext(k,l));
-            std::complex<double> U_contact = 1.0*(_delta_t * 0.5) * _g_scattering * std::norm(_Psi(index));
-            std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(index);
-            std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(_Psi(index)), 1.5);
-
-            // //Real time evolution matrices
-            // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
-            // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
-
-            //Imaginary time evolution matrices
-            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential;// + U_dd + U_lhy;
-            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential;// - U_dd - U_lhy;
-        }
-    }
-    this->init_Mat_A(_lambda_x, _lambda_y,a);
-    this->init_Mat_B(-1.0 * _lambda_x,-1.0 *_lambda_y,b); 
-}
-
-void GPES::CrankNicolson<Dimension::Two>::update_time_evolution_matrices(Eigen::VectorXcd &vec){
+void GPES::CrankNicolson<Dimension::Two>::calc_time_evolution_matrices(Eigen::VectorXcd &vec){
     int mat_size = _size_x * _size_y;
     Eigen::VectorXcd a(mat_size);
     Eigen::VectorXcd b(mat_size);
@@ -120,8 +116,8 @@ void GPES::CrankNicolson<Dimension::Two>::update_time_evolution_matrices(Eigen::
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential;// + U_dd + U_lhy;
-            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential;// - U_dd - U_lhy;
+            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential + U_dd + U_lhy;
+            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential - U_dd - U_lhy;
         }
     }
     this->init_Mat_A(_lambda_x,_lambda_y,a);
@@ -256,8 +252,6 @@ void GPES::CrankNicolson<Dimension::Two>::init_Mat_B(std::complex<double> r_x, s
     _B = B;
 }
 
-
-
 // Time evolution simulation for 2D Gross-Pitaevskii equation
 void GPES::CrankNicolson<Dimension::Two>::simulation(){
 
@@ -276,11 +270,29 @@ void GPES::CrankNicolson<Dimension::Two>::simulation(){
     // Eigen::SimplicialLLT<Eigen::SparseMatrix<std::complex<double>>> solver;
     Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>> solver;
 
-    for (int i = 1; i < _t_step; ++i) {
-        // Add the normalization function for 2D matrices, which would consider different spatial step in x and y directions
+    // for (int i = 1; i < _t_step; ++i) {
+    //     // Add the normalization function for 2D matrices, which would consider different spatial step in x and y directions
+    //     normalize(b);
+    //     calc_time_evolution_matrices(b);
+    //     solver.compute(_A);    
+    //     // Update the right-hand side vector b
+    //     b = _B * b;
+    //     // // Solve the system A * x = b
+    //     x = solver.solve(b);
+    //     // Update b for the next iteration
+    //     b = x;
+    //     if(i % 50 == 0)
+    //         std::cout << "Simulation step: #" << i << '\n';
+    //     _Fin = x;
+    //     normalize(_Fin);
+    //     this->vec_Energy.push_back(calc_state_energy(_Fin));
+    // }
+
+    int i = 1;
+
+    do {
         normalize(b);
-        update_time_evolution_matrices(b);
-        
+        calc_time_evolution_matrices(b);
 
         solver.compute(_A);
         
@@ -297,11 +309,37 @@ void GPES::CrankNicolson<Dimension::Two>::simulation(){
 
         _Fin = x;
         normalize(_Fin);
-
-        this->vec_Energy.push_back(calc_state_energy(_Fin));
-    }
+        double current_energy = calc_state_energy(_Fin);
+        vec_Energy.push_back(current_energy);
+        ++i;
+        if(i % 250 == 0){
+            // std::string file;
+            // std::stringstream ss;
+            save_state("../../res/Fin_states/sim.csv", _Fin);
+        }
+    } while(simulation_stop(i));
 }
 
+inline bool GPES::CrankNicolson<Dimension::Two>::simulation_stop(int i)
+{
+    if(i > 500)
+        return false;
+
+    double epsilon = 10e-10, last, before_last;
+
+    if (vec_Energy.size() >= 2) {
+        last = *vec_Energy.rbegin();
+        before_last = *(vec_Energy.rbegin() + 1);
+    }
+    else 
+        return true;
+    
+    double diff = std::abs((last - before_last) / last);
+
+    if(diff < epsilon)
+        return false;
+    return true;
+}
 
 void GPES::CrankNicolson<Dimension::Two>::normalize(Eigen::VectorXcd &vec){
     int size = vec.size();
@@ -336,7 +374,6 @@ double GPES::CrankNicolson<Dimension::Two>::vec_norm(Eigen::VectorXd &vec){
 // double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(){
 //     return calc_state_energy(_Fin);
 // }
-
 // double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(Eigen::VectorXcd &vec){
 //     int size = vec.size();
 //     double energy = 0.0;
@@ -394,7 +431,7 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(Eigen::VectorXcd &
             //LHY correction term energy
             double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(index)), 3);
 
-            energy += _step_x * _step_y * (kinetic + potential + interaction); //  + ddi + lhy
+            energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); //  
         }
     }
     return energy;
@@ -423,7 +460,7 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(GPES::WaveFunction
             //LHY correction term energy
             double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(index)), 2.5);
 
-            energy += _step_x * _step_y * (kinetic + potential + interaction ); //  + ddi + lhy
+            energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); //  
         }   
     }
     return energy;
@@ -447,6 +484,19 @@ void GPES::CrankNicolson<Dimension::Two>::print_Mat_A(){
 
 void GPES::CrankNicolson<Dimension::Two>::print_Mat_B(){
     std::cout << Eigen::MatrixXcd(_B) << std::endl;
+}
+
+
+void GPES::CrankNicolson<Dimension::Two>::save_state(std::string filename, Eigen::VectorXcd& vec){
+    const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
+    std::ofstream file(filename);
+    if(file.is_open()){
+        //file << vec.format(CSVFormat) << '\n';
+        file << vec.format(CSVFormat);
+        file.close();
+    }
+    else
+        std::cout << "Smth goes wrong with open file for w" << std::endl;
 }
 
 #endif

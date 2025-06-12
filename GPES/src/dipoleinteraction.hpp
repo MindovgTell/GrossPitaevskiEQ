@@ -168,11 +168,14 @@ public:
                 double ky = 2.0 * M_PI * j / Ly;
                 double k_perp = std::sqrt(kx*kx + ky*ky);
                 double kappa = k_perp * lz / std::sqrt(2.0);
+
+                const double pref = 3.0 * std::sqrt(2.0 * M_PI);   // √(2π) instead of π
+
                 
                 if (k_perp == 0.0) {
                     U_tilde(i, j) = 2.0 * Cdd / 3.0;
                 } else {
-                    U_tilde(i, j) = (Cdd / 3.0) * (2.0 - 3.0 * M_PI * kappa * std::exp(kappa*kappa) * std::erfc(kappa)); //* erfc_approx(kappa));
+                    U_tilde(i,j) = (Cdd / 3.0) * ( 2.0 - pref * kappa * std::exp(kappa * kappa) * std::erfc(kappa) );
                 }
             }
         }

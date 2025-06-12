@@ -6,47 +6,56 @@
 
 GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, WaveFunction<Dimension::One>& Psi, double deltat, double T): _delta_t(deltat), _T(T) {
     // Initialize parameters of the grid
-    _size = grid.get_size_of_grid(); // number of grid nodes
-    _step = grid.get_step_size();
-    _start = grid.get_start_position();
-    _V_ext = grid.get_potential();
+    _size       =   grid.get_size_of_grid(); // number of grid nodes
+    _step       =   grid.get_step_size();
+    _start      =   grid.get_start_position();
+    _V_ext      =   grid.get_potential();    
+    _t_step     =   std::round(1/_delta_t) + 1;
+    _omega      =   grid.get_omega();
 
-    _t_step = std::round(1/_delta_t) + 1;
-
-    _Psi = Psi.get_wavefunction();
-    _Fin = Eigen::VectorXcd::Zero(_size);
-    _U_ddi = Eigen::VectorXd::Zero(_size);
-
+    _Psi        =   Psi.get_wavefunction();
+    _Fin        =   Eigen::VectorXcd::Zero(_size);
+    _U_ddi      =   Eigen::VectorXd::Zero(_size);
+    _lambda_x   =   std::complex<double>(-1.0*_delta_t/(4*std::pow(_step,2)),0);    
+     
     //Physics units
-    _Num = Psi.get_Num();
-    
+    _a_dd       =   Psi.get_a_dd();
+    _a_s        =   Psi.get_a_s();
+    _Num        =   Psi.get_Num();
+    _omega      =   grid.get_omega();
+    _omega_t    =   grid.get_omega_t();
+    _lam        =   _omega_t / _omega;
+
     // Initialize interaction strengths
 
-    calc_g_scattering(Psi.get_a_s());
-    calc_C_dd(Psi.get_a_dd()); 
-    calc_g_lhy(Psi.get_a_s(), Psi.get_a_dd()); 
+    calc_V_dd(_a_dd); 
+    calc_g_scattering(_a_s);
+    calc_g_lhy(_a_s, _a_dd); 
 
-    _lambda_x = std::complex<double>(-1.0*_delta_t/(4*std::pow(_step,2)),0);
 
-    double L = std::abs(_start*2);
-    double confinment_length = 1;
-    F_ddi = std::make_unique<DipolarInteraction<Dimension::One>>(_size, L, confinment_length, _C_dd);
+    // double L = std::abs(_start*2);
+    // double confinment_length = 1;
+    // F_ddi = std::make_unique<DipolarInteraction<Dimension::One>>(_size, L, confinment_length, _V_dd);
 
     vec_Energy.reserve(_t_step);
-
-    init_time_evolution_matrices();
+    calc_time_evolution_matrices(_Psi);
 }
 
 void GPES::CrankNicolson<Dimension::One>::calc_g_scattering(double a_s) {
-    _g_scattering =  a_s;
+    double C = 1.4603; // riemann -zeta(1/2)
+    _g_scattering =  2 * a_s * _lam / (1 - C*a_s*std::sqrtf(_lam)) - 8./ 3 * _V_dd;
 }
 
-void GPES::CrankNicolson<Dimension::One>::calc_C_dd(double a_dd){
-    _C_dd = 12. * a_dd * M_PI; 
+void GPES::CrankNicolson<Dimension::One>::calc_V_dd(double a_dd){
+    // double cosTheta = 0; // Theta = 90 deg
+    // _V_dd = 1.5 * a_dd * M_PI * std::pow(_lam,1.5); 
+    // double cosTheta = 1; // Theta = 0 deg
+    _V_dd = -3. * a_dd * M_PI * std::pow(_lam,1.5); 
+    // _V_dd = 1.5 * a_dd * M_PI * std::pow(_lam,1.5) * (1 - 3 * cosTheta * cosTheta); 
 }
  
 void GPES::CrankNicolson<Dimension::One>::calc_g_lhy(double a_s, double a_dd){
-    _g_lhy = (128. / 3) * std::sqrt(M_PI) * std::pow(a_s, 2.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
+    _g_lhy = (128. / 3) * std::sqrt(0.4) * std::pow(a_s, 2.5) * std::pow(_lam, 1.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
 }
 
 void GPES::CrankNicolson<Dimension::One>::calculate_DDI(Eigen::VectorXcd& vec){
@@ -55,26 +64,24 @@ void GPES::CrankNicolson<Dimension::One>::calculate_DDI(Eigen::VectorXcd& vec){
 }
 
 void GPES::CrankNicolson<Dimension::One>::calculate_DDI_not_FFT(Eigen::VectorXcd &vec) {
-    double answ = 0;
     double V_1d;
-
-    double l_transv = 1.5;
-     //Its supposed to be coefficient which containe both dipole_moment etc.
 
     int size = vec.size();
 
     Eigen::VectorXd U(size);
 
     for(int i = 0; i < size; ++i){
+        double answ = 0;
         double x_prime = _start + _step * i;
         for(int j = 0; j < size; ++j){
             double x = _start + _step * j;
             double pos = x - x_prime;
 
-            double alfa = std::abs(pos) / (std::sqrt(2) * l_transv);
+            double alfa = std::abs(pos) * std::sqrtf(_lam) / (std::sqrt(2));
+            double sqalfa = std::pow(pos,2) * _lam * 0.5; 
 
             //Firstly calculating V_1d
-            V_1d = _C_dd / (4*M_PI) * (2 * l_transv * std::abs(pos) - std::sqrt(2 * M_PI) * (std::pow(l_transv,2) + std::pow(pos, 2)) * std::erfc(alfa) * std::exp(alfa*alfa));
+            V_1d = _V_dd * (-2.  * std::abs(pos) * std::sqrtf(_lam) + std::sqrt(2 * M_PI) * (1 + std::pow((pos), 2) * _lam) * std::erfc(alfa) * std::exp(sqalfa));
 
             answ += V_1d * std::norm(vec(j)) * _step;
         }
@@ -87,38 +94,32 @@ void GPES::CrankNicolson<Dimension::One>::calculate_DDI_not_FFT(Eigen::VectorXcd
     _U_ddi = U;
 }
 
-//Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
-void GPES::CrankNicolson<Dimension::One>::init_time_evolution_matrices(){
-    Eigen::VectorXcd a(_size);
-    Eigen::VectorXcd b(_size);
+// //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
+// void GPES::CrankNicolson<Dimension::One>::init_time_evolution_matrices(){
+//     Eigen::VectorXcd a(_size);
+//     Eigen::VectorXcd b(_size);
+//     // calculate_DDI(_Psi);
+//     // calculate_DDI_not_FFT(_Psi);
+//     for(int i = 0; i < _size; ++i){
+//         std::complex<double> U_potential = 1.0 * (_delta_t*0.5)*std::complex<double>(_V_ext(i));
+//         std::complex<double> U_scattering =  1.0 * (_delta_t*0.5 * _g_scattering)*std::norm(_Psi(i));
+//         std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(i);
+//         std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(_Psi(i)), 0.5);
+//         // // Real time evolution matrices
+//         // a(i) = (1.0 - 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+//         // b(i) = (1.0 + 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
+//         // // Imaginary time evolution matrices
+//         // a(i) = 1.0 + 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+//         // b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
+//         // TEST ADDED DDI
+//         a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential;// + U_dd ;// + U_lhy;
+//         b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential;// - U_dd ;//- U_lhy;
+//     }
+//     this->init_Mat_A(_lambda_x, a);
+//     this->init_Mat_B(-1.0 * _lambda_x, b); 
+// }
 
-    // calculate_DDI(_Psi);
-    // calculate_DDI_not_FFT(_Psi);
-    for(int i = 0; i < _size; ++i){
-
-        std::complex<double> U_potential = 1.0 * (_delta_t*0.5)*std::complex<double>(_V_ext(i));
-        std::complex<double> U_scattering =  1.0 * (_delta_t*0.5 * _g_scattering)*std::norm(_Psi(i));
-        std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(i);
-        std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(_Psi(i)), 0.5);
-        
-        // // Real time evolution matrices
-        // a(i) = (1.0 - 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-        // b(i) = (1.0 + 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-        
-        // // Imaginary time evolution matrices
-        // a(i) = 1.0 + 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-        // b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-
-        // TEST ADDED DDI
-        a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential;// + U_dd ;// + U_lhy;
-        b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential;// - U_dd ;//- U_lhy;
-    }
-
-    this->init_Mat_A(_lambda_x, a);
-    this->init_Mat_B(-1.0 * _lambda_x, b); 
-}
-
-void GPES::CrankNicolson<Dimension::One>::update_time_evolution_matrices(Eigen::VectorXcd& vec){
+void GPES::CrankNicolson<Dimension::One>::calc_time_evolution_matrices(Eigen::VectorXcd& vec){
     int size = vec.size();
     Eigen::VectorXcd a(size);
     Eigen::VectorXcd b(size);
@@ -130,7 +131,7 @@ void GPES::CrankNicolson<Dimension::One>::update_time_evolution_matrices(Eigen::
         std::complex<double> U_potential = 1.0 * (_delta_t*0.5)*std::complex<double>(_V_ext(i));
         std::complex<double> U_scattering =  1.0 * (_delta_t*0.5 * _g_scattering)*std::norm(vec(i));
         std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(i);
-        std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(vec(i)), 0.5);
+        std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(vec(i)), 1.5);
         
         
         // // Real time evolution matrices
@@ -229,7 +230,7 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
 
     do {
         normalize(b);
-        update_time_evolution_matrices(b);
+        calc_time_evolution_matrices(b);
 
         solver.compute(_A);
         
@@ -250,6 +251,27 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
         vec_Energy.push_back(current_energy);
         ++i;
     } while(simulation_stop(i));
+}
+
+inline bool GPES::CrankNicolson<Dimension::One>::simulation_stop(int i)
+{
+    if(i > 8000)
+        return false;
+
+    double epsilon = 10e-10, last, before_last;
+
+    if (vec_Energy.size() >= 2) {
+    last = *vec_Energy.rbegin();
+    before_last = *(vec_Energy.rbegin() + 1);
+    }
+    else 
+        return true;
+    
+    double diff = std::abs((last - before_last) / last);
+
+    if(diff < epsilon)
+        return false;
+    return true;
 }
 
 void GPES::CrankNicolson<Dimension::One>::normalize(Eigen::VectorXcd &vec){
@@ -298,10 +320,9 @@ double GPES::CrankNicolson<Dimension::One>::calc_state_energy(Eigen::VectorXcd &
         double ddi = 0.5 * _U_ddi(i) * std::norm(vec(i)); 
 
         //LHY correction term energy
-        double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(i)), 2.5); //
+        double lhy = _g_lhy * 0.4 * std::pow(std::norm(vec(i)), 2.5); //
 
-
-        energy += _step * (kinetic + potential + interaction ); //  + ddi + lhy
+        energy += _step * (kinetic + potential + interaction + ddi + lhy); // 
     }
     return energy;
 }
@@ -319,43 +340,28 @@ double GPES::CrankNicolson<Dimension::One>::calc_state_energy(GPES::WaveFunction
         double ddi = 0.5 * _U_ddi(i) * std::norm(vec(i)); 
 
         //LHY correction term energy
-        double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(i)), 2.5);
+        double lhy = _g_lhy * 0.4 * std::pow(std::norm(vec(i)), 2.5);
 
-        energy += _step * (kinetic + potential + interaction); // + ddi + lhy
+        energy += _step * (kinetic + potential + interaction + ddi + lhy); //
     }
     return energy;
-}
-
-inline bool GPES::CrankNicolson<Dimension::One>::simulation_stop(int i)
-{
-
-    if(i > 8000)
-        return false;
-
-    double epsilon = 10e-10, last, before_last;
-
-    if (vec_Energy.size() >= 2) {
-    last = *vec_Energy.rbegin();
-    before_last = *(vec_Energy.rbegin() + 1);
-    }
-    else 
-        return true;
-    
-    double diff = std::abs((last - before_last) / last);
-
-    if(diff < epsilon)
-        return false;
-    return true;
 }
 
 void GPES::CrankNicolson<Dimension::One>::get_final_state(GPES::WaveFunction<Dimension::One>& fin){ 
     fin.set_Num(_Num);
     fin.set_size_of_grid(_size);
     fin.set_start_position(_start);
-    fin.set_step_size(_start);
+    fin.set_step_size(_step);
+    fin.set_a_s(_a_s);
+    fin.set_a_dd(_a_dd);
+    fin.set_omega(_omega);
     fin.set_vec(_Fin);
 }
 
-
+void GPES::CrankNicolson<Dimension::One>::print_param_of_eq(){
+    int width = 15;
+    std::cout << std::setw(width) << "a_s"<< std::setw(width) << "a_dd" << std::setw(width) << "g_scattering" << std::setw(width) << "V_dd" << std::setw(width) << "g_lhy" << std::setw(width) << "lambda" << std::endl;
+    std::cout << std::setw(width) << _a_s << std::setw(width) << _a_dd << std::setw(width) << _g_scattering << std::setw(width) << _V_dd << std::setw(width) << _g_lhy << std::setw(width) << _lam << std::endl;
+}
 
 #endif

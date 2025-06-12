@@ -13,54 +13,55 @@ namespace plt = matplotlibcpp;
 namespace GPES {
 
 
-void draw(std::vector<double>& vec){
+void draw(std::vector<double>& vec, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
     int size = vec.size();
-
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0, size);
-
     std::vector<double> x_vec(x.data(), x.data() + x.size());
-
-
     plt::figure();
     plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}});
-    plt::xlabel("time [s]");
-    plt::ylabel("observation [m]");
+    plt::xlabel(xlabel);
+    plt::ylabel(ylabel);
     plt::legend();
     plt::grid();
     plt::show(); 
 }
 
-void draw(Grid<Dimension::One>& grid){
+void draw(Eigen::VectorXd& vec, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
+    int size = vec.size();
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0, size);
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
+    plt::figure();
+    plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}});
+    plt::xlabel(xlabel);
+    plt::ylabel(ylabel);
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
+
+void draw(Grid<Dimension::One>& grid, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
     int size = grid.get_size_of_grid();
     double start = grid.get_start_position();
-
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, start, -1 * start);
     Eigen::VectorXd& Psi = grid.get_potential();
-
     std::vector<double> x_vec(x.data(), x.data() + x.size());
     std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
-
     plt::figure();
     plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "data trend"}});
-    plt::xlabel("time [s]");
-    plt::ylabel("observation [m]");
+    plt::xlabel(xlabel);
+    plt::ylabel(ylabel);
     plt::legend();
     plt::grid();
     plt::show(); 
 }
 
-void draw(WaveFunction<Dimension::One>& wave){
-
+void draw(WaveFunction<Dimension::One>& wave, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
     int size = wave.get_size_of_grid();
     double start = wave.get_start_position();
-
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, start, -1 * start);
     Eigen::VectorXd Psi = wave.prob();
-
-
     std::vector<double> x_vec(x.data(), x.data() + x.size());
     std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
-
     plt::figure();
     plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "Initial state"}});
     plt::xlabel("");
