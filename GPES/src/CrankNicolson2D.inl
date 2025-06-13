@@ -34,9 +34,11 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
     _lambda_x       =   -1.0*_delta_t/(4*std::pow(_step_x,2));
     _lambda_y       =   -1.0*_delta_t/(4*std::pow(_step_y,2));
 
+    double l_z      =   std::sqrt(_omega_x / _omega_z);
+
     double Lx       =   std::abs(2*_start_x);
     double Ly       =   std::abs(2*_start_y);
-    F_ddi           =   std::make_unique<DipolarInteraction<Dimension::Two>>(_size_x,_size_y,Lx,Ly,0.1414,_V_dd);
+    F_ddi           =   std::make_unique<DipolarInteraction<Dimension::Two>>(_size_x,_size_y,Lx,Ly,l_z,_V_dd);
 
     vec_Energy.reserve(_t_step);
 
@@ -44,19 +46,18 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
 }
 
 void  GPES::CrankNicolson<Dimension::Two>::calc_g_scattering(double a_s) {
-    _g_scattering = std::sqrt(8. * M_PI) * a_s * std::sqrtf(_lam_z);
+    _g_scattering = std::sqrt(8. * M_PI) * a_s * std::sqrt(_lam_z);
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calc_V_dd(double a_dd) {
-    
+    _V_dd = std::sqrt(8. * M_PI) * a_dd * std::sqrt(_lam_z);
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calc_g_lhy(double a_s, double a_dd) {
-    _g_lhy = (128. / 3) * std::sqrt(M_PI) * std::pow(a_s, 2.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.)) ; 
+    _g_lhy = (128. / ( 3 * std::pow(M_PI, 0.25) ) ) * std::sqrt(0.4) * std::pow(a_s, 2.5) * std::pow(_lam_z, 0.75) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
 }
 
-void GPES::CrankNicolson<Dimension::Two>::calculate_DDI(Eigen::VectorXcd& vec)
-{
+void GPES::CrankNicolson<Dimension::Two>::calculate_DDI(Eigen::VectorXcd& vec){
     if(this->F_ddi)
         F_ddi->compute_DDI_term(vec, _U_ddi);
 }

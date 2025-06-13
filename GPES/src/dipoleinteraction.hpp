@@ -1,3 +1,6 @@
+#ifndef DIPOLEINTERACTION_HPP
+#define DIPOLEINTERACTION_HPP
+
 #include <fftw3.h>
 #include <Eigen/Dense>
 #include <vector>
@@ -18,6 +21,12 @@
 
 template <Dimension Dim>
 class DipolarInteraction;
+
+#ifndef M_PI
+constexpr double M_PI       =   3.14159265358979323846;
+#endif
+constexpr double SQRT_PI    =   1.77245385090551602729;
+constexpr double SQRT2      =   1.41421356237309504880;
 
 
 template <>
@@ -115,7 +124,7 @@ private:
     int Nx, Ny;
     double Lx, Ly;
     double lz;
-    double Cdd;
+    double V_dd;
     double dx, dy;
     
     // FFTW plans and arrays
@@ -131,20 +140,20 @@ private:
 
 public:
     DipolarInteraction(int nx, int ny, double lx, double ly, double confinement_length, double interaction_strength)
-        : Nx(nx), Ny(ny), Lx(lx), Ly(ly), lz(confinement_length), Cdd(interaction_strength) {
+        : Nx(nx), Ny(ny), Lx(lx), Ly(ly), lz(confinement_length), V_dd(interaction_strength) {
         
         dx = Lx / Nx;
         dy = Ly / Ny;
         
         // Allocate memory for FFTW
-        density_real = (double*)fftw_malloc(sizeof(double) * Nx * Ny);
-        density_fourier = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
-        potential_fourier = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
-        potential_real = (double*)fftw_malloc(sizeof(double) * Nx * Ny);
+        density_real        =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
+        density_fourier     =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
+        potential_fourier   =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
+        potential_real      =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
         
         // Create FFTW plans
-        plan_forward = fftw_plan_dft_r2c_2d(Nx, Ny, density_real, density_fourier, FFTW_MEASURE);
-        plan_backward = fftw_plan_dft_c2r_2d(Nx, Ny, potential_fourier, potential_real, FFTW_MEASURE);
+        plan_forward        =   fftw_plan_dft_r2c_2d(Nx, Ny, density_real, density_fourier, FFTW_MEASURE);
+        plan_backward       =   fftw_plan_dft_c2r_2d(Nx, Ny, potential_fourier, potential_real, FFTW_MEASURE);
         
         // Precompute U_tilde
         precompute_U_tilde();
@@ -158,7 +167,14 @@ public:
         fftw_free(potential_fourier);
         fftw_free(potential_real);
     }
-    
+
+    inline double F_perp(double q) {
+        return  2.0 - 3.0 * SQRT_PI * q * std::exp(q * q) * std::erfc(q);
+    } 
+    inline double F_parallel(double q_x, double q_y) {
+        double q = std::sqrt(q_x*q_x + q_y*q_y);
+        return -1.0 + 3.0 * SQRT_PI * (q_x * q_x / q) * std::exp(q * q) * std::erfc(q);
+    }
     void precompute_U_tilde() {
         U_tilde.resize(Nx, Ny/2 + 1);
         
@@ -167,15 +183,21 @@ public:
             for (int j = 0; j < Ny/2 + 1; ++j) {
                 double ky = 2.0 * M_PI * j / Ly;
                 double k_perp = std::sqrt(kx*kx + ky*ky);
-                double kappa = k_perp * lz / std::sqrt(2.0);
+                double kappa = k_perp * lz / SQRT2;
 
-                const double pref = 3.0 * std::sqrt(2.0 * M_PI);   // √(2π) instead of π
+                // const double pref = 3.0 * std::sqrt(2.0 * M_PI);   // √(2π) instead of π
 
-                
+                // The general form of quasi DDI is given by 
+                // V_2D = V_dd * (sin^2(alpha)*F_parallel + cos^2(alpha)*F_perp)
+                // where alpha define the angle between momentum direction and z axis
+                // for now we assume alpha == 0 deg
                 if (k_perp == 0.0) {
-                    U_tilde(i, j) = 2.0 * Cdd / 3.0;
+                    U_tilde(i, j) = 2.0 * V_dd;
                 } else {
-                    U_tilde(i,j) = (Cdd / 3.0) * ( 2.0 - pref * kappa * std::exp(kappa * kappa) * std::erfc(kappa) );
+                    // U_tilde(i,j) = V_dd  * ( 2.0 - pref * kappa * std::exp(kappa * kappa) * std::erfc(kappa) );
+                    U_tilde(i,j) = V_dd * F_perp(kappa);
+                    // For any alpha the expression above would take the form
+                    // U_tilde(i,j) = V_dd * (std::pow(std::cos(alpha),2) * F_perp(kappa) + std::pow(std::sin(alpha),2) * F_parallel(k_x*lz/SQRT2, k_y*lz/ SQRT2))
                 }
             }
         }
@@ -217,3 +239,6 @@ public:
     } 
 
 };
+
+
+#endif

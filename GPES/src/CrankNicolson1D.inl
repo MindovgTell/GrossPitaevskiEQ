@@ -43,19 +43,19 @@ GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, W
 
 void GPES::CrankNicolson<Dimension::One>::calc_g_scattering(double a_s) {
     double C = 1.4603; // riemann -zeta(1/2)
-    _g_scattering =  2 * a_s * _lam / (1 - C*a_s*std::sqrtf(_lam)) - 8./ 3 * _V_dd;
+    _g_scattering =  2 * a_s * _lam / (1 - C*a_s*std::sqrt(_lam)) - 8./ 3 * _V_dd;
 }
 
 void GPES::CrankNicolson<Dimension::One>::calc_V_dd(double a_dd){
     // double cosTheta = 0; // Theta = 90 deg
-    // _V_dd = 1.5 * a_dd * M_PI * std::pow(_lam,1.5); 
+    // _V_dd = 0.375 * a_dd * std::pow(_lam,1.5); 
     // double cosTheta = 1; // Theta = 0 deg
-    _V_dd = -3. * a_dd * M_PI * std::pow(_lam,1.5); 
+    _V_dd = -0.75 * a_dd * std::pow(_lam,1.5); 
     // _V_dd = 1.5 * a_dd * M_PI * std::pow(_lam,1.5) * (1 - 3 * cosTheta * cosTheta); 
 }
  
 void GPES::CrankNicolson<Dimension::One>::calc_g_lhy(double a_s, double a_dd){
-    _g_lhy = (128. / 3) * std::sqrt(0.4) * std::pow(a_s, 2.5) * std::pow(_lam, 1.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
+    _g_lhy = (128. / (3 * M_PI) ) * std::sqrt(0.4) * std::pow(a_s, 2.5) * std::pow(_lam, 1.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
 }
 
 void GPES::CrankNicolson<Dimension::One>::calculate_DDI(Eigen::VectorXcd& vec){
@@ -77,11 +77,11 @@ void GPES::CrankNicolson<Dimension::One>::calculate_DDI_not_FFT(Eigen::VectorXcd
             double x = _start + _step * j;
             double pos = x - x_prime;
 
-            double alfa = std::abs(pos) * std::sqrtf(_lam) / (std::sqrt(2));
+            double alfa = std::abs(pos) * std::sqrt(_lam) / (std::sqrt(2));
             double sqalfa = std::pow(pos,2) * _lam * 0.5; 
 
             //Firstly calculating V_1d
-            V_1d = _V_dd * (-2.  * std::abs(pos) * std::sqrtf(_lam) + std::sqrt(2 * M_PI) * (1 + std::pow((pos), 2) * _lam) * std::erfc(alfa) * std::exp(sqalfa));
+            V_1d = _V_dd * (-2.  * std::abs(pos) * std::sqrt(_lam) + std::sqrt(2 * M_PI) * (1 + std::pow((pos), 2) * _lam) * std::erfc(alfa) * std::exp(sqalfa));
 
             answ += V_1d * std::norm(vec(j)) * _step;
         }

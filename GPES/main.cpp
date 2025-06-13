@@ -20,9 +20,9 @@ int main(int argc, char const *argv[]){
         return 1;
     }
 
-    simulation1D(argv[1]);
+    // simulation1D(argv[1]);
 
-    // simulation2Dt(argv[1]);
+    simulation2Dt(argv[1]);
 
     // test();
 
@@ -43,6 +43,7 @@ void simulation1D(std::string inputfile){
     // Loop for running simulation and getting all the fin states
     while(std::getline(input_data,line)) {//Skip first line in file
         try { 
+            auto t0 = std::chrono::steady_clock::now();
             std::stringstream str_stream(line);
             if (str_stream >> Problem >> grid_size >> deltat >> T >> start >> number_of_mol >> e_dd >> a_s >> x_c >> sigma_x >> omega_t) {
                     int width = 10;
@@ -81,6 +82,10 @@ void simulation1D(std::string inputfile){
             std::vector<double> TM_en(E.size(), TM_energy);
             energies_for_diff_grid.push_back(E.back());
             std::cout << E.back() << std::endl;
+
+            auto t1 = std::chrono::steady_clock::now();
+            double elapsed = std::chrono::duration<double>(t1 - t0).count();
+            std::cout << "Simulation have been run for " << elapsed << " s\n";
 
             GPES::draw(Psi, Fin, Psi2);
             GPES::draw_energy(E, TM_en);
@@ -236,29 +241,20 @@ void simulation2Dt(std::string inputfile){
 
 void test(){
     try {
-        GPES::Grid<Dimension::One> grid(100,-20);
-        grid.set_harmonic_potential(1);
-        GPES::WaveFunction<Dimension::One> Phi(grid,1,0,1000);
-        Phi.set_state_Gauss(0,10);
-        
-        Phi.savecsv_state("../../res/test/phi.csv");
+        //initialize the grid
+        GPES::Grid<Dimension::Two> grid(150,150, -30, -30);
+        grid.set_harmonic_potential(1,1);
+        grid.set_z_freq(20);
+        //initialize the wavefunction
+        GPES::WaveFunction<Dimension::Two> Phi(grid, 0.003, 0.1, 1000);
+        Phi.set_state_TF(0,0);
+        Phi.savecsv_state("../../res/2D/test/phi.csv");
+        GPES::heatmap(Phi);
+        GPES::WaveFunction<Dimension::Two> Psi;
+        Psi.readcsv("../../res/2D/test/phi.csv");
+        GPES::heatmap(Psi);
         Phi.print_params();
-        GPES::WaveFunction<Dimension::One> Psi;
-        Psi.readcsv("../../res/test/phi.csv");
         Psi.print_params();
-        GPES::CrankNicolson<Dimension::One> solver(grid,Psi, 10e-5, 0.01);
-        solver.simulation();
-
-        GPES::WaveFunction<Dimension::One> Fin;
-        solver.get_final_state(Fin);
-        Fin.print_params();
-        GPES::draw(Psi, Fin);
-
-        Fin.savecsv_state("../../res/test/psi.csv");
-        GPES::WaveFunction<Dimension::One> Psi2;
-        Psi2.readcsv("../../res/test/psi.csv");
-        Psi2.print_params();
-        GPES::draw(Psi2);
 
     }
     catch (const std::exception& ex) {           // catches runtime_error and any std::exception

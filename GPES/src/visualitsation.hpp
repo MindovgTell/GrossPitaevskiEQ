@@ -315,8 +315,7 @@ std::vector<std::vector<double>> Eigen_to_vector2D(WaveFunction<Dimension::Two>&
     return result;
 }
 
-void heatmap(WaveFunction<Dimension::Two>& wave, std::string name){
-
+void heatmap(WaveFunction<Dimension::Two>& wave, std::string name = "Wavefunction"){
     try {
         std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(wave);
 
