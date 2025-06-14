@@ -313,17 +313,17 @@ void GPES::CrankNicolson<Dimension::Two>::simulation(){
         double current_energy = calc_state_energy(_Fin);
         vec_Energy.push_back(current_energy);
         ++i;
-        if(i % 250 == 0){
-            // std::string file;
-            // std::stringstream ss;
-            save_state("../../res/Fin_states/sim.csv", _Fin);
-        }
+        // if(i % 250 == 0){
+        //     // std::string file;
+        //     // std::stringstream ss;
+        //     save_state("../../res/Fin_states/sim.csv", _Fin);
+        // }
     } while(simulation_stop(i));
 }
 
 inline bool GPES::CrankNicolson<Dimension::Two>::simulation_stop(int i)
 {
-    if(i > 500)
+    if(i > 1000)
         return false;
 
     double epsilon = 10e-10, last, before_last;
@@ -401,7 +401,6 @@ void GPES::CrankNicolson<Dimension::Two>::get_final_state(GPES::WaveFunction<Dim
     fin.set_step_size_y(_start_y);
     fin.set_vec(_Fin);
 }
-
 
 
 double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(){

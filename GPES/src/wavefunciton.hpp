@@ -748,6 +748,8 @@ void WaveFunction<Dimension::Two>::savecsv(const std::string filename, const Eig
     for (Eigen::Index i = 0; i < v.size(); ++i) {
         file << i << ',' << v[i].real() << ',' << v[i].imag() << '\n';
     }
+
+    std::cout << "State habe been saved" << std::endl;
 }
 
 void WaveFunction<Dimension::Two>::savecsv_prob(const std::string filename){

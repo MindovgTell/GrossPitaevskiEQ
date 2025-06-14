@@ -1,7 +1,7 @@
 #include <chrono>
 
 #include "src/grid.hpp"
-#include "src/visualitsation.hpp"
+#include "src/utility.hpp"
 #include "src/CrankNicolson.hpp"
 
 void simulation1D(std::string inputfile);
@@ -9,25 +9,28 @@ void simulation2D(std::string inputfile);
 void simulation2Dt(std::string inputfile);
 
 void test();
+void t_simulation2D(int argc, char const *argv[]);
 
 int main(int argc, char const *argv[]){
+    if(argc == 14){
+        t_simulation2D(argc, argv);
+        // simulation2D(argv[1]);
+    }
+    else if(argc == 10){
+        simulation1D(argv[1]);
+    }
+    else if(argc == 3){
 
-    if(argc != 2){
+    }
+    else {
         std::string executable = argv[0];
-
         std::cerr << "Error: Wrong number of input parameters" << '\n';
         std::cerr << "Usage:" << executable << " input_file.txt" << '\n';
         return 1;
     }
-
-    // simulation1D(argv[1]);
-
-    simulation2Dt(argv[1]);
-
-    // test();
-
     return 0;
 }
+
 
 void simulation1D(std::string inputfile){
 
@@ -266,4 +269,51 @@ void test(){
         std::cout << "Unknown error while saving wave-function.\n";
         return;
     }
+}
+
+void t_simulation2D(int argc, char const *argv[]) {
+    GPES::Parameters p = GPES::ReadSimParameters(argc, argv);
+    if(p.empty()){
+        std::cout << "No parameters" << std::endl;
+        return;
+    }
+
+    GPES::Grid<Dimension::Two> grid(p.at("grid_size_x"),p.at("grid_size_y"), p.at("start_x"), p.at("start_y"));
+    grid.set_harmonic_potential(p.at("omega_x"), p.at("omega_y"));
+    grid.set_z_freq(1000);
+    double a_dd = p.at("e_dd") * p.at("a_s");
+    GPES::WaveFunction<Dimension::Two> Psi(grid,p.at("a_s"), a_dd, p.at("Num_of_Molecules"));
+    GPES::WaveFunction<Dimension::Two> Psi2(grid, p.at("a_s"), a_dd, p.at("Num_of_Molecules")); //(Grid, )
+    Psi.set_state_Gauss(0.0,0.0,p.at("sigma_x"),p.at("sigma_y"));
+    Psi2.set_state_TF(0.0, 0.0);
+    GPES::CrankNicolson<Dimension::Two> solver(Psi2,grid,p.at("time_step"),0.1);
+
+    std::cout << "g_scattering: " << solver.get_g_s() << std::endl;
+    std::cout << "g_lhy: " << solver.get_g_lhy() << std::endl;
+    std::cout << "C_dd: " << solver.get_C_dd() << std::endl;
+
+    solver.simulation();
+    GPES::WaveFunction<Dimension::Two> Fin;
+    solver.get_final_state(Fin);
+    // Saving final state
+    std::string output_file = argv[argc-1];
+    Psi.savecsv_state(output_file);
+    
+    //Calculating energy the energy during simulation
+    double TM_energy = solver.calc_state_energy(Psi2);
+    std::vector<double> E = solver.get_vec_Energy();
+    std::vector<double> TM_en(E.size(), TM_energy);
+
+    //Draw densities of the func and energy by evolution step
+    GPES::heatmap(Psi2, "Initial state");
+    GPES::heatmap(Fin, "Final state");
+
+    Eigen::VectorXd FinX = Fin.get_x_slice();
+    Eigen::VectorXd FinY = Fin.get_y_slice();
+    Eigen::VectorXd Psi2X = Psi2.get_x_slice();
+    Eigen::VectorXd Psi2Y = Psi2.get_y_slice();
+    GPES::draw(FinX, Psi2X);
+    GPES::draw(FinY, Psi2Y);
+
+    GPES::draw_energy(E, TM_en);
 }

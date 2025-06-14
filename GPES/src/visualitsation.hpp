@@ -38,6 +38,19 @@ void draw(Eigen::VectorXd& vec, std::string xlabel = "time [s]",  std::string yl
     plt::grid();
     plt::show(); 
 }
+void draw(Eigen::VectorXd& vec1, Eigen::VectorXd& vec2, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
+    int size = vec1.size();
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0, size);
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
+    plt::figure();
+    plt::plot(x_vec, vec1, std::string("b-"),{{"label", "data trend"}});
+    plt::plot(x_vec, vec2, std::string("r-"),{{"label", "data trend"}});
+    plt::xlabel(xlabel);
+    plt::ylabel(ylabel);
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
 
 void draw(Grid<Dimension::One>& grid, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
     int size = grid.get_size_of_grid();
