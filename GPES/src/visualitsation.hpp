@@ -52,6 +52,26 @@ void draw(Eigen::VectorXd& vec1, Eigen::VectorXd& vec2, std::string xlabel = "ti
     plt::show(); 
 }
 
+void draw_save(Eigen::VectorXd& vec1, Eigen::VectorXd& vec2, const std::string& fileout){
+    try {
+        int size = vec1.size();
+        Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0, size);
+        std::vector<double> x_vec(x.data(), x.data() + x.size());
+        plt::figure();
+        plt::plot(x_vec, vec1, std::string("b-"),{{"label", "final state"  }});
+        plt::plot(x_vec, vec2, std::string("r-"),{{"label", "initial state"}});
+        plt::xlabel("x/$l_x$");
+        plt::ylabel("Probability density");
+        plt::legend();
+        plt::grid();
+        plt::savefig(fileout); 
+        plt::close();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+}
+
 void draw(Grid<Dimension::One>& grid, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
     int size = grid.get_size_of_grid();
     double start = grid.get_start_position();
@@ -208,6 +228,25 @@ void draw_energy(std::vector<double>& vec_of_energies){
     plt::show(); 
 }
 
+void draw_energy_save(std::vector<double>& vec_of_energies, std::vector<double>& TM_en, const std::string& fileout){
+    try {
+        std::vector<double> en_len(vec_of_energies.size());
+        std::iota(en_len.begin(), en_len.end(), 1);
+        std::vector<double> x_vec(en_len.data(), en_len.data() + en_len.size());
+        plt::figure();
+        plt::plot(x_vec, vec_of_energies, std::string("b-"),{{"label", "data trend"}});
+        plt::plot(x_vec, TM_en, std::string("g--"),{{"label", "TM state energy"}});
+        plt::xlabel("simulation step");
+        plt::ylabel("final state energy, $\\hbar \\omega$");
+        plt::legend();
+        plt::grid();
+        plt::savefig(fileout);
+        plt::close();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+}
 
 void draw3(Eigen::VectorXd& x, Eigen::VectorXd& Psi,  Eigen::VectorXd& Fin, Eigen::VectorXd& V){
     std::vector<double> x_vec(x.data(), x.data() + x.size());
@@ -350,9 +389,32 @@ void heatmap(WaveFunction<Dimension::Two>& wave, std::string name = "Wavefunctio
     catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
-
 }
 
+void heatmap_save(WaveFunction<Dimension::Two>& wave, const std::string& fileout){
+    try {
+        std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(wave);
+
+        // Optional: verify data
+        if (heatmap_data.empty() || heatmap_data[0].empty()) {
+            throw std::runtime_error("Data is empty.");
+        }
+
+        // Plot
+        plt::imshow(heatmap_data); //  , {{"cmap", "'plasma'"}, {"interpolation", "'nearest'"}}
+        plt::colorbar();
+        plt::title("Probability density");
+        // plt::xlim(wave.get_start_position_x(), -1. * wave.get_start_position_x());
+        // plt::ylim(wave.get_start_position_y(), -1. * wave.get_start_position_y());
+        plt::xlabel("X", {{"fontsize", "18"}});
+        plt::ylabel("Y", {{"fontsize", "18"}});
+        plt::savefig(fileout);
+        plt::close();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+}
 
 
 std::vector<std::vector<double>> Eigen_to_vector2D(const Eigen::MatrixXd& mat) {

@@ -12,6 +12,7 @@ void test();
 void t_simulation2D(int argc, char const *argv[]);
 
 int main(int argc, char const *argv[]){
+    auto t0 = std::chrono::steady_clock::now();
     if(argc == 14){
         t_simulation2D(argc, argv);
         // simulation2D(argv[1]);
@@ -19,8 +20,8 @@ int main(int argc, char const *argv[]){
     else if(argc == 10){
         simulation1D(argv[1]);
     }
-    else if(argc == 3){
-
+    else if(argc == 1){
+        test();
     }
     else {
         std::string executable = argv[0];
@@ -28,6 +29,9 @@ int main(int argc, char const *argv[]){
         std::cerr << "Usage:" << executable << " input_file.txt" << '\n';
         return 1;
     }
+    auto t1 = std::chrono::steady_clock::now();
+    double elapsed = std::chrono::duration<double>(t1 - t0).count();
+    std::cout << "Simulation have been run for " << elapsed << " s\n";
     return 0;
 }
 
@@ -244,8 +248,9 @@ void simulation2Dt(std::string inputfile){
 
 void test(){
     try {
+
         //initialize the grid
-        GPES::Grid<Dimension::Two> grid(150,150, -30, -30);
+        GPES::Grid<Dimension::Two> grid(200,200, -30, -30);
         grid.set_harmonic_potential(1,1);
         grid.set_z_freq(20);
         //initialize the wavefunction
@@ -296,7 +301,8 @@ void t_simulation2D(int argc, char const *argv[]) {
     GPES::WaveFunction<Dimension::Two> Fin;
     solver.get_final_state(Fin);
     // Saving final state
-    std::string output_file = argv[argc-1];
+    std::string output_dir = argv[argc-1];
+    std::string output_file = output_dir + "/fin.csv";
     Psi.savecsv_state(output_file);
     
     //Calculating energy the energy during simulation
@@ -305,15 +311,18 @@ void t_simulation2D(int argc, char const *argv[]) {
     std::vector<double> TM_en(E.size(), TM_energy);
 
     //Draw densities of the func and energy by evolution step
-    GPES::heatmap(Psi2, "Initial state");
-    GPES::heatmap(Fin, "Final state");
+    std::string output_png = output_dir + "/fin.png";
+    GPES::heatmap_save(Fin, output_png);
 
     Eigen::VectorXd FinX = Fin.get_x_slice();
     Eigen::VectorXd FinY = Fin.get_y_slice();
     Eigen::VectorXd Psi2X = Psi2.get_x_slice();
     Eigen::VectorXd Psi2Y = Psi2.get_y_slice();
-    GPES::draw(FinX, Psi2X);
-    GPES::draw(FinY, Psi2Y);
 
-    GPES::draw_energy(E, TM_en);
+    std::string output_sliceX_png = output_dir + "/sliceX.png";
+    GPES::draw_save(FinX, Psi2X, output_sliceX_png);
+    std::string output_sliceY_png = output_dir + "/sliceY.png";
+    GPES::draw_save(FinY, Psi2Y,output_sliceY_png);
+    std::string output_energy = output_dir + "/energy.png";
+    GPES::draw_energy_save(E, TM_en, output_energy);
 }

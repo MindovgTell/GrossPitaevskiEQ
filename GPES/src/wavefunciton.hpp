@@ -548,6 +548,8 @@ public:
 
     void print_params();
 
+    double phase_coherence(double x, double y);
+
 };
 
 double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(){
@@ -703,12 +705,28 @@ Eigen::VectorXd WaveFunction<Dimension::Two>::get_y_slice(){
     return slice;
 }
     
-void WaveFunction<Dimension::Two>::savecsv(const std::string filename, const Eigen::VectorXcd& v){
 
-    std::ofstream file(filename);
-    if (!file.is_open())
-        throw std::runtime_error("Could not open file: " + filename);
+static std::string parent_dir(const std::string& path) {
+    auto pos = path.find_last_of("/\\");
+    return (pos == std::string::npos ? "" : path.substr(0, pos));
+}
 
+void WaveFunction<Dimension::Two>::savecsv(const std::string file_path, const Eigen::VectorXcd& v){
+    // 1) Ensure parent directory exists
+    std::string dir = parent_dir(file_path);
+    if (!dir.empty()) {
+        // mkdir -p dir
+        std::string cmd = "mkdir -p '" + dir + "'";
+        if (std::system(cmd.c_str()) != 0) {
+            throw std::runtime_error("Failed to create directory: " + dir);
+        }
+    }
+
+    std::ofstream file(file_path, std::ios::out /*| std::ios::trunc is implicit*/);
+    if (!file) {
+        std::cerr << "Error: cannot open " << file_path << " for writing\n";
+        return;
+    }
 
     ParamList params{
         {"a_s",                _a_s                        },
@@ -831,7 +849,13 @@ void WaveFunction<Dimension::Two>::print_params(){
 
 
 
-
+double WaveFunction<Dimension::Two>::phase_coherence(double x, double y){
+    Eigen::VectorXcd psi = _Psi;
+    int size = psi.size();
+    for(int i = 0; i < size; ++i){
+        
+    } 
+}
 
 } // end of the namespace
 
