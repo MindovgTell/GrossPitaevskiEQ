@@ -1,6 +1,6 @@
 #!/bin/bash -l
 ## Nazwa zlecenia
-#SBATCH -J 2DBosons_g=GG-N=NN
+#SBATCH -J 
 ## Liczba alokowanych węzłów
 #SBATCH -N 1
 ## Liczba zadań per węzeł (domyślnie jest to liczba alokowanych rdzeni na węźle)
@@ -14,9 +14,9 @@
 ## Specyfikacja partycji
 #SBATCH -p plgrid
 ## Plik ze standardowym wyjściem
-#SBATCH --output="/net/people/plgrid/plgsuchorowski/2DBosons/tdl_run_g=GG-N=NN/output.out"
+#SBATCH --output="/net/people/plgrid/plgmankevich"
 ## Plik ze standardowym wyjściem błędów
-#SBATCH --error="/net/people/plgrid/plgsuchorowski/2DBosons/tdl_run_g=GG-N=NN/error.err"
+#SBATCH --error="/net/people/plgrid/plgmankevich"
 
 
 
