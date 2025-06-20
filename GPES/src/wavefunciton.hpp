@@ -8,6 +8,7 @@
 #include <vector>
 #include <iomanip>
 #include <map>
+#include <fftw3.h>
 #include "definitions.hpp"
 #include "grid.hpp"
 
@@ -16,6 +17,10 @@ namespace GPES
 {
 
 using ParamList = std::map<std::string,double>;
+using MatR = Eigen::Matrix<std::complex<double>,
+                           Eigen::Dynamic,
+                           Eigen::Dynamic,
+                           Eigen::RowMajor>;
 
 template<Dimension dim>
 class WaveFunction;
@@ -468,7 +473,7 @@ private:
     Eigen::VectorXcd _Psi;
 
 public:
-    WaveFunction(): _a_s(0), _g_scattering(0), _a_dd(0), _Num(0), _size_x(0), _step_x(0), _start_x(0), _size_y(0), _step_y(0), _start_y(0), _Psi(Eigen::VectorXcd(0)) {}
+    WaveFunction(): _a_s(0), _g_scattering(0), _a_dd(0), _Num(0), _size_x(0), _step_x(0), _start_x(0), _size_y(0), _step_y(0), _start_y(0), _omega_x(0), _omega_y(0),_Psi(Eigen::VectorXcd(0)) {}
 
     WaveFunction(Grid<Dimension::Two>& grid, double a_s, double a_dd, int number_of_particles): _a_s(a_s), _a_dd(a_dd), _Num(number_of_particles) {
         _omega_x        =   grid.get_omega_x();
@@ -499,7 +504,7 @@ public:
     void set_state_TF(double x_c, double y_c);
     void set_state_Gauss(double x_c, double y_c, double sigma_x, double sigma_y);
 
-    void set_vec(Eigen::VectorXcd& vec) {_Psi = vec;}
+    void set_vec(Eigen::VectorXcd& vec) {if(vec.size() == _size_x*_size_y) _Psi = vec;}
     void set_Num(unsigned int Num) {_Num = Num;}
     void set_size_of_grid_x(unsigned int size) {_size_x = size;}
     void set_size_of_grid_y(unsigned int size) {_size_y = size;}
@@ -507,6 +512,10 @@ public:
     void set_start_position_y(double start) {_start_y = start;}
     void set_step_size_x(double step) {_step_x = step;}
     void set_step_size_y(double step) {_step_y = step;}
+    void set_a_s(double a_s) {_a_s = a_s;}
+    void set_a_dd(double a_dd) {_a_dd = a_dd;}
+    void set_omega_x(double omega) {_omega_x = omega;}
+    void set_omega_y(double omega) {_omega_y = omega;}
 
     //Getters
     Eigen::VectorXcd& get_wavefunction() {return _Psi;}
@@ -546,10 +555,10 @@ public:
 
     void readcsv(const std::string filename);
 
+    double calc_state_energy();
+
     void print_params();
-
-    double phase_coherence(double x, double y);
-
+    Eigen::VectorXcd momentum_space_transform() const;
 };
 
 double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(){
@@ -767,7 +776,7 @@ void WaveFunction<Dimension::Two>::savecsv(const std::string file_path, const Ei
         file << i << ',' << v[i].real() << ',' << v[i].imag() << '\n';
     }
 
-    std::cout << "State habe been saved" << std::endl;
+    std::cout << "State have been saved" << std::endl;
 }
 
 void WaveFunction<Dimension::Two>::savecsv_prob(const std::string filename){
@@ -778,6 +787,20 @@ void WaveFunction<Dimension::Two>::savecsv_prob(const std::string filename){
 void WaveFunction<Dimension::Two>::savecsv_state(const std::string filename){
     savecsv(filename, _Psi);
 }
+
+
+static double safe_parse_double(const std::string& str) {
+    try {
+        return std::stod(str);
+    }
+    catch (const std::invalid_argument&) {
+        return 0.0;
+    }
+    catch (const std::out_of_range&) {
+        return 0.0;
+    }
+}
+
 
 void WaveFunction<Dimension::Two>::readcsv(const std::string filename){
     // Open and check file competability
@@ -810,13 +833,14 @@ void WaveFunction<Dimension::Two>::readcsv(const std::string filename){
 
     /* ---------- 4) read the complex vector -------------------------------- */
     std::vector<std::complex<double>> data;
+    data.reserve(10000);
     while (std::getline(file, line))
     {
         if (line.empty()) continue;
         auto cols = split(line);
         if (cols.size() != 3)
-            throw std::runtime_error("Bad data row: " + line);
-        data.emplace_back(std::stod(cols[1]), std::stod(cols[2]));
+            throw std::runtime_error("Bad data row: " + line); 
+        data.emplace_back(safe_parse_double(cols[1]), safe_parse_double(cols[2]));
     }
 
     Eigen::VectorXcd vec(data.size());
@@ -848,14 +872,63 @@ void WaveFunction<Dimension::Two>::print_params(){
 }
 
 
+Eigen::VectorXcd WaveFunction<Dimension::Two>::momentum_space_transform() const {
+    int Nx = _size_x;
+    int Ny = _size_y;
+    int N = Nx * Ny;
 
-double WaveFunction<Dimension::Two>::phase_coherence(double x, double y){
-    Eigen::VectorXcd psi = _Psi;
-    int size = psi.size();
-    for(int i = 0; i < size; ++i){
-        
-    } 
+    Eigen::VectorXcd result(N);
+
+    // Allocate FFTW input/output
+    fftw_complex* in = reinterpret_cast<fftw_complex*>(fftw_malloc(sizeof(fftw_complex) * N));
+    fftw_complex* out = reinterpret_cast<fftw_complex*>(fftw_malloc(sizeof(fftw_complex) * N));
+
+    // Fill input array from _Psi (row-major assumed: y rows, x columns)
+    for (int y = 0; y < Ny; ++y) {
+        for (int x = 0; x < Nx; ++x) {
+            int i = y * Nx + x; // make sure get_index is get_index(row, col)
+            in[i][0] = _Psi(i).real();
+            in[i][1] = _Psi(i).imag();
+
+            // Optional: Apply a window function like Hann or Gaussian here
+            // double wx = 0.5 * (1 - std::cos(2 * M_PI * x / (Nx - 1)));
+            // double wy = 0.5 * (1 - std::cos(2 * M_PI * y / (Ny - 1)));
+            // double window = wx * wy;
+            // in[idx][0] *= window;
+            // in[idx][1] *= window;
+        }
+    }
+
+    // Plan and execute FFT
+    fftw_plan plan = fftw_plan_dft_2d(Ny, Nx, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_execute(plan);
+
+    // Normalize result by total number of points (preserve amplitude scale)
+    for (int i = 0; i < N; ++i) {
+        result(i) = std::complex<double>(out[i][0], out[i][1]) / static_cast<double>(N);
+    }
+
+    // Apply fftshift to center zero momentum
+    Eigen::VectorXcd shifted_result(N);
+    for (int y = 0; y < Ny; ++y) {
+        for (int x = 0; x < Nx; ++x) {
+            int orig_idx = y * Nx + x;
+            int sx = (x + Nx / 2) % Nx;
+            int sy = (y + Ny / 2) % Ny;
+            int shift_idx = sy * Nx + sx;
+            shifted_result(shift_idx) = result(orig_idx);
+        }
+    }
+
+    // Cleanup
+    fftw_destroy_plan(plan);
+    fftw_free(in);
+    fftw_free(out);
+
+    return shifted_result;
 }
+
+
 
 } // end of the namespace
 

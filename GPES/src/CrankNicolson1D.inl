@@ -51,7 +51,7 @@ void GPES::CrankNicolson<Dimension::One>::calc_V_dd(double a_dd){
     // _V_dd = 0.375 * a_dd * std::pow(_lam,1.5); 
     // double cosTheta = 1; // Theta = 0 deg
     _V_dd = -0.75 * a_dd * std::pow(_lam,1.5); 
-    // _V_dd = 1.5 * a_dd * M_PI * std::pow(_lam,1.5) * (1 - 3 * cosTheta * cosTheta); 
+    // _V_dd = 1.5 * a_dd * std::pow(_lam,1.5) * (1 - 3 * cosTheta * cosTheta); 
 }
  
 void GPES::CrankNicolson<Dimension::One>::calc_g_lhy(double a_s, double a_dd){
@@ -93,31 +93,6 @@ void GPES::CrankNicolson<Dimension::One>::calculate_DDI_not_FFT(Eigen::VectorXcd
 
     _U_ddi = U;
 }
-
-// //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
-// void GPES::CrankNicolson<Dimension::One>::init_time_evolution_matrices(){
-//     Eigen::VectorXcd a(_size);
-//     Eigen::VectorXcd b(_size);
-//     // calculate_DDI(_Psi);
-//     // calculate_DDI_not_FFT(_Psi);
-//     for(int i = 0; i < _size; ++i){
-//         std::complex<double> U_potential = 1.0 * (_delta_t*0.5)*std::complex<double>(_V_ext(i));
-//         std::complex<double> U_scattering =  1.0 * (_delta_t*0.5 * _g_scattering)*std::norm(_Psi(i));
-//         std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(i);
-//         std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * this->_g_lhy * std::pow(std::norm(_Psi(i)), 0.5);
-//         // // Real time evolution matrices
-//         // a(i) = (1.0 - 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-//         // b(i) = (1.0 + 2.0*this->m_lambda_x + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(i)) + 1.0i*(m_delta_t/2)*std::pow(std::abs(m_Psi(i)),2));
-//         // // Imaginary time evolution matrices
-//         // a(i) = 1.0 + 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-//         // b(i) = 1.0 - 2.0*this->m_lambda_x + 1.0 * (m_delta_t*0.5)*std::complex<double>(m_V(i)) + 1.0 * (m_delta_t*0.5 * m_g)*std::norm(m_Psi(i));
-//         // TEST ADDED DDI
-//         a(i) = 1.0 - 2.0*_lambda_x + U_scattering + U_potential;// + U_dd ;// + U_lhy;
-//         b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential;// - U_dd ;//- U_lhy;
-//     }
-//     this->init_Mat_A(_lambda_x, a);
-//     this->init_Mat_B(-1.0 * _lambda_x, b); 
-// }
 
 void GPES::CrankNicolson<Dimension::One>::calc_time_evolution_matrices(Eigen::VectorXcd& vec){
     int size = vec.size();
@@ -194,7 +169,7 @@ void GPES::CrankNicolson<Dimension::One>::init_Mat_B(std::complex<double> r, Eig
 }
 
 // Time evolution simulation for 1D Gross-Pitaevskii equation
-void GPES::CrankNicolson<Dimension::One>::simulation(){
+void GPES::CrankNicolson<Dimension::One>::simulation(std::string& outdir){
 
     Eigen::VectorXcd x(_size);
     Eigen::VectorXcd b(_size);
@@ -208,10 +183,12 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
     // Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> solver;
     Eigen::SimplicialLLT<Eigen::SparseMatrix<std::complex<double>>> solver;
     // Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>> solver;
-    
-    // for (int i = 1; i < _t_step; ++i) {
+
+    int i = 0;
+
+    // do {
     //     normalize(b);
-    //     update_time_evolution_matrices(b);
+    //     calc_time_evolution_matrices(b);
     //     solver.compute(_A);
     //     // Update the right-hand side vector b
     //     b = _B * b;
@@ -223,10 +200,10 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
     //         std::cout << "Simulation step: #" << i << '\n';
     //     _Fin = x;
     //     normalize(_Fin);
-    //     vec_Energy.push_back(calc_state_energy(_Fin));
-    // }
-
-    int i = 0;
+    //     double current_energy = calc_state_energy(_Fin);
+    //     vec_Energy.push_back(current_energy);
+    //     ++i;
+    // } while(simulation_stop(i));
 
     do {
         normalize(b);
@@ -242,15 +219,20 @@ void GPES::CrankNicolson<Dimension::One>::simulation(){
         // Update b for the next iteration
         b = x;
 
-        if(i % 100 == 0)
+        if(i % 200 == 0){
             std::cout << "Simulation step: #" << i << '\n';
-
+            auto s = std::to_string(i);
+            std::string outfile = outdir + "/fin.csv";
+            savecsv_wave(outfile,x);
+        }
         _Fin = x;
         normalize(_Fin);
         double current_energy = calc_state_energy(_Fin);
         vec_Energy.push_back(current_energy);
         ++i;
     } while(simulation_stop(i));
+    std::string outfile_en = outdir + "/energy_history.csv";
+    savecsv_vec(outfile_en, vec_Energy);
 }
 
 inline bool GPES::CrankNicolson<Dimension::One>::simulation_stop(int i)
@@ -362,6 +344,99 @@ void GPES::CrankNicolson<Dimension::One>::print_param_of_eq(){
     int width = 15;
     std::cout << std::setw(width) << "a_s"<< std::setw(width) << "a_dd" << std::setw(width) << "g_scattering" << std::setw(width) << "V_dd" << std::setw(width) << "g_lhy" << std::setw(width) << "lambda" << std::endl;
     std::cout << std::setw(width) << _a_s << std::setw(width) << _a_dd << std::setw(width) << _g_scattering << std::setw(width) << _V_dd << std::setw(width) << _g_lhy << std::setw(width) << _lam << std::endl;
+}
+
+void GPES::CrankNicolson<Dimension::One>::save_state(std::string filename, Eigen::VectorXcd& vec){
+    const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
+    std::ofstream file(filename);
+    if(file.is_open()){
+        //file << vec.format(CSVFormat) << '\n';
+        file << vec.format(CSVFormat);
+        file.close();
+    }
+    else
+        std::cout << "Smth goes wrong with open file for w" << std::endl;
+}
+
+void GPES::CrankNicolson<Dimension::One>::savecsv_wave(std::string file_path, Eigen::VectorXcd& v){
+    // 1) Ensure parent directory exists
+    std::string dir = parent_dir(file_path);
+    if (!dir.empty()) {
+        // mkdir -p dir
+        std::string cmd = "mkdir -p '" + dir + "'";
+        if (std::system(cmd.c_str()) != 0) {
+            throw std::runtime_error("Failed to create directory: " + dir);
+        }
+    }
+
+    std::ofstream file(file_path, std::ios::out /*| std::ios::trunc is implicit*/);
+    if (!file) {
+        std::cerr << "Error: cannot open " << file_path << " for writing\n";
+        return;
+    }
+
+    ParamList params{
+        {"a_s",                _a_s                        },
+        {"a_dd",               _a_dd                       },
+        {"omega",              _omega                      },
+        {"Num_of_particle",    static_cast<double>(_Num)   },
+        {"size_of_grid",       static_cast<double>(_size)  },
+        {"step_size",          _step                       },
+        {"grid_start_point",   _start                      }
+    };
+
+    /* ---------- 1) metadata names ---------- */
+    bool first = true;
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.first;
+        first = false;
+    }
+    file << '\n';
+
+    /* ---------- 2) metadata values ---------- */
+    first = true;
+    file << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.second;
+        first = false;
+    }
+    file << "\n\n";                           // blank line before the data block
+
+    /* ---------- 3) the actual wave-function ---------- */
+    file << "index,real,imag\n";
+    for (Eigen::Index i = 0; i < v.size(); ++i) {
+        file << i << ',' << v[i].real() << ',' << v[i].imag() << '\n';
+    }
+
+    std::cout << "State have been saved" << std::endl;
+}
+
+void GPES::CrankNicolson<Dimension::One>::savecsv_vec(std::string file_path, std::vector<double>& v){
+    // 1) Ensure parent directory exists
+    std::string dir = parent_dir(file_path);
+    if (!dir.empty()) {
+        // mkdir -p dir
+        std::string cmd = "mkdir -p '" + dir + "'";
+        if (std::system(cmd.c_str()) != 0) {
+            throw std::runtime_error("Failed to create directory: " + dir);
+        }
+    }
+
+    std::ofstream file(file_path, std::ios::out /*| std::ios::trunc is implicit*/);
+    if (!file) {
+        std::cerr << "Error: cannot open " << file_path << " for writing\n";
+        return;
+    }
+
+    /* ---------- 3) the actual wave-function ---------- */
+    file << "index,value\n";
+    for (Eigen::Index i = 0; i < v.size(); ++i) {
+        file << i << ',' << v[i] << '\n';
+    }
+
+    std::cout << "Vector have been saved" << std::endl;
 }
 
 #endif

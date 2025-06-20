@@ -72,6 +72,27 @@ void draw_save(Eigen::VectorXd& vec1, Eigen::VectorXd& vec2, const std::string& 
     }
 }
 
+
+void draw_save(Eigen::VectorXd& vec1, const std::string& fileout){
+    try {
+        int size = vec1.size();
+        Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0, size);
+        std::vector<double> x_vec(x.data(), x.data() + x.size());
+        plt::figure();
+        plt::plot(x_vec, vec1, std::string("b-"),{{"label", "final state"  }});
+        plt::xlabel("x/$l_x$");
+        plt::ylabel("Probability density");
+        plt::legend();
+        plt::grid();
+        plt::savefig(fileout); 
+        plt::close();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+}
+
+
 void draw(Grid<Dimension::One>& grid, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
     int size = grid.get_size_of_grid();
     double start = grid.get_start_position();
@@ -238,6 +259,49 @@ void draw_energy_save(std::vector<double>& vec_of_energies, std::vector<double>&
         plt::plot(x_vec, TM_en, std::string("g--"),{{"label", "TM state energy"}});
         plt::xlabel("simulation step");
         plt::ylabel("final state energy, $\\hbar \\omega$");
+        plt::legend();
+        plt::grid();
+        plt::savefig(fileout);
+        plt::close();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+}
+
+void draw_energy_save(std::vector<double> vec_of_energies,  const std::string& fileout){
+    try {
+        std::vector<double> en_len(vec_of_energies.size());
+        std::iota(en_len.begin(), en_len.end(), 1);
+        std::vector<double> x_vec(en_len.data(), en_len.data() + en_len.size());
+        plt::figure();
+        plt::plot(x_vec, vec_of_energies, std::string("b-"),{{"label", "data trend"}});
+        plt::xlabel("simulation step");
+        plt::ylabel("final state energy, $\\hbar \\omega$");
+        plt::legend();
+        plt::grid();
+        plt::savefig(fileout);
+        plt::close();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+}
+
+void draw_energy_save_ars(std::vector<double> vec_of_energies,  const std::string& fileout){
+    try {
+        // std::vector<double> en_len(vec_of_energies.size());
+        // std::iota(en_len.begin(), en_len.end(), 1);
+        // std::vector<double> x_vec(en_len.data(), en_len.data() + en_len.size());
+        std::vector<double> x_vec;
+        for (int val = 100; val <= 1200 && x_vec.size() < vec_of_energies.size(); val += 25) {
+            x_vec.push_back(val);
+        }
+        plt::figure();
+        plt::plot(x_vec, vec_of_energies, std::string("bo-"),{{"label", "data trend"}});
+        plt::xlabel("grid size, node");
+        plt::ylabel("final state energy, $\\hbar \\omega$");
+        plt::title("Energy Dependence on Grid Size");
         plt::legend();
         plt::grid();
         plt::savefig(fileout);

@@ -26,10 +26,13 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
     _lam_y          =   _omega_y / _omega_x;
     _lam_z          =   _omega_z / _omega_x;
 
+    _a_s = Psi.get_a_s();
+    _a_dd = Psi.get_a_dd();
+
     // Initialize interaction strengths
-    calc_g_scattering(Psi.get_a_s());
-    calc_V_dd(Psi.get_a_dd());
-    calc_g_lhy(Psi.get_a_s(), Psi.get_a_dd());
+    calc_g_scattering(_a_s);
+    calc_V_dd(_a_dd);
+    calc_g_lhy(_a_s, _a_dd);
 
     _lambda_x       =   -1.0*_delta_t/(4*std::pow(_step_x,2));
     _lambda_y       =   -1.0*_delta_t/(4*std::pow(_step_y,2));
@@ -254,7 +257,7 @@ void GPES::CrankNicolson<Dimension::Two>::init_Mat_B(std::complex<double> r_x, s
 }
 
 // Time evolution simulation for 2D Gross-Pitaevskii equation
-void GPES::CrankNicolson<Dimension::Two>::simulation(){
+void GPES::CrankNicolson<Dimension::Two>::simulation(std::string& outdir){
 
     int size = _Psi.size();
 
@@ -270,24 +273,6 @@ void GPES::CrankNicolson<Dimension::Two>::simulation(){
     // Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> solver;
     // Eigen::SimplicialLLT<Eigen::SparseMatrix<std::complex<double>>> solver;
     Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>> solver;
-
-    // for (int i = 1; i < _t_step; ++i) {
-    //     // Add the normalization function for 2D matrices, which would consider different spatial step in x and y directions
-    //     normalize(b);
-    //     calc_time_evolution_matrices(b);
-    //     solver.compute(_A);    
-    //     // Update the right-hand side vector b
-    //     b = _B * b;
-    //     // // Solve the system A * x = b
-    //     x = solver.solve(b);
-    //     // Update b for the next iteration
-    //     b = x;
-    //     if(i % 50 == 0)
-    //         std::cout << "Simulation step: #" << i << '\n';
-    //     _Fin = x;
-    //     normalize(_Fin);
-    //     this->vec_Energy.push_back(calc_state_energy(_Fin));
-    // }
 
     int i = 1;
 
@@ -305,28 +290,28 @@ void GPES::CrankNicolson<Dimension::Two>::simulation(){
         // Update b for the next iteration
         b = x;
 
-        if(i % 50 == 0)
+        if(i % 200 == 0){
             std::cout << "Simulation step: #" << i << '\n';
-
+            auto s = std::to_string(i);
+            std::string outfile = outdir + "/fin.csv";
+            savecsv_wave(outfile,x);
+        }
         _Fin = x;
         normalize(_Fin);
         double current_energy = calc_state_energy(_Fin);
         vec_Energy.push_back(current_energy);
         ++i;
-        // if(i % 250 == 0){
-        //     // std::string file;
-        //     // std::stringstream ss;
-        //     save_state("../../res/Fin_states/sim.csv", _Fin);
-        // }
     } while(simulation_stop(i));
+    std::string outfile_en = outdir + "/energy_history.csv";
+    savecsv_vec(outfile_en, vec_Energy);
 }
 
 inline bool GPES::CrankNicolson<Dimension::Two>::simulation_stop(int i)
 {
-    if(i > 1000)
+    if(i > 4000)
         return false;
 
-    double epsilon = 10e-10, last, before_last;
+    double epsilon = 10e-7, last, before_last;
 
     if (vec_Energy.size() >= 2) {
         last = *vec_Energy.rbegin();
@@ -395,10 +380,12 @@ void GPES::CrankNicolson<Dimension::Two>::get_final_state(GPES::WaveFunction<Dim
     fin.set_size_of_grid_y(_size_y);
     fin.set_start_position_x(_start_x);
     fin.set_start_position_y(_start_y);
-    fin.set_start_position_x(_start_x);
-    fin.set_start_position_y(_start_y);
-    fin.set_step_size_x(_start_x);
-    fin.set_step_size_y(_start_y);
+    fin.set_step_size_x(_step_x);
+    fin.set_step_size_y(_step_y);
+    fin.set_omega_x(_omega_x);
+    fin.set_omega_y(_omega_y);
+    fin.set_a_dd(_a_dd);
+    fin.set_a_s(_a_s);
     fin.set_vec(_Fin);
 }
 
@@ -467,26 +454,6 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(GPES::WaveFunction
 }
 
 
-void GPES::CrankNicolson<Dimension::Two>::print_Mat_A_dim(){
-    std::cout << "Matrix A number of cols: " << _A.cols() << std::endl;
-    std::cout << "Matrix A number of rows: " << _A.rows() << std::endl;
-}
-
-void GPES::CrankNicolson<Dimension::Two>::print_Mat_B_dim(){
-    std::cout << "Matrix B number of cols: " << _B.cols() << std::endl;
-    std::cout << "Matrix B number of rows: " << _B.rows() << std::endl;
-}
-
-
-void GPES::CrankNicolson<Dimension::Two>::print_Mat_A(){
-    std::cout << Eigen::MatrixXcd(_A) << std::endl;
-}
-
-void GPES::CrankNicolson<Dimension::Two>::print_Mat_B(){
-    std::cout << Eigen::MatrixXcd(_B) << std::endl;
-}
-
-
 void GPES::CrankNicolson<Dimension::Two>::save_state(std::string filename, Eigen::VectorXcd& vec){
     const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ",","\n");
     std::ofstream file(filename);
@@ -497,6 +464,91 @@ void GPES::CrankNicolson<Dimension::Two>::save_state(std::string filename, Eigen
     }
     else
         std::cout << "Smth goes wrong with open file for w" << std::endl;
+}
+
+void GPES::CrankNicolson<Dimension::Two>::savecsv_wave(std::string file_path, Eigen::VectorXcd& v){
+    // 1) Ensure parent directory exists
+    std::string dir = parent_dir(file_path);
+    if (!dir.empty()) {
+        // mkdir -p dir
+        std::string cmd = "mkdir -p '" + dir + "'";
+        if (std::system(cmd.c_str()) != 0) {
+            throw std::runtime_error("Failed to create directory: " + dir);
+        }
+    }
+
+    std::ofstream file(file_path, std::ios::out /*| std::ios::trunc is implicit*/);
+    if (!file) {
+        std::cerr << "Error: cannot open " << file_path << " for writing\n";
+        return;
+    }
+
+    ParamList params{
+        {"a_s",                _a_s                        },
+        {"a_dd",               _a_dd                       },
+        {"omega_x",            _omega_x                    },
+        {"omega_y",            _omega_y                    },
+        {"Num_of_particle",    static_cast<double>(_Num)   },
+        {"size_of_grid_x",     static_cast<double>(_size_x)},
+        {"size_of_grid_y",     static_cast<double>(_size_y)},
+        {"step_size_x",        _step_x                     },
+        {"step_size_y",        _step_y                     },
+        {"grid_start_point_x", _start_x                    },
+        {"grid_start_point_y", _start_y                    }
+    };
+
+    /* ---------- 1) metadata names ---------- */
+    bool first = true;
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.first;
+        first = false;
+    }
+    file << '\n';
+
+    /* ---------- 2) metadata values ---------- */
+    first = true;
+    file << std::setprecision(std::numeric_limits<double>::max_digits10);
+    for (const auto& kv : params) {
+        if (!first) file << ',';
+        file << kv.second;
+        first = false;
+    }
+    file << "\n\n";                           // blank line before the data block
+
+    /* ---------- 3) the actual wave-function ---------- */
+    file << "index,real,imag\n";
+    for (Eigen::Index i = 0; i < v.size(); ++i) {
+        file << i << ',' << v[i].real() << ',' << v[i].imag() << '\n';
+    }
+
+    std::cout << "State have been saved" << std::endl;
+}
+
+void GPES::CrankNicolson<Dimension::Two>::savecsv_vec(std::string file_path, std::vector<double>& v){
+    // 1) Ensure parent directory exists
+    std::string dir = parent_dir(file_path);
+    if (!dir.empty()) {
+        // mkdir -p dir
+        std::string cmd = "mkdir -p '" + dir + "'";
+        if (std::system(cmd.c_str()) != 0) {
+            throw std::runtime_error("Failed to create directory: " + dir);
+        }
+    }
+
+    std::ofstream file(file_path, std::ios::out /*| std::ios::trunc is implicit*/);
+    if (!file) {
+        std::cerr << "Error: cannot open " << file_path << " for writing\n";
+        return;
+    }
+
+    /* ---------- 3) the actual wave-function ---------- */
+    file << "index,value\n";
+    for (Eigen::Index i = 0; i < v.size(); ++i) {
+        file << i << ',' << v[i] << '\n';
+    }
+
+    std::cout << "Vector have been saved" << std::endl;
 }
 
 #endif

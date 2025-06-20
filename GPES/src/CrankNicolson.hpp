@@ -68,7 +68,7 @@ public:
     void calc_time_evolution_matrices(Eigen::VectorXcd& vec);
 
 
-    void simulation();
+    void simulation(std::string& outdir);
 
  
     void init_Mat_A(std::complex<double> r,Eigen::VectorXcd& d);
@@ -124,6 +124,10 @@ public:
 
     std::vector<double> get_vec_Energy(){ return vec_Energy;}
 
+    void save_state(std::string filename, Eigen::VectorXcd& vec);
+    void savecsv_wave(std::string file_path, Eigen::VectorXcd& vec);
+    void savecsv_vec(std::string file_path, std::vector<double>& vec);
+
 };
 
 
@@ -151,14 +155,13 @@ private:
     std::unique_ptr<DipolarInteraction<Dimension::Two>> F_ddi;
 
     int _size_x, _size_y, _T, _t_step, _Num;
-    double _g_scattering, _V_dd, _g_lhy, _lam_z, _lam_y;
+    double _a_s, _a_dd, _g_scattering, _V_dd, _g_lhy, _lam_z, _lam_y;
     double _delta_t, _h_step, _omega_x, _omega_y, _omega_z, _chem_potential, _start_x, _start_y, _step_x, _step_y, l_z;
     std::complex<double> _lambda_x, _lambda_y;
 
     // vector of the energies
 
     std::vector<double> vec_Energy;
-    std::vector<double> vec_Chem_potential;
 
 public: 
     //2D constructor
@@ -186,8 +189,10 @@ public:
 
     void save_matrix_to_csv(std::string filename, Eigen::MatrixXd mat);
     void save_vector_to_csv(std::string filename, Eigen::VectorXd mat);
+    void savecsv_wave(std::string file_path, Eigen::VectorXcd& vec);
+    void savecsv_vec(std::string file_path, std::vector<double>& vec);
 
-    void simulation();
+    void simulation(std::string& outdir);
     bool simulation_stop(int i); // Simulation stop function due to the small energy difference between steps
 
     void normalize(Eigen::VectorXcd &vec);
@@ -230,6 +235,7 @@ public:
     std::vector<double> get_vec_Energy(){ return vec_Energy;}
 
     void save_state(std::string filename, Eigen::VectorXcd& vec);
+    void save_sim_param(std::string file_path);
 };
 
 

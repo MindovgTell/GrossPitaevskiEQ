@@ -9,12 +9,12 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 #Build directory
 GPESOLVER="$PROJECT_ROOT/GPES/build/GPESolver"
 
-OUT_DIR="$PROJECT_ROOT/res/2D/Fin"
+OUT_DIR="$PROJECT_ROOT/res/2D/FinTest"
 
 
 # set the parameters for simulations
-GridSizeX='300'
-GridSizeY='300'
+GridSizeX='100'
+GridSizeY='100'
 TimeStep='0.001'
 StartX='-30'
 StartY='-30'

@@ -100,7 +100,7 @@ public:
 
 };
 
-Parameters ReadSimParameters(int& argc, char const *argv[]){
+Parameters ReadSimParameters2D(int& argc, char const *argv[]){
     if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " <num1> [num2] …\n";
         return {};
@@ -137,6 +137,54 @@ Parameters ReadSimParameters(int& argc, char const *argv[]){
         {"sigma_y",            params[9] },
         {"omega_x",            params[10]},
         {"omega_y",            params[11]}
+    };
+
+    // now params[0]…params.back() are your doubles
+    int width = 15;
+    std::cout << "Parameters where readed successfully" << std::endl;
+    for (auto d : parameters) 
+        std::cout << std::setw(width) << d.first;
+    std::cout << '\n';
+    for (auto d : parameters)
+        std::cout << std::setw(width) << d.second;
+    std::cout << '\n';
+
+    return parameters;
+}
+
+Parameters ReadSimParameters1D(int& argc, char const *argv[]){
+    if (argc < 2) {
+        std::cout << "Usage: " << argv[0] << " <num1> [num2] …\n";
+        return {};
+    }   
+    
+    std::vector<double> params;
+    params.reserve(argc - 2);
+
+    for (int i = 1; i < argc-1; ++i) {
+        try {
+            double d = std::stod(argv[i]);
+            params.push_back(d);
+        }
+        catch (const std::invalid_argument&) {
+            std::cout << "Invalid number: \"" << argv[i] << "\"\n";
+            return {};
+        }
+        catch (const std::out_of_range&) {
+            std::cout << "Number out of range: \"" << argv[i] << "\"\n";
+            return {};
+        }
+    }
+
+    Parameters parameters{
+        {"grid_size",          params[0] },
+        {"time_step",          params[1] },
+        {"start",              params[2] },
+        {"Num_of_Molecules",   params[3] },
+        {"e_dd",               params[4] },
+        {"a_s",                params[5] },
+        {"sigma",              params[6] },
+        {"omega",              params[7] }
     };
 
     // now params[0]…params.back() are your doubles
