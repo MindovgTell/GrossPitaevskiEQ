@@ -15,17 +15,22 @@ void t_simulation2D(int argc, char const *argv[]);
 
 void test();
 void test1D();
+void test1D_c();
+void test2D();
 void testfftw();
 void tr();
 
 void Ares_viz_run1(int argc, char const *argv[]);
 void Ares_viz_run2(int argc, char const *argv[]);
 void Ares_viz_run3(int argc, char const *argv[]);
+void Ares_viz_run_1D(int argc, char const *argv[]);
+
 void Ares_viz_energy1(int argc, char const *argv[]);
 void Ares_viz_energy2(int argc, char const *argv[]);
 void Ares_energy_eff1(int argc, char const *argv[]);
 void Ares_energy_eff2(int argc, char const *argv[]);
 void Ares_energy_eff3(int argc, char const *argv[]);
+void Ares_energy_eff_1D(int argc, char const *argv[]);
 
 int main(int argc, char const *argv[]){
     auto t0 = std::chrono::steady_clock::now();
@@ -37,10 +42,10 @@ int main(int argc, char const *argv[]){
         simulation1D(argv[1]);
     }
     else if(argc == 1){
-        // Ares_viz_run3(argc, argv);
+        // Ares_viz_run_1D(argc, argv);
         // Ares_viz_energy(argc, argv);
-        // Ares_energy_eff3(argc,argv);
-        test();
+        // Ares_energy_eff_1D(argc,argv);
+        test1D();
         // testfftw();
         // tr();
     }
@@ -127,7 +132,7 @@ void Ares_viz_energy(int argc, char const *argv[]) {
 }
 
 void Ares_energy_eff1(int argc, char const *argv[]) {
-std::filesystem::path root = "/Users/egormankevich/Desktop/GrossPitaevski/AresRes/data";
+    std::filesystem::path root = "/Users/egormankevich/Desktop/GrossPitaevski/AresRes/data";
 
     std::map<std::string, std::map<int, double>> ordered_energy_by_case;  // key: a_s{...}e_dd{...} -> map<grid_size, energy>
 
@@ -454,7 +459,7 @@ void Ares_viz_run2(int argc, char const *argv[]) {
 }
 
 void Ares_viz_run3(int argc, char const *argv[]) {
-    std::filesystem::path root = "/Users/egormankevich/Desktop/GrossPitaevski/AresRes/sim";
+    std::filesystem::path root = "/Users/egormankevich/Desktop/GrossPitaevski/AresRes/Dy";
 
     // Outer loop: a_s0.1, a_s0.01, ...
     for (const auto& a_sDir : std::filesystem::directory_iterator(root)) {
@@ -498,6 +503,115 @@ void Ares_viz_run3(int argc, char const *argv[]) {
         }
     }
 }
+
+
+void Ares_viz_run_1D(int argc, char const *argv[]) {
+    std::filesystem::path root = "/Users/egormankevich/Desktop/GrossPitaevski/AresRes/Dy/Dy_1D";
+
+    // Outer loop: a_s0.1, a_s0.01, ...
+    for (const auto& a_sDir : std::filesystem::directory_iterator(root)) {
+        if (!a_sDir.is_directory()) continue;
+        if (a_sDir.path().filename().string().rfind("a_s", 0) != 0) continue;
+
+        std::cout << ">> Entering " << a_sDir.path() << "\n";
+
+        // Inner loop: finstate_... directories
+        for (const auto& stateDir : std::filesystem::directory_iterator(a_sDir)) {
+            if (!stateDir.is_directory()) continue;
+            const std::string& stateName = stateDir.path().filename().string();
+
+            if (stateName.rfind("finstate_", 0) != 0) continue;
+
+            std::cout << "   >> Processing folder: " << stateDir.path() << "\n";
+
+            // Now search for fin.csv inside finstate_... folder
+            for (const auto& fileEntry : std::filesystem::directory_iterator(stateDir)) {
+                if (!fileEntry.is_regular_file()) continue;
+
+                const std::string fn = fileEntry.path().filename().string();
+
+                if (fn == "fin.csv") {
+                    std::cout << "     - Found fin.csv\n";
+
+                    GPES::WaveFunction<Dimension::One> Psi;
+                    Psi.readcsv(fileEntry.path().string());
+                    std::string outPath = (stateDir.path() / "fin.png").string();
+                    GPES::draw_save(Psi, outPath);
+
+                    std::cout << "     - Saved visualization to " << outPath << "\n";
+                }
+            }
+        }
+    }
+}
+
+void Ares_energy_eff_1D(int argc, char const *argv[]) {
+    std::filesystem::path root = "/Users/egormankevich/Desktop/GrossPitaevski/AresRes/Grid_Size_Test1D_1";
+
+    // key: a_s -> map<grid_size, energy>
+    std::map<std::string, std::map<int, double>> energy_by_as;
+
+    // Outer loop: a_s0.1, a_s0.01, ...
+    for (const auto& aDir : std::filesystem::directory_iterator(root)) {
+        if (!aDir.is_directory()) continue;
+        std::string dir_name = aDir.path().filename().string();
+        if (dir_name.rfind("a_s", 0) != 0) continue;
+
+        std::string a_s_str = dir_name.substr(4); // Extract value after "a_s"
+
+        // Inner loop: finstate_... directories
+        for (const auto& stateDir : std::filesystem::directory_iterator(aDir)) {
+            if (!stateDir.is_directory()) continue;
+            const std::string folder = stateDir.path().filename().string();
+            if (folder.rfind("finstate_", 0) != 0) continue;
+
+            std::cout << ">>> Folder: " << stateDir.path() << "\n";
+
+            std::filesystem::path energy_csv = stateDir.path() / "energy.csv";
+            if (std::filesystem::exists(energy_csv)) {
+                std::vector<double> energy_data = load_energy_csv(energy_csv);
+
+                if (!energy_data.empty()) {
+                    double last_energy = energy_data.back();
+
+                    // extract grid size from folder name
+                    std::regex pattern("grid_size([0-9]+)");
+                    std::smatch match;
+                    if (std::regex_search(folder, match, pattern) && match.size() == 2) {
+                        int grid_size = std::stoi(match[1].str());
+                        energy_by_as[a_s_str][grid_size] = last_energy;
+                    } else {
+                        std::cerr << "⚠️ Could not extract grid size from folder: " << folder << "\n";
+                    }
+                }
+            }
+        }
+    }
+
+    // Save energy vectors grouped by a_s
+    std::filesystem::path summary_dir = root / "summary_energy_by_as";
+    std::filesystem::create_directories(summary_dir);
+
+    for (const auto& [a_s_key, grid_map] : energy_by_as) {
+        std::vector<std::pair<int, double>> sorted_data(grid_map.begin(), grid_map.end());
+        std::sort(sorted_data.begin(), sorted_data.end());
+
+        std::filesystem::path out_csv = summary_dir / ("a_s" + a_s_key + ".csv");
+        std::ofstream file(out_csv);
+        if (!file.is_open()) {
+            std::cerr << "Failed to write file: " << out_csv << "\n";
+            continue;
+        }
+        file << "grid_size,energy\n";
+        for (const auto& [grid_size, energy] : sorted_data) {
+            file << grid_size << "," << energy << "\n";
+        }
+        file.close();
+
+        std::cout << "Saved energy values for a_s=" << a_s_key << " to: " << out_csv << "\n";
+    }
+}
+
 void Ares_ener_run1(){
     std::filesystem::path root = std::filesystem::path("/Users/egormankevich/Desktop/GrossPitaevski/AresRes/2D/Fin");
 
@@ -750,15 +864,16 @@ void Ares_ener_run1(){
 void test(){
     try {
         //initialize the grid
-        GPES::Grid<Dimension::Two> grid(300,300, -20, -30);
-        grid.set_harmonic_potential(1,3);
+        GPES::Grid<Dimension::Two> grid(300,300, -20, -20);
+        grid.set_harmonic_potential(1,5);
         grid.set_z_freq(5);
         //initialize the wavefunction
-        GPES::WaveFunction<Dimension::Two> Phi(grid, 0.0047, 0.0055, 35000);
-        Phi.set_state_Gauss(0,0,2.5,2.5);
+        GPES::WaveFunction<Dimension::Two> Phi(grid, 0.00373, 0.00542, 5000);
+        Phi.set_state_Gauss(0,0,1.5,1.5);
         Phi.print_params();
         GPES::CrankNicolson<Dimension::Two> solver(Phi,grid,0.001,0.1);
-        std::string outdir = "/Users/egormankevich/Desktop/GrossPitaevski/res/2D/test/test_a_s0.004_e_dd0.0047_N1000_10";
+        solver.print_param_of_eq();
+        std::string outdir = "/Users/egormankevich/Desktop/GrossPitaevski/res/2D/test/test_a_s0.004_e_dd0.0047_N1000_11";
         solver.simulation(outdir);
         GPES::WaveFunction<Dimension::Two> Fin;
         solver.get_final_state(Fin);
@@ -792,25 +907,110 @@ void test(){
     }
 }
 
+
+void test2D(){
+    try {
+
+        GPES::Grid<Dimension::Two> grid(800,800, -5, -5);
+        grid.set_harmonic_potential(1,1);
+        grid.set_z_freq(10);
+        //initialize the wavefunction
+        GPES::WaveFunction<Dimension::Two> Phi(grid, 0.00337, 0.00534, 15000);
+        Phi.set_state_Gauss(0,0,1,1);
+        Phi.print_params();
+        GPES::CrankNicolson<Dimension::Two> solver(Phi,grid,0.001,0.1);
+        Eigen::VectorXd v = solver.get_U_ddi();
+        GPES::heatmap_pot(v,"Potential");
+        GPES::savecsv_vec("/Users/egormankevich/Desktop/GrossPitaevski/res/2D/potential23.csv", v);
+    }
+    catch (const std::exception& ex) {           // catches runtime_error and any std::exception
+        std::cout << "Error while saving wave-function: " << ex.what() << '\n';
+        return;                    // tell the OS something went wrong
+    }
+    catch (...)                                 // catches non-standard exceptions, just in case
+    {
+        std::cout << "Unknown error while saving wave-function.\n";
+        return;
+    }
+}
+
+
+
 void test1D(){
     try {
         //initialize the grid
-        GPES::Grid<Dimension::One> grid(700, -30);
+        GPES::Grid<Dimension::One> grid(1200, -10);
         grid.set_harmonic_potential(1);
-        grid.set_transverse(50);
-        //initialize the wavefunction
-        GPES::WaveFunction<Dimension::One> Phi(grid, 0.004, 0.0047, 1000);
-        Phi.set_state_Gauss(0,2);
+        grid.set_transverse(2);
+
+            // initialize the wavefunction
+        GPES::WaveFunction<Dimension::One> Phi(grid, 0.0042, 0.00534, 8000);
+        Phi.set_state_Gauss(0,0.5);
         Phi.print_params();
-        GPES::CrankNicolson<Dimension::One> solver(grid, Phi,0.001, 0.1);
-        std::string outdir = "/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004_e_dd0.0047_N1000";
+
+        // GPES::WaveFunction<Dimension::One> Phi;
+        // Phi.readcsv("/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004/fin.csv");
+        // Phi.set_Num(4000);
+
+        GPES::CrankNicolson<Dimension::One> solver(grid, Phi, 0.001, 0.1);
+        solver.print_param_of_eq();
+        std::string outdir = "/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004_12";
         solver.simulation(outdir);
         GPES::WaveFunction<Dimension::One> Fin;
         solver.get_final_state(Fin);
 
         GPES::draw(Fin);
         std::string output_fin = outdir + "/fin.png";
-        //GPES::draw_save(Fin,output_fin);
+        GPES::draw_save(Fin,output_fin);
+        
+        double TM_energy = solver.calc_state_energy(Phi);
+        std::vector<double> E = solver.get_vec_Energy();
+        std::vector<double> TM_en(E.size(), TM_energy);
+        GPES::draw_energy(E,TM_en);
+        std::string output_energy = outdir + "/energy.png";
+        GPES::draw_energy_save(E, TM_en, output_energy);
+    }
+    catch (const std::exception& ex) {           // catches runtime_error and any std::exception
+        std::cout << "Error while saving wave-function: " << ex.what() << '\n';
+        return;                    // tell the OS something went wrong
+    }
+    catch (...)                                 // catches non-standard exceptions, just in case
+    {
+        std::cout << "Unknown error while saving wave-function.\n";
+        return;
+    }
+}
+
+void test1D_c(){
+    try {
+        //initialize the grid
+        std::string inputdir = "/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004_7/fin.csv";
+        GPES::Grid<Dimension::One> grid(300, -20);
+        grid.set_harmonic_potential(1);
+        grid.set_transverse(5);
+
+            // initialize the wavefunction
+        GPES::WaveFunction<Dimension::One> Phi(grid, 0.00371, 0.00534, 30000);
+        Phi.set_state_Gauss(0,5);
+        Phi.readcsv(inputdir);
+
+        Phi.print_params();
+
+
+        // GPES::WaveFunction<Dimension::One> Phi;
+        // Phi.readcsv("/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004/fin.csv");
+        // Phi.set_Num(4000);
+
+        GPES::CrankNicolson<Dimension::One> solver(grid, Phi, 0.001, 0.1);
+        solver.print_param_of_eq();
+        std::string outdir = "/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004_7_1";
+        solver.simulation(outdir);
+        GPES::WaveFunction<Dimension::One> Fin;
+        solver.get_final_state(Fin);
+
+        GPES::draw(Fin);
+        std::string output_fin = outdir + "/fin.png";
+        GPES::draw_save(Fin,output_fin);
         
         double TM_energy = solver.calc_state_energy(Phi);
         std::vector<double> E = solver.get_vec_Energy();
@@ -831,26 +1031,83 @@ void test1D(){
 }
 
 void testfftw(){
-    GPES::WaveFunction<Dimension::Two> Psi;
-    Psi.readcsv("/Users/egormankevich/Desktop/GrossPitaevski/res/2D/test/test_a_s0.004_e_dd0.012_N15000/fin.csv");
+    GPES::WaveFunction<Dimension::One> Psi;
+    // Psi.readcsv("/Users/egormankevich/Desktop/GrossPitaevski/AresRes/sim/a_s0.002/finstate_e_dd1.2_NumOfMol1000/fin.csv");
+    Psi.readcsv("/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004_11/fin.csv");
+    // Psi.set_state_Gauss(0,0,5,5);
+    GPES::draw(Psi);
     Eigen::VectorXcd K = Psi.momentum_space_transform();
     Psi.set_vec(K);
-    GPES::heatmap(Psi);
-    Eigen::VectorXd X = Psi.get_y_slice();
-    GPES::draw(X);
+    // GPES::draw(Psi);
+    GPES::savecsv_vec("/Users/egormankevich/Desktop/GrossPitaevski/res/1D/test_a_s0.004_11/FFT.csv", Psi.prob());
 }
 
 
+
+
+std::vector<double> V_dd(GPES::Grid<Dimension::One>& grid, double l_perp){
+    double step = grid.get_step_size();
+    double start = grid.get_start_position();
+    double N = grid.get_size_of_grid();
+
+    std::vector<double> V(N,0.0);
+
+    // double l_perp = 1.0; // /std::sqrt(1000);
+
+    for(int i = 0; i < N; ++i){
+        double x = start + step * i;
+
+        double xi = std::abs(x) / l_perp;
+        double xi2 = xi*xi;
+
+        double alfa = std::abs(xi) / (std::sqrt(2.0));
+        double sqalfa = 0.5 * std::pow(xi, 2);
+
+
+        double erfc_val = std::erfc(alfa);
+        double exp_val = std::exp(sqalfa);
+
+        if(l_perp == 10.0)
+            V[i] = 4.0 / std::pow(std::abs(x),3);
+        else
+            V[i] = -1.* (2.0 * std::abs(xi) - std::sqrt(2.0 * M_PI) * (1.0 + xi2) * exp_val * erfc_val); //-0.75 * 0.00537 /(std::pow(l_perp,3)) *
+    }
+
+    return V;
+}
+
+double V_dd_num(GPES::Grid<Dimension::One>& grid, double x){
+    double step = grid.get_step_size();
+    double start = grid.get_start_position();
+    double N = grid.get_size_of_grid();
+
+    double V;
+
+    double l_perp = 1.0/std::sqrt(1000);
+
+    double xi = std::abs(x) / l_perp;
+    double xi2 = xi*xi;
+
+    double alfa = std::abs(xi) / (std::sqrt(2.0));
+    double sqalfa = 0.5 * std::pow(xi, 2);
+
+
+    double erfc_val = std::erfc(alfa);
+    double exp_val = std::exp(sqalfa);
+
+    V = -0.75 * 0.00537 /(std::pow(l_perp,3)) *(2.0 * std::abs(xi) - std::sqrt(2.0 * M_PI) * (1.0 + xi2) * exp_val * erfc_val);
+
+    return V;
+}
+
 void tr(){
-    GPES::WaveFunction<Dimension::Two> Psi, Phi;
-    Psi.readcsv("/Users/egormankevich/Desktop/GrossPitaevski/AresRes/sim/a_s0.004/finstate_e_dd1.2_NumOfMol1000/fin.csv");
-    Phi.readcsv("/Users/egormankevich/Desktop/GrossPitaevski/AresRes/sim/a_s0.004/finstate_e_dd1.2_NumOfMol1000/fin.csv");
-    Phi.set_state_TF(0,0);
-    Eigen::VectorXd X_Psi = Psi.get_y_slice();
-    Eigen::VectorXd X_Phi = Phi.get_y_slice();
-    GPES::draw(X_Psi,X_Phi);
-    GPES::heatmap(Phi);
-    GPES::heatmap(Psi);
+
+    GPES::Grid<Dimension::One> grid(300, -5);
+    std::vector<double> V1 = V_dd(grid, 1.0);
+    std::vector<double> V2 = V_dd(grid, 0.4);
+    std::vector<double> V3 = V_dd(grid, 10.0);
+    // double Vn = V_dd_num(grid,10);
+    GPES::drawe(V1, V2, V3, "$x / l_x$", "$V_{\\mathrm{dd}}(|x|/{l_{\\perp}})$");
 }
 // void t_simulation2D(int argc, char const *argv[]) {
 //     GPES::Parameters p = GPES::ReadSimParameters(argc, argv);

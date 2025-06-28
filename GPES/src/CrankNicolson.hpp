@@ -10,6 +10,7 @@
 #include <memory>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <cassert>
 
 #include "definitions.hpp"
 #include "grid.hpp"
@@ -41,7 +42,7 @@ private:
 
 
     unsigned int _Num, _T, _t_step, _size;
-    double _a_s, _a_dd, _omega, _omega_t, _lam, _g_scattering, _V_dd, _g_lhy, _delta_t, _start, _step, l_t;
+    double _a_s, _a_dd, _omega, _omega_t, _lam, _g_scattering, _V_dd, _g_lhy, _delta_t, _start, _step, _l_perp;
 
     std::complex<double> _lambda_x;
 
@@ -62,10 +63,16 @@ public:
 
     //Function for calculating Dipole-Dipole Interaction
     void calculate_DDI(Eigen::VectorXcd& vec);
-    void calculate_DDI_not_FFT(Eigen::VectorXcd& vec);
+    std::vector<double> compute_Vdd_k();
+    std::vector<double> compute_Phi_dd(const Eigen::VectorXcd& density);
 
+    std::vector<double> calculate_DDI_not_FFT(const Eigen::VectorXcd& vec);
+    double V_1DD(double x);
+    double R_function(double xi);
+    double V_dd_1D(double x);
+    std::vector<double> compute_Phi_dd_realspace(const Eigen::VectorXcd& vec);
     // void init_time_evolution_matrices();
-    void calc_time_evolution_matrices(Eigen::VectorXcd& vec);
+    void calc_time_evolution_matrices(const Eigen::VectorXcd& vec);
 
 
     void simulation(std::string& outdir);
@@ -127,7 +134,7 @@ public:
     void save_state(std::string filename, Eigen::VectorXcd& vec);
     void savecsv_wave(std::string file_path, Eigen::VectorXcd& vec);
     void savecsv_vec(std::string file_path, std::vector<double>& vec);
-
+    int num_isnan();
 };
 
 
@@ -204,6 +211,9 @@ public:
     double calc_state_energy(Eigen::VectorXcd &vec);
     double calc_state_energy(WaveFunction<Dimension::Two> &vec);
 
+
+    Eigen::VectorXd calc_FFT_DDI(const Eigen::VectorXcd& wave);
+
     //Gettes Funcitons
 
     double get_g_s () {return _g_scattering;} 
@@ -223,6 +233,8 @@ public:
     Eigen::VectorXcd get_m_Fin();
     Eigen::VectorXd get_m_Fin_prob();
 
+    Eigen::VectorXd get_U_ddi() {return _U_ddi;}
+
     void get_final_state(WaveFunction<Dimension::Two>& fin);
 
     Eigen::VectorXd get_m_V();
@@ -236,6 +248,10 @@ public:
 
     void save_state(std::string filename, Eigen::VectorXcd& vec);
     void save_sim_param(std::string file_path);
+
+    void print_param_of_eq();
+
+
 };
 
 

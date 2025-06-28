@@ -105,7 +105,7 @@ public:
     void set_omega(double omega)                { _omega = omega; }
 
     //Getters
-    Eigen::VectorXcd& get_wavefunction()        { return _Psi; }
+    Eigen::VectorXcd get_wavefunction()         { return _Psi; }
     int get_Num()                               { return _Num; }
     unsigned int get_size_of_grid()             { return _size; }
     double get_start_position()                 { return _start; }
@@ -142,6 +142,8 @@ public:
     Eigen::VectorXd prob(Eigen::VectorXcd &vec);
     Eigen::VectorXd prob();
 
+
+    Eigen::VectorXcd momentum_space_transform() const;
 };
 
 
@@ -454,6 +456,39 @@ void WaveFunction<Dimension::One>::print_params(){
     << _Num << std::setw(width) << _a_s << std::setw(width) << _a_dd << std::setw(width) << std::endl;
 }
 
+
+
+Eigen::VectorXcd WaveFunction<Dimension::One>::momentum_space_transform() const {
+    const int N = _size;
+    Eigen::VectorXcd result(N);
+
+    // Allocate aligned memory
+    fftw_complex* in = reinterpret_cast<fftw_complex*>(fftw_malloc(sizeof(fftw_complex) * N));
+    fftw_complex* out = reinterpret_cast<fftw_complex*>(fftw_malloc(sizeof(fftw_complex) * N));
+
+    // Fill input
+    for (int i = 0; i < N; ++i) {
+        in[i][0] = _Psi(i).real();
+        in[i][1] = _Psi(i).imag();
+    }
+
+    // Create and execute plan
+    fftw_plan plan = fftw_plan_dft_1d(N, in, out, FFTW_FORWARD, FFTW_MEASURE);
+    fftw_execute(plan);
+
+    // Normalize and shift in one pass
+    const int halfN = N / 2;
+    for (int i = 0; i < N; ++i) {
+        result(i) = std::complex<double>(out[i][0], out[i][1]) /  static_cast<double>(N);
+    }
+
+    // Cleanup
+    fftw_destroy_plan(plan);
+    fftw_free(in);
+    fftw_free(out);
+
+    return result;
+}
 
 
 
@@ -894,8 +929,8 @@ Eigen::VectorXcd WaveFunction<Dimension::Two>::momentum_space_transform() const 
             // double wx = 0.5 * (1 - std::cos(2 * M_PI * x / (Nx - 1)));
             // double wy = 0.5 * (1 - std::cos(2 * M_PI * y / (Ny - 1)));
             // double window = wx * wy;
-            // in[idx][0] *= window;
-            // in[idx][1] *= window;
+            // in[i][0] *= window;
+            // in[i][1] *= window;
         }
     }
 

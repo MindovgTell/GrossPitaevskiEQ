@@ -169,11 +169,33 @@ public:
     }
 
     inline double F_perp(double q) {
-        return  2.0 - 3.0 * SQRT_PI * q * std::exp(q * q) * std::erfc(q);
+        double answ; 
+        double q2 = q*q;
+        if (q2 < 700.0) {
+            double erfc_val = std::erfc(q);
+            double exp_val = std::exp(q2);
+            answ = 2.0 - 3.0 * SQRT_PI * q * exp_val * erfc_val;
+        } 
+        else 
+            answ = -1.0;
+        if(std::isnan(answ)) std::cout << "F_perp is nan: "<< q << std::endl;
+        return answ;
     } 
     inline double F_parallel(double q_x, double q_y) {
         double q = std::sqrt(q_x*q_x + q_y*q_y);
-        return -1.0 + 3.0 * SQRT_PI * (q_x * q_x / q) * std::exp(q * q) * std::erfc(q);
+        
+        double q2 = q*q;
+        double answ;
+        if (q2 < 700.0) {
+            double erfc_val = std::erfc(q);
+            double exp_val = std::exp(q2);
+            answ = -1.0 + 3.0 * SQRT_PI * (q_x * q_x / q) * exp_val * erfc_val;
+        } 
+        else 
+            answ = 2.0;
+
+        if(std::isnan(answ)) std::cout << "F_perp is nan: "<< q << std::endl;
+        return answ;
     }
     void precompute_U_tilde() {
         U_tilde.resize(Nx, Ny/2 + 1);
@@ -195,7 +217,8 @@ public:
                     U_tilde(i, j) = 2.0 * V_dd;
                 } else {
                     // U_tilde(i,j) = V_dd  * ( 2.0 - pref * kappa * std::exp(kappa * kappa) * std::erfc(kappa) );
-                    U_tilde(i,j) = V_dd * F_perp(kappa);
+                    U_tilde(i,j) = V_dd * F_perp(kappa); //
+                    // U_tilde(i,j) = V_dd * F_parallel(kx*lz/SQRT2, ky*lz/SQRT2); 
                     // For any alpha the expression above would take the form
                     // U_tilde(i,j) = V_dd * (std::pow(std::cos(alpha),2) * F_perp(kappa) + std::pow(std::sin(alpha),2) * F_parallel(k_x*lz/SQRT2, k_y*lz/ SQRT2))
                 }

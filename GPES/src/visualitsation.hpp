@@ -18,9 +18,25 @@ void draw(std::vector<double>& vec, std::string xlabel = "time [s]",  std::strin
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, 0, size);
     std::vector<double> x_vec(x.data(), x.data() + x.size());
     plt::figure();
-    plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}});
-    plt::xlabel(xlabel);
-    plt::ylabel(ylabel);
+    plt::plot(x_vec, vec, std::string("b-"),{{"label", "data trend"}}); //,
+    plt::xlabel(xlabel,{{"fontsize", "18"}});
+    plt::ylabel(ylabel,{{"fontsize", "18"}});
+    plt::legend();
+    plt::grid();
+    plt::show(); 
+}
+void drawe(std::vector<double>& vec1,std::vector<double>& vec2,std::vector<double>& vec3, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
+    int size = vec1.size();
+    Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, -5, 5);
+    std::vector<double> x_vec(x.data(), x.data() + x.size());
+    plt::figure();
+    plt::plot(x_vec, vec2, std::string("r-"),{{"label", "$l_{\\perp} = 0.4l_x$"}});
+    plt::plot(x_vec, vec1, std::string("b-"),{{"label", "$l_{\\perp} = 1.0l_x$"}}); //,
+    plt::plot(x_vec, vec3,{{"linestyle", "--"}, {"color", "gray"},{"label", "$\\dfrac{4}{|x/l_x|^3} $"}});
+    plt::xlabel(xlabel,{{"fontsize", "12"}});
+    plt::ylabel(ylabel,{{"fontsize", "12"}});
+    plt::xlim(-5,5);
+    plt::ylim(0.0,2.55);
     plt::legend();
     plt::grid();
     plt::show(); 
@@ -119,10 +135,33 @@ void draw(WaveFunction<Dimension::One>& wave, std::string xlabel = "time [s]",  
     plt::figure();
     plt::plot(x_vec,y_vec, std::string("b-"),{{"label", "Initial state"}});
     plt::xlabel("");
+    // plt::xlim(-5,5);
     plt::ylabel("");
     plt::legend();
     plt::grid();
     plt::show(); 
+}
+
+void draw_save(WaveFunction<Dimension::One>& wave, const std::string& fileout){
+    try {
+        int size = wave.get_size_of_grid();
+        double start = wave.get_start_position();
+        Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, start, -1 * start);
+        Eigen::VectorXd Psi = wave.prob();
+        std::vector<double> x_vec(x.data(), x.data() + x.size());
+        std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
+        plt::figure();
+        plt::plot(x_vec, y_vec, std::string("b-"),{{"label", "final state"  }});
+        plt::xlabel("x/$l_x$");
+        plt::ylabel("Probability density");
+        plt::legend();
+        plt::grid();
+        plt::savefig(fileout); 
+        plt::close();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
 }
 
 void draw(Grid<Dimension::One>& grid,  WaveFunction<Dimension::One>& wave){
@@ -454,6 +493,41 @@ void heatmap(WaveFunction<Dimension::Two>& wave, std::string name = "Wavefunctio
         std::cerr << "Exception: " << e.what() << std::endl;
     }
 }
+
+std::vector<std::vector<double>> Eigen_to_vector2D(Eigen::VectorXd& wave) {
+    std::vector<std::vector<double>> result(800,std::vector<double>(800));
+    for (int i = 0; i < 800; ++i)
+        for (int j = 0; j < 800; ++j){
+            int index = 800*i + j;
+            result[i][j] = wave(index);
+        }
+    return result;
+}
+
+void heatmap_pot(Eigen::VectorXd& wave, std::string name = "Wavefunction"){
+    try {
+        std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(wave);
+
+        // Optional: verify data
+        if (heatmap_data.empty() || heatmap_data[0].empty()) {
+            throw std::runtime_error("Data is empty.");
+        }
+
+        // Plot
+        plt::imshow(heatmap_data,{{"cmap", "viridis"}, {"interpolation", "nearest"}}); //,{"extent", std::vector<double>{-10, 10.0, -10.0, 10.0}}
+        plt::colorbar();
+        plt::title(name);
+        plt::xlabel("X", {{"fontsize", "18"}});
+        plt::ylabel("Y", {{"fontsize", "18"}});
+
+        plt::show();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+    }
+}
+
+
 
 void heatmap_save(WaveFunction<Dimension::Two>& wave, const std::string& fileout){
     try {

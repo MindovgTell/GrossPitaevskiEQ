@@ -26,6 +26,8 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
     _lam_y          =   _omega_y / _omega_x;
     _lam_z          =   _omega_z / _omega_x;
 
+    l_z = 1.0 / std::sqrt(_omega_z);
+
     _a_s = Psi.get_a_s();
     _a_dd = Psi.get_a_dd();
 
@@ -49,22 +51,96 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
 }
 
 void  GPES::CrankNicolson<Dimension::Two>::calc_g_scattering(double a_s) {
-    _g_scattering = std::sqrt(8. * M_PI) * a_s * std::sqrt(_lam_z);
+    _g_scattering = std::sqrt(8. * M_PI) * a_s / l_z;
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calc_V_dd(double a_dd) {
-    _V_dd = std::sqrt(8. * M_PI) * a_dd * std::sqrt(_lam_z);
+    _V_dd = std::sqrt(8. * M_PI) * a_dd / l_z;
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calc_g_lhy(double a_s, double a_dd) {
     _g_lhy = (128. / ( 3 * std::pow(M_PI, 0.25) ) ) * std::sqrt(0.4) * std::pow(a_s, 2.5) * std::pow(_lam_z, 0.75) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
 }
 
+
+Eigen::VectorXd GPES::CrankNicolson<Dimension::Two>::calc_FFT_DDI(const Eigen::VectorXcd& wave){
+    const int Nx = _size_x;
+    const int Ny = _size_y;
+    const int N = Nx*Ny;
+    const double pi = M_PI;
+    double dx = _step_x;
+    double dy = _step_y;
+    Eigen::VectorXd phi_dd(N);
+    assert(static_cast<int>(wave.size()) == N && "Density size must be Nx * Ny");
+
+    const int Nkx = Nx;
+    const int Nky = Ny/2 + 1;
+
+    
+    double* in = fftw_alloc_real(N);
+    fftw_complex* out = fftw_alloc_complex(Nkx*Nky);
+
+    for(int i = 0; i < N; ++i)
+        in[i] = std::pow(wave(i).real(),2) + std::pow(wave(i).imag(),2); 
+
+    fftw_plan forward  = fftw_plan_dft_r2c_2d(Nx, Ny, in, out, FFTW_ESTIMATE);
+    fftw_plan backward = fftw_plan_dft_c2r_2d(Nx, Ny, out, in, FFTW_ESTIMATE);
+
+    fftw_execute(forward);
+
+    //Now compute kernel
+    for(int i = 0; i < Nx; ++i){
+        int ki = (i <= Nx/2)? i : i - Nx;
+        double kx = 2.0 * pi * ki / (Nx*dx);
+        for(int j = 0; j < Nky; ++j){
+            int kj = j;
+            double ky = 2.0 * pi * kj / (Ny * dy);
+            
+            double kappa = std::sqrt(kx*kx + ky*ky);
+
+            int idx = i * Nky + j;
+            double V_dd_k = 0.0;
+
+            double k_r = kappa*l_z / std::sqrt(2);
+
+            double K_exp = std::exp(k_r*k_r);
+            double K_erfc = std::erfc(k_r);
+            if(std::isnan(K_exp) || std::isnan(K_erfc)) std::cout<< "NAN value in erfc or exp" << std::endl;
+            double F = 2.0 - 3.0 * std::sqrt(pi) * k_r * K_exp * K_erfc;
+
+            V_dd_k = _V_dd * F;
+
+            // Multiply by kernel
+            out[idx][0] *= V_dd_k;
+            out[idx][1] *= V_dd_k;
+        }
+    }
+
+    
+    // Inverse FFT
+    fftw_execute(backward);
+
+    // Normalize and copy output
+    phi_dd.resize(N);
+    for (int i = 0; i < N; ++i) {
+        phi_dd[i] = in[i]/ N;
+    }
+
+    // Cleanup
+    fftw_destroy_plan(forward);
+    fftw_destroy_plan(backward);
+    fftw_free(in);
+    fftw_free(out);
+
+    return phi_dd;
+}
+
+
+
 void GPES::CrankNicolson<Dimension::Two>::calculate_DDI(Eigen::VectorXcd& vec){
     if(this->F_ddi)
         F_ddi->compute_DDI_term(vec, _U_ddi);
 }
-
 
 //Function for constructing the right-hand and left-hand sides matrices from Crank Nicolson algorithm
 // void GPES::CrankNicolson<Dimension::Two>::init_time_evolution_matrices(){
@@ -105,6 +181,7 @@ void GPES::CrankNicolson<Dimension::Two>::calc_time_evolution_matrices(Eigen::Ve
     // Eigen::MatrixXcd mat = vec_to_mat(vec);
 
     calculate_DDI(vec);
+    // Eigen::VectorXd Phi_dd = calc_FFT_DDI(vec);
 
     for(int k = 0; k < _size_x; ++k){
         for(int l = 0; l < _size_y; ++l){
@@ -112,7 +189,7 @@ void GPES::CrankNicolson<Dimension::Two>::calc_time_evolution_matrices(Eigen::Ve
 
             std::complex<double> U_potential = 1.0 * (_delta_t * 0.5)*std::complex<double>(_V_ext(k,l));
             std::complex<double> U_contact = 1.0 * (_delta_t * 0.5)*std::norm(vec(index));
-            std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(index);
+            std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(index); //;Phi_dd(index)
             std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(vec(index)), 1.5);
 
             // //Real time evolution matrices
@@ -396,6 +473,7 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(){
 
 double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(Eigen::VectorXcd &vec){
     double energy = 0.0;
+    // Eigen::VectorXd Phi_dd = calc_FFT_DDI(vec);
     for(int i = 1; i < _size_x-1; ++i){
         for(int j = 1; j < _size_y-1; ++j) {
 
@@ -413,10 +491,10 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(Eigen::VectorXcd &
             double interaction = 0.5 * _g_scattering * std::norm(vec(index)) * std::norm(vec(index));
 
             //Dipole-Dipole interaction energy
-            double ddi = 0.5 * _U_ddi(index) * std::norm(vec(index)); 
+            double ddi = 0.5 * std::norm(vec(index))* _U_ddi(index);// * Phi_dd(index); //
 
             //LHY correction term energy
-            double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(index)), 3);
+            double lhy = _g_lhy * 0.4 * std::pow(std::norm(vec(index)), 2.5);
 
             energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); //  
         }
@@ -426,6 +504,7 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(Eigen::VectorXcd &
 
 double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(GPES::WaveFunction<Dimension::Two>& vec){
     double energy = 0.0;
+    // Eigen::VectorXd Phi_dd = calc_FFT_DDI(vec.get_wavefunction());
     for(int i = 1; i < _size_x-1; ++i){
         for(int j = 1; j < _size_y-1; ++j){
             int index = get_index(i,j);
@@ -442,10 +521,10 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(GPES::WaveFunction
             double interaction = 0.5 * _g_scattering * std::norm(vec(index)) * std::norm(vec(index));
 
             //Dipole-Dipole interaction energy
-            double ddi = 0.5 * _U_ddi(index) * std::norm(vec(index)); 
+            double ddi = 0.5 * std::norm(vec(index))* _U_ddi(index) ;// *  Phi_dd(index); //
 
             //LHY correction term energy
-            double lhy = _g_lhy * 0.5 * std::pow(std::norm(vec(index)), 2.5);
+            double lhy = _g_lhy * 0.4 * std::pow(std::norm(vec(index)), 2.5);
 
             energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); //  
         }   
@@ -550,5 +629,13 @@ void GPES::CrankNicolson<Dimension::Two>::savecsv_vec(std::string file_path, std
 
     std::cout << "Vector have been saved" << std::endl;
 }
+
+
+void GPES::CrankNicolson<Dimension::Two>::print_param_of_eq(){
+    int width = 15;
+    std::cout << std::setw(width) << "a_s"<< std::setw(width) << "a_dd" << std::setw(width) << "g_scattering" << std::setw(width) << "V_dd" << std::setw(width) << "g_lhy" << std::setw(width) << "lambda" << std::endl;
+    std::cout << std::setw(width) << _a_s << std::setw(width) << _a_dd << std::setw(width) << _g_scattering << std::setw(width) << _V_dd << std::setw(width) << _g_lhy << std::setw(width) << l_z << std::endl;
+}
+
 
 #endif
