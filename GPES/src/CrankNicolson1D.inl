@@ -145,8 +145,8 @@ void GPES::CrankNicolson<Dimension::One>::calc_time_evolution_matrices(const Eig
         b(i) = 1.0 + 2.0*_lambda_x - U_scattering - U_potential - U_dd - U_lhy;
     }
 
-    this->init_Mat_A(-1.0 * _lambda_x, a);
-    this->init_Mat_B(_lambda_x, b); 
+    this->init_Mat_A(_lambda_x, a);
+    this->init_Mat_B(-1.0 * _lambda_x, b); 
 }
 
 //Function for initialization left-hand side matrix according to Crank Nicolson algorithm

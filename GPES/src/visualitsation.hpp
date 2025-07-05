@@ -32,11 +32,15 @@ void drawe(std::vector<double>& vec1,std::vector<double>& vec2,std::vector<doubl
     plt::figure();
     plt::plot(x_vec, vec2, std::string("r-"),{{"label", "$l_{\\perp} = 0.4l_x$"}});
     plt::plot(x_vec, vec1, std::string("b-"),{{"label", "$l_{\\perp} = 1.0l_x$"}}); //,
-    plt::plot(x_vec, vec3,{{"linestyle", "--"}, {"color", "gray"},{"label", "$\\dfrac{4}{|x/l_x|^3} $"}});
-    plt::xlabel(xlabel,{{"fontsize", "12"}});
-    plt::ylabel(ylabel,{{"fontsize", "12"}});
+    plt::plot(x_vec, vec3,{{"linestyle", "--"}, {"color", "gray"},{"label", "$\\dfrac{4}{|x/l_{\\perp}|^3} $"}});
+    plt::xlabel(xlabel,{{"fontsize", "20"}});
+    plt::ylabel(ylabel,{{"fontsize", "20"}});
     plt::xlim(-5,5);
     plt::ylim(0.0,2.55);
+    PyRun_SimpleString("import matplotlib.pyplot as plt");
+    PyRun_SimpleString("plt.tick_params(axis='both', labelsize=14)");
+    PyRun_SimpleString("import matplotlib.pyplot as plt");
+    PyRun_SimpleString("plt.rcParams['legend.fontsize'] = 16");
     plt::legend();
     plt::grid();
     plt::show(); 

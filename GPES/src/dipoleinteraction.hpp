@@ -214,13 +214,13 @@ public:
                 // where alpha define the angle between momentum direction and z axis
                 // for now we assume alpha == 0 deg
                 if (k_perp == 0.0) {
-                    U_tilde(i, j) = 2.0 * V_dd;
+                    U_tilde(i,j) = 2.0 * V_dd;
                 } else {
-                    // U_tilde(i,j) = V_dd  * ( 2.0 - pref * kappa * std::exp(kappa * kappa) * std::erfc(kappa) );
+                // U_tilde(i,j) = V_dd  * ( 2.0 - pref * kappa * std::exp(kappa * kappa) * std::erfc(kappa) );
                     U_tilde(i,j) = V_dd * F_perp(kappa); //
                     // U_tilde(i,j) = V_dd * F_parallel(kx*lz/SQRT2, ky*lz/SQRT2); 
-                    // For any alpha the expression above would take the form
-                    // U_tilde(i,j) = V_dd * (std::pow(std::cos(alpha),2) * F_perp(kappa) + std::pow(std::sin(alpha),2) * F_parallel(k_x*lz/SQRT2, k_y*lz/ SQRT2))
+                // For any alpha the expression above would take the form
+                // U_tilde(i,j) = V_dd * (std::pow(std::cos(alpha),2) * F_perp(kappa) + std::pow(std::sin(alpha),2) * F_parallel(k_x*lz/SQRT2, k_y*lz/ SQRT2))
                 }
             }
         }

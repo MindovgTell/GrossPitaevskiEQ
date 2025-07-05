@@ -3,7 +3,7 @@
 
 #include "CrankNicolson.hpp"
 
-GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>& Psi, Grid<Dimension::Two>& grid, double delta_t,double T):  _delta_t(delta_t), _T(T) {
+GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>& Psi, Grid<Dimension::Two>& grid, double delta_t,double T, double lz):  _delta_t(delta_t), _T(T), l_z(lz) {
     _omega_x        =   grid.get_omega_x();
     _omega_y        =   grid.get_omega_y();
     _omega_z        =   grid.get_omega_z();
@@ -23,10 +23,6 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
 
     //Physics units
     _Num            =   Psi.get_Num();
-    _lam_y          =   _omega_y / _omega_x;
-    _lam_z          =   _omega_z / _omega_x;
-
-    l_z = 1.0 / std::sqrt(_omega_z);
 
     _a_s = Psi.get_a_s();
     _a_dd = Psi.get_a_dd();
@@ -38,8 +34,6 @@ GPES::CrankNicolson<Dimension::Two>::CrankNicolson(WaveFunction<Dimension::Two>&
 
     _lambda_x       =   -1.0*_delta_t/(4*std::pow(_step_x,2));
     _lambda_y       =   -1.0*_delta_t/(4*std::pow(_step_y,2));
-
-    double l_z      =   std::sqrt(_omega_x / _omega_z);
 
     double Lx       =   std::abs(2*_start_x);
     double Ly       =   std::abs(2*_start_y);
@@ -59,9 +53,8 @@ void GPES::CrankNicolson<Dimension::Two>::calc_V_dd(double a_dd) {
 }
 
 void GPES::CrankNicolson<Dimension::Two>::calc_g_lhy(double a_s, double a_dd) {
-    _g_lhy = (128. / ( 3 * std::pow(M_PI, 0.25) ) ) * std::sqrt(0.4) * std::pow(a_s, 2.5) * std::pow(_lam_z, 0.75) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
+    _g_lhy = (128. / ( 3 * std::pow(M_PI, 0.25) ) ) * std::sqrt(0.4) * std::pow(a_s, 2.5) / std::pow(l_z,1.5) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
 }
-
 
 Eigen::VectorXd GPES::CrankNicolson<Dimension::Two>::calc_FFT_DDI(const Eigen::VectorXcd& wave){
     const int Nx = _size_x;
@@ -135,8 +128,6 @@ Eigen::VectorXd GPES::CrankNicolson<Dimension::Two>::calc_FFT_DDI(const Eigen::V
     return phi_dd;
 }
 
-
-
 void GPES::CrankNicolson<Dimension::Two>::calculate_DDI(Eigen::VectorXcd& vec){
     if(this->F_ddi)
         F_ddi->compute_DDI_term(vec, _U_ddi);
@@ -187,18 +178,18 @@ void GPES::CrankNicolson<Dimension::Two>::calc_time_evolution_matrices(Eigen::Ve
         for(int l = 0; l < _size_y; ++l){
             int index = get_index(k,l);
 
-            std::complex<double> U_potential = 1.0 * (_delta_t * 0.5)*std::complex<double>(_V_ext(k,l));
-            std::complex<double> U_contact = 1.0 * (_delta_t * 0.5)*std::norm(vec(index));
-            std::complex<double> U_dd = 1.0 * (_delta_t*0.5) * _U_ddi(index); //;Phi_dd(index)
-            std::complex<double> U_lhy = 1.0 * (_delta_t*0.5) * _g_lhy * std::pow(std::norm(vec(index)), 1.5);
+            std::complex<double> U_potential = (_delta_t * 0.5) * _V_ext(k,l); // std::complex<double>(
+            std::complex<double> U_contact = _g_scattering * (_delta_t * 0.5)*std::norm(vec(index));
+            std::complex<double> U_dd =  (_delta_t*0.5) *_U_ddi(index);  //;Phi_dd(index);
+            std::complex<double> U_lhy =  (_delta_t*0.5) * _g_lhy * std::pow(std::norm(vec(index)), 1.5);
 
             // //Real time evolution matrices
             // a(index) = (1.0 - 4.0*this->m_lambda + 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
             // b(index) = (1.0 + 4.0*this->m_lambda - 1.0i*(m_delta_t/2)*std::complex<double>(m_V(l,k)));
 
             //Imaginary time evolution matrices
-            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential + U_dd + U_lhy;
-            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential - U_dd - U_lhy;
+            a(index) = 1.0 - 2.0*_lambda_x - 2.0*_lambda_y + U_contact + U_potential + U_dd + U_lhy; //
+            b(index) = 1.0 + 2.0*_lambda_x + 2.0*_lambda_y - U_contact - U_potential - U_dd - U_lhy; // 
         }
     }
     this->init_Mat_A(_lambda_x,_lambda_y,a);
@@ -206,7 +197,7 @@ void GPES::CrankNicolson<Dimension::Two>::calc_time_evolution_matrices(Eigen::Ve
 }
 
 // // // Old version
-// // //Function for initialization left-hand side matrix according to Crank Nicolson algorithm
+// //Function for initialization left-hand side matrix according to Crank Nicolson algorithm
 // void GPES::CrankNicolson<Dimension::Two>::init_Mat_A(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d){
 //     std::complex<double> r = r_x; // First time solution
 //     int S = d.size();
@@ -239,7 +230,7 @@ void GPES::CrankNicolson<Dimension::Two>::calc_time_evolution_matrices(Eigen::Ve
 //     _A = A;
 // }
 
-//Function for initialization left-hand side matrix according to Crank Nicolson algorithm
+// Function for initialization left-hand side matrix according to Crank Nicolson algorithm
 void GPES::CrankNicolson<Dimension::Two>::init_Mat_A(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d) {
     int S = d.size();
     int s = std::sqrt(S);
@@ -269,7 +260,38 @@ void GPES::CrankNicolson<Dimension::Two>::init_Mat_A(std::complex<double> r_x, s
     _A = A;
 }
 
-// // Old version
+//Function for initialization right-hand side matrix according to Crank Nicolson algorithm
+void GPES::CrankNicolson<Dimension::Two>::init_Mat_B(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d) {
+    int S = d.size();
+    int s = std::sqrt(S);
+
+    typedef Eigen::Triplet<std::complex<double>> T;
+    std::vector<T> tripletList;
+    tripletList.reserve(5*S);  // Reserve more space for safety
+
+    for (int i = 0; i < S; ++i) {
+        // Main diagonal
+        tripletList.push_back(T(i, i, d(i)));
+
+        int x = i % s;
+        int y = i / s;
+
+        // x-direction neighbors (left and right)
+        if (x > 0) tripletList.push_back(T(i, i-1, r_x));  // left
+        if (x < s-1) tripletList.push_back(T(i, i+1, r_x)); // right
+
+        // y-direction neighbors (top and bottom)
+        if (y > 0) tripletList.push_back(T(i, i-s, r_y));   // top
+        if (y < s-1) tripletList.push_back(T(i, i+s, r_y)); // bottom
+    }
+
+    Eigen::SparseMatrix<std::complex<double>> B(S,S);
+    B.setFromTriplets(tripletList.begin(), tripletList.end());
+    _B = B;
+}
+
+
+// // // Old version
 // //Function for initialization right-hand side matrix according to Crank Nicolson algorithm
 // void GPES::CrankNicolson<Dimension::Two>::init_Mat_B(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d) {
 //     std::complex<double> r = r_x; // First time solution
@@ -302,39 +324,11 @@ void GPES::CrankNicolson<Dimension::Two>::init_Mat_A(std::complex<double> r_x, s
 //     B.setFromTriplets(tripletList.begin(), tripletList.end());
 //     _B = B;
 // }
-
-//Function for initialization right-hand side matrix according to Crank Nicolson algorithm
-void GPES::CrankNicolson<Dimension::Two>::init_Mat_B(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d) {
-    int S = d.size();
-    int s = std::sqrt(S);
-
-    typedef Eigen::Triplet<std::complex<double>> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(5*S);  // Reserve more space for safety
-
-    for (int i = 0; i < S; ++i) {
-        // Main diagonal
-        tripletList.push_back(T(i, i, d(i)));
-
-        int x = i % s;
-        int y = i / s;
-
-        // x-direction neighbors (left and right)
-        if (x > 0) tripletList.push_back(T(i, i-1, r_x));  // left
-        if (x < s-1) tripletList.push_back(T(i, i+1, r_x)); // right
-
-        // y-direction neighbors (top and bottom)
-        if (y > 0) tripletList.push_back(T(i, i-s, r_y));   // top
-        if (y < s-1) tripletList.push_back(T(i, i+s, r_y)); // bottom
-    }
-
-    Eigen::SparseMatrix<std::complex<double>> B(S,S);
-    B.setFromTriplets(tripletList.begin(), tripletList.end());
-    _B = B;
-}
-
 // Time evolution simulation for 2D Gross-Pitaevskii equation
-void GPES::CrankNicolson<Dimension::Two>::simulation(std::string& outdir){
+
+
+
+void GPES::CrankNicolson<Dimension::Two>::simulation(std::string outdir){
 
     int size = _Psi.size();
 
@@ -496,7 +490,7 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(Eigen::VectorXcd &
             //LHY correction term energy
             double lhy = _g_lhy * 0.4 * std::pow(std::norm(vec(index)), 2.5);
 
-            energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); //  
+            energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); // 
         }
     }
     return energy;
@@ -526,7 +520,7 @@ double GPES::CrankNicolson<Dimension::Two>::calc_state_energy(GPES::WaveFunction
             //LHY correction term energy
             double lhy = _g_lhy * 0.4 * std::pow(std::norm(vec(index)), 2.5);
 
-            energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); //  
+            energy += _step_x * _step_y * (kinetic + potential + interaction + ddi + lhy); //
         }   
     }
     return energy;
@@ -636,6 +630,5 @@ void GPES::CrankNicolson<Dimension::Two>::print_param_of_eq(){
     std::cout << std::setw(width) << "a_s"<< std::setw(width) << "a_dd" << std::setw(width) << "g_scattering" << std::setw(width) << "V_dd" << std::setw(width) << "g_lhy" << std::setw(width) << "lambda" << std::endl;
     std::cout << std::setw(width) << _a_s << std::setw(width) << _a_dd << std::setw(width) << _g_scattering << std::setw(width) << _V_dd << std::setw(width) << _g_lhy << std::setw(width) << l_z << std::endl;
 }
-
 
 #endif

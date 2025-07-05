@@ -75,7 +75,7 @@ public:
     void calc_time_evolution_matrices(const Eigen::VectorXcd& vec);
 
 
-    void simulation(std::string& outdir);
+    void simulation(std::string outdir);
 
  
     void init_Mat_A(std::complex<double> r,Eigen::VectorXcd& d);
@@ -172,7 +172,7 @@ private:
 
 public: 
     //2D constructor
-    CrankNicolson(WaveFunction<Dimension::Two>& Psi, Grid<Dimension::Two>& grid, double T, double delta_t);
+    CrankNicolson(WaveFunction<Dimension::Two>& Psi, Grid<Dimension::Two>& grid, double T, double delta_t, double l_z);
     
     int get_index(int i,int j) { return i * _size_x + j;}
 
@@ -199,7 +199,7 @@ public:
     void savecsv_wave(std::string file_path, Eigen::VectorXcd& vec);
     void savecsv_vec(std::string file_path, std::vector<double>& vec);
 
-    void simulation(std::string& outdir);
+    void simulation(std::string outdir);
     bool simulation_stop(int i); // Simulation stop function due to the small energy difference between steps
 
     void normalize(Eigen::VectorXcd &vec);
