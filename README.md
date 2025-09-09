@@ -1,6 +1,6 @@
 # Gross-Pitaevskii Equation Solver
 
-This project provides tools for numerically solving the Gross-Pitaevskii equation, a nonlinear Schrödinger equation commonly used in Bose-Einstein condensate simulations. It implements both the Crank-Nicolson finite difference scheme and the Split Step method for efficient and accurate time evolution.
+This project provides tools for numerically solving the extended Gross-Pitaevskii equation, a nonlinear Schrödinger equation commonly used in Bose-Einstein condensate simulations. It implements both the Crank-Nicolson finite difference scheme and the Split Step method for efficient and accurate approximation of the ground state of the system and time evolution, respectively.
 
 ## Mathematical Formulation
 
@@ -19,47 +19,56 @@ where:
 
 ## Installation and Build
 
-1. **Clone the repository:**
-    ```bash
-    git clone https://github.com/yourusername/GrossPitaevski.git
-    cd GrossPitaevski
-    ```
+## Installation and Build
 
-2. **Install dependencies:**
-    - Make sure you have Python 3.8+ installed.
-    - Install required Python packages:
-      ```bash
-      pip install -r requirements.txt
-      ```
+### Requirements
+- [Eigen](https://eigen.tuxfamily.org/) (C++ library for linear algebra)
+- [FFTW](http://www.fftw.org/) (Fast Fourier Transform library)
+- Python 3.8+ (for post-processing)
+- [matplotlib](https://matplotlib.org/) (Python plotting library)
 
-3. **Build and run:**
-    - Run the main solver script:
-      ```bash
-      python main.py
-      ```
+### Clone and Build
+```bash
+git clone https://github.com/yourusername/GrossPitaevski.git
+cd GrossPitaevski
+mkdir build && cd build
+cmake ..
+cmake --build .
+```
 
 ## Example of usage
 
-To perform a calculation, first initialize a `Grid` object to define the spatial domain. Next, create a `WaveFunction` object on this grid to represent the condensate state. Finally, choose and apply a solver—either the Crank-Nicolson or Split Step Fourier algorithm—to evolve the wavefunction in time.
+To perform a calculation, first initialize a `Grid` object to define the spatial domain. Next, create a `WaveFunction` object on this grid to represent the condensate state. Finally, choose and apply a solver—either the Crank-Nicolson or Split Step Fourier algorithm—to evolve the wavefunction in time.  
 
 ```cpp
 #include "GPES/Grid.hpp"
 #include "GPES/WaveFunction.hpp"
 #include "GPES/CrankNicolson.hpp"
-#include "GPES/SplitStep.hpp"
 
 int main() {
-    // Initialize grid
-    Grid grid(-10.0, 10.0, 256);
-
-    // Define initial wavefunction
-    WaveFunction psi0(grid, "gaussian");
-
-    // Choose a solver
-    SplitStepSolver solver(grid, psi0, parameters);
-
-    // Run the simulation
-    solver.evolve(1.0, 0.001);
-
-    return 0;
-}```
+    try {
+        // Initialize grid 
+        GPES::Grid<Dimension::Two> grid(300,300, -10, -10); 
+        // Setting up harmonic potential
+        grid.set_harmonic_potential(1,1); 
+        // Tunning the frequency of the trap
+        grid.set_z_freq(5); 
+        // Defining the wavefunction
+        GPES::WaveFunction<Dimension::Two> Phi(grid,0.00607, 0.00882, 10000);
+        // Initialize solver for finding ground state
+        GPES::CrankNicolson<Dimension::Two> solver(Phi,grid,0.001,0.1, 0.614);
+        // Running simulation
+        solver.simulation();
+        // Save wavefunction
+        GPES::save_wavefunction(Phi, "directory_for_saving");
+    }
+    catch (const std::exception& ex) {           // catches runtime_error and any std::exception
+        std::cout << "Error while saving wave-function: " << ex.what() << '\n';
+        return;                    // tell the OS something went wrong
+    }
+    catch (...)                                 // catches non-standard exceptions, just in case
+    {
+        std::cout << "Unknown error.\n";
+        return;
+    }
+}
