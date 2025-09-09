@@ -19,8 +19,6 @@ where:
 
 ## Installation and Build
 
-## Installation and Build
-
 ### Requirements
 - [Eigen](https://eigen.tuxfamily.org/) (C++ library for linear algebra)
 - [FFTW](http://www.fftw.org/) (Fast Fourier Transform library)
@@ -29,7 +27,7 @@ where:
 
 ### Clone and Build
 ```bash
-git clone https://github.com/yourusername/GrossPitaevski.git
+git clone https://github.com/MindowgTell/GrossPitaevskiEQ.git
 cd GrossPitaevski
 mkdir build && cd build
 cmake ..

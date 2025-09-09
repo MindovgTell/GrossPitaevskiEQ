@@ -33,7 +33,7 @@ int main(int argc, char const *argv[]){
 
 void simulation2D(int argc, char const *argv[]) {
     try {
-        GPES::Grid<Dimension::Two> grid(300,300, -10, -10);
+        GPES::Grid<Dimension::Two> grid(100,100, -10, -10);
         grid.set_harmonic_potential(1,1);
         grid.set_z_freq(5);
 
