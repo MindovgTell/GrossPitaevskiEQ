@@ -14,7 +14,7 @@ where:
 - $\psi(\mathbf{r}, t)$ is the condensate wavefunction,
 - $V_{\text{ext}}(\mathbf{r})$ is the external potential,
 - $g$ is the contact interaction strength,
-- $\Phi_{\text{dd}}(\mathbf{r}, t)$ is the dipole-dipole interaction potential,
+- $\Phi_{\text{dd}}(\mathbf{r}, t)$ is the dipole-dipole interaction.
 - $\gamma_{\text{QF}}$ is the quantum fluctuation coefficient.
 
 ## Installation and Build
@@ -38,4 +38,28 @@ where:
       python main.py
       ```
 
-Refer to the documentation for advanced usage and configuration options.
+## Example of usage
+
+To perform a calculation, first initialize a `Grid` object to define the spatial domain. Next, create a `WaveFunction` object on this grid to represent the condensate state. Finally, choose and apply a solver—either the Crank-Nicolson or Split Step Fourier algorithm—to evolve the wavefunction in time.
+
+```cpp
+#include "GPES/Grid.hpp"
+#include "GPES/WaveFunction.hpp"
+#include "GPES/CrankNicolson.hpp"
+#include "GPES/SplitStep.hpp"
+
+int main() {
+    // Initialize grid
+    Grid grid(-10.0, 10.0, 256);
+
+    // Define initial wavefunction
+    WaveFunction psi0(grid, "gaussian");
+
+    // Choose a solver
+    SplitStepSolver solver(grid, psi0, parameters);
+
+    // Run the simulation
+    solver.evolve(1.0, 0.001);
+
+    return 0;
+}```
