@@ -1,15 +1,16 @@
 #ifndef READSIMPARAMS_HPP
 #define READSIMPARAMS_HPP
 
-#include <iostream>
+
+
+#include "gpespch.hpp"
+
 #include <iomanip>
 #include <unordered_map>
-#include <string>
-// #include <sstream>
-#include <vector>
-// #include <fstream>
-#include "definitions.hpp"
 #include <filesystem>
+
+#include "Grid.hpp"
+#include "Wavefunction.hpp"
 
 namespace GPES
 {
@@ -39,45 +40,6 @@ private:
     void parseFile(const std::string& filename);
     void validateHeader(const std::string& headerLine);
 
-public:
-    // explicit ReadSimulationParameters(int argc, char const *argv[]) {
-    //     std::vector<double> params;
-    //     params.reserve(argc - 1);
-
-    //     for (int i = 1; i < argc; ++i) {
-    //         try {
-    //             double d = std::stod(argv[i]);
-    //             params.push_back(d);
-    //         }
-    //         catch (const std::invalid_argument&) {
-    //             std::cerr << "Invalid number: \"" << argv[i] << "\"\n";
-    //             return 1;
-    //         }
-    //         catch (const std::out_of_range&) {
-    //             std::cerr << "Number out of range: \"" << argv[i] << "\"\n";
-    //             return 1;
-    //         }
-    //     }
-
-    // // now params[0]…params.back() are your doubles
-    // for (double d : params) 
-    //     std::cout << d << "\n";
-
-
-    //     // std::ifstream input_data(filename);
-    //     // double RunNum, grid_size_x, grid_size_y, deltat, T, start_x, start_y, number_of_mol, e_dd, a_s, x_c, y_c, sigma_x, sigma_y, omega_x, omega_y;
-
-    //     // std::getline(input_data,line);
-    //     // while(std::getline(input_data,line)) {//Skip first line in file
-
-    //     //     std::stringstream str_stream(line);
-
-    //     //     str_stream >> RunNum >> grid_size_x >> grid_size_y >> deltat >> T >> start_x >> start_y >> number_of_mol >> e_dd >> a_s >> x_c >> y_c >> sigma_x >> sigma_y >> omega_x >> omega_y;
-    //     // }
-    // }
-
-    // // Returns the parsed parameter sets
-    // const std::vector<SimulationParameters>& getParameters() const;
 };
 
 
@@ -1058,7 +1020,7 @@ void tr(){
     std::vector<double> K = V_dd(grid,0.4);
     std::vector<double> K2 = V_dd(grid,1);
     std::vector<double> K3 = V_dd(grid,10);
-    GPES::drawe(K, K2,K3, "$x/l_x$","$V_{\\mathrm{dd}}(|x|/l_{\\perp})$");
+    GPES::draw(K, K2,K3, "$x/l_x$","$V_{\\mathrm{dd}}(|x|/l_{\\perp})$");
 }
 
 

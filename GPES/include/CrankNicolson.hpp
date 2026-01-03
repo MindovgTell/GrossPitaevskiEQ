@@ -1,20 +1,9 @@
 #ifndef CRANKNICOLSON_HPP   
 #define CRANKNICOLSON_HPP   
 
-#include <iostream>
-#include <complex>
-#include <fstream>
-#include <cmath>
-#include <numbers>
-#include <vector>
-#include <memory>
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-#include <cassert>
-
 #include "definitions.hpp"
+#include "wavefunction.hpp"
 #include "grid.hpp"
-#include "wavefunciton.hpp"
 #include "dipoleinteraction.hpp"
 
 namespace GPES{
@@ -75,7 +64,7 @@ public:
     void calc_time_evolution_matrices(const Eigen::VectorXcd& vec);
 
 
-    void simulation(std::string outdir);
+    void simulation(std::string& outdir);
 
  
     void init_Mat_A(std::complex<double> r,Eigen::VectorXcd& d);
@@ -155,15 +144,16 @@ private:
     Eigen::SparseMatrix<std::complex<double> > _A;
     Eigen::SparseMatrix<std::complex<double> > _B;
 
-    Eigen::VectorXcd _Psi;
-    Eigen::VectorXcd _Fin;
+    GPES::WaveFunction<Dimension::Two> _Psi;
+    GPES::WaveFunction<Dimension::Two> _Fin;
+
     Eigen::MatrixXd _V_ext;
     Eigen::VectorXd _U_ddi;
+
     std::unique_ptr<DipolarInteraction<Dimension::Two>> F_ddi;
 
-    int _size_x, _size_y, _T, _t_step, _Num;
-    double _a_s, _a_dd, _g_scattering, _V_dd, _g_lhy, _lam_z, _lam_y;
-    double _delta_t, _h_step, _omega_x, _omega_y, _omega_z, _chem_potential, _start_x, _start_y, _step_x, _step_y, l_z;
+    int _T, _t_step;
+    double _delta_t, _h_step, _V_dd, _g_lhy, l_z;
     std::complex<double> _lambda_x, _lambda_y;
 
     // vector of the energies
@@ -172,20 +162,22 @@ private:
 
 public: 
     //2D constructor
-    CrankNicolson(WaveFunction<Dimension::Two>& Psi, Grid<Dimension::Two>& grid, double T, double delta_t, double l_z);
+    CrankNicolson(WaveFunction<Dimension::Two>& Psi, double T, double delta_t);
     
-    int get_index(int i,int j) { return i * _size_x + j;}
+    int get_index(int i,int j) {
+        return i * _Psi.grid_size_x() + j;
+    }
 
 
-    void calc_g_scattering(double a_s);
+    inline double calc_g_scattering(double a_s);
     void calc_V_dd(double a_dd);
     void calc_g_lhy(double a_s, double a_dd);
 
     //Function for calculating 2D DDI
-    void calculate_DDI(Eigen::VectorXcd &vec);
+    void calculate_DDI(const Eigen::VectorXcd &vec);
 
     // void init_time_evolution_matrices();
-    void calc_time_evolution_matrices(Eigen::VectorXcd &vec);
+    void calc_time_evolution_matrices(const Eigen::VectorXcd &vec);
 
     void init_Mat_A(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d);
     void init_Mat_B(std::complex<double> r_x, std::complex<double> r_y, Eigen::VectorXcd& d);
@@ -203,6 +195,7 @@ public:
     bool simulation_stop(int i); // Simulation stop function due to the small energy difference between steps
 
     void normalize(Eigen::VectorXcd &vec);
+    void normalize(GPES::WaveFunction<Dimension::Two> &vec);
     double vec_norm(Eigen::VectorXcd &vec);
     double vec_norm(Eigen::VectorXd &vec);
 
@@ -216,16 +209,16 @@ public:
 
     //Gettes Funcitons
 
-    double get_g_s () {return _g_scattering;} 
-    double get_g_lhy () {return _g_lhy;}
-    double get_C_dd () {return _V_dd;}  
+    // double get_g_s () {return _g_scattering;} 
+    // double get_g_lhy () {return _g_lhy;}
+    // double get_C_dd () {return _V_dd;}  
 
-    void print_Mat_A_dim();
-    void print_Mat_B_dim();
-    void m_Psi_len();
-    void m_Fin_len();
-    void print_Mat_A();
-    void print_Mat_B();
+    // void print_Mat_A_dim();
+    // void print_Mat_B_dim();
+    // void m_Psi_len();
+    // void m_Fin_len();
+    // void print_Mat_A();
+    // void print_Mat_B();
 
     Eigen::VectorXcd get_m_Psi();
     Eigen::VectorXd get_m_Psi_prob();

@@ -6,10 +6,10 @@
 
 GPES::CrankNicolson<Dimension::One>::CrankNicolson(Grid<Dimension::One>& grid, WaveFunction<Dimension::One>& Psi, double deltat, double T): _delta_t(deltat), _T(T) {
     // Initialize parameters of the grid
-    _size       =   grid.get_size_of_grid(); // number of grid nodes
-    _step       =   grid.get_step_size();
-    _start      =   grid.get_start_position();
-    _V_ext      =   grid.get_potential();    
+    _size       =   grid.size(); // number of grid nodes
+    _step       =   grid.step();
+    _start      =   grid.start_pos();
+    _V_ext      =   grid.potential();    
     _t_step     =   std::round(1/_delta_t) + 1;
 
     _Psi        =   Psi.get_wavefunction();

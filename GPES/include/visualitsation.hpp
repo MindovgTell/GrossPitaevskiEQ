@@ -5,8 +5,11 @@
 #include <vector>
 #include <Eigen/Dense>
 #include "grid.hpp"
-#include "wavefunciton.hpp"
+#include "wavefunction.hpp"
 #include "matplotlibcpp.h"
+#include "definitions.hpp"
+
+
 namespace plt = matplotlibcpp;
 
 
@@ -25,7 +28,7 @@ void draw(std::vector<double>& vec, std::string xlabel = "time [s]",  std::strin
     plt::grid();
     plt::show(); 
 }
-void drawe(std::vector<double>& vec1,std::vector<double>& vec2,std::vector<double>& vec3, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
+void draw(std::vector<double>& vec1,std::vector<double>& vec2,std::vector<double>& vec3, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
     int size = vec1.size();
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, -5, 5);
     std::vector<double> x_vec(x.data(), x.data() + x.size());
@@ -114,10 +117,10 @@ void draw_save(Eigen::VectorXd& vec1, const std::string& fileout){
 
 
 void draw(Grid<Dimension::One>& grid, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
-    int size = grid.get_size_of_grid();
-    double start = grid.get_start_position();
+    int size = grid.size();
+    double start = grid.start_pos();
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, start, -1 * start);
-    Eigen::VectorXd& Psi = grid.get_potential();
+    const Eigen::VectorXd& Psi = grid.potential();
     std::vector<double> x_vec(x.data(), x.data() + x.size());
     std::vector<double> y_vec(Psi.data(), Psi.data() + Psi.size());
     plt::figure();
@@ -130,8 +133,8 @@ void draw(Grid<Dimension::One>& grid, std::string xlabel = "time [s]",  std::str
 }
 
 void draw(WaveFunction<Dimension::One>& wave, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){
-    int size = wave.get_size_of_grid();
-    double start = wave.get_start_position();
+    int size = wave.size();
+    double start = wave.start_pos();
     Eigen::VectorXd x = Eigen::VectorXd::LinSpaced(size, start, -1 * start);
     Eigen::VectorXd Psi = wave.prob();
     std::vector<double> x_vec(x.data(), x.data() + x.size());

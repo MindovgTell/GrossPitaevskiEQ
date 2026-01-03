@@ -1,8 +1,11 @@
 #ifndef GRID_HPP
 #define GRID_HPP
 
-#include "definitions.hpp"
+#include <iostream>
 #include <Eigen/Dense>
+#include "definitions.hpp"
+
+
 
 
 namespace GPES {
@@ -38,12 +41,18 @@ public:
 
 
     //Getters
-    unsigned int get_size_of_grid() {return _size; }
-    double get_start_position() { return _start; }
-    double get_step_size() { return _step; }
+    unsigned int size() {return _size; }
+    const unsigned int size() const {return _size; }
+
+    double start_pos() { return _start; }
+    const double start_pos() const { return _start; }
+
+    double step() { return _step; }
+    const double step() const { return _step; }
+
     double get_omega() { return _omega; }
     double get_omega_t() { return _omega_t; }
-    Eigen::VectorXd& get_potential(){ return _potential;}
+    const Eigen::VectorXd& potential() const { return _potential;}
     
     //Setters
     void set_harmonic_potential(double omega);
@@ -102,21 +111,22 @@ private:
 public:
     //Constructor 
     Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y);
+    Grid();
     // Delete copy and move constructors
-    Grid(const GPES::Grid<Dimension::Two>&) = delete;
-    Grid(GPES::Grid<Dimension::Two> &&)     = delete;
+    // Grid(const GPES::Grid<Dimension::Two>&) = delete;
+    // Grid(GPES::Grid<Dimension::Two> &&) 
 
     //Getters
-    unsigned int get_size_of_grid_x(){ return _size_x; }
-    unsigned int get_size_of_grid_y(){ return _size_y; }
-    double get_start_position_x(){ return _start_x; }
-    double get_start_position_y(){ return _start_y; }
-    double get_step_size_x(){ return _step_x; }
-    double get_step_size_y(){ return _step_y; }
-    double get_omega_x() {return _omega_x; }
-    double get_omega_y() {return _omega_y; }
-    double get_omega_z() {return _omega_z; }
-    Eigen::MatrixXd& get_potential() {return _potential;}
+    unsigned int size_x(){ return _size_x; }
+    unsigned int size_y(){ return _size_y; }
+    double start_pos_x(){ return _start_x; }
+    double start_pos_y(){ return _start_y; }
+    double step_x(){ return _step_x; }
+    double step_y(){ return _step_y; }
+    double omega_x() {return _omega_x; }
+    double omega_y() {return _omega_y; }
+    double omega_z() {return _omega_z; }
+    const Eigen::MatrixXd& potential() const {return _potential;}
 
     void set_harmonic_potential(double omega_x, double omega_y);
 
