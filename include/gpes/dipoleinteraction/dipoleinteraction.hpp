@@ -4,7 +4,7 @@
 #include <fftw3.h>
 #include <Eigen/Dense>
 
-namespace GPES {
+namespace gpes {
 
     // Functions for calculating dipole dipole interaction potential without usage of DFT
 

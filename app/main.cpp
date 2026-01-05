@@ -1,7 +1,9 @@
 #include <chrono>
 #include <regex>
 
-#include "gpes.hpp"
+#include "CLI11.hpp"
+
+#include "gpes/gpes.hpp"
 
 
 void simulation2D(int argc, char **argv);
@@ -25,18 +27,18 @@ int main(int argc, char **argv){
 void simulation2D(int argc, char **argv) {
     try {
 
-        GPES::Grid<Dimension::Two> grid(100,100, -10, -10);
+        gpes::Grid<Dimension::Two> grid(100,100, -10, -10);
         grid.set_harmonic_potential(1,1);
         grid.set_z_freq(5);
 
-        GPES::WaveFunction<Dimension::Two> Phi(grid,0.00607, 0.00882, 10000);
-        GPES::CrankNicolson<Dimension::Two> solver(Phi,0.001,0.1);
+        gpes::WaveFunction<Dimension::Two> Phi(grid,0.00607, 0.00882, 10000);
+        gpes::CrankNicolson<Dimension::Two> solver(Phi,0.001,0.1);
 
         Phi.print_params();
         solver.print_param_of_eq();
         solver.simulation();
 
-        GPES::SplitStep<Dimension::Two> simulation();
+        gpes::SplitStep<Dimension::Two> simulation();
         
     }
     catch (const std::exception& ex) {           // catches runtime_error and any std::exception

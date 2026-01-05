@@ -2,12 +2,10 @@
 #define SPLITSTEP_HPP
 
 #include "dipoleinteraction.hpp"
+#include "wavefunction.hpp"
+#include "grid.hpp"
 
-#include "definitions.hpp"
-#include "Wavefunction.hpp"
-#include "Grid.hpp"
-
-namespace GPES {
+namespace gpes {
 
     template <Dimension Dim>
     class SplitStep;
@@ -26,8 +24,8 @@ namespace GPES {
         Eigen::VectorXcd U_k;
         Eigen::VectorXcd U_v;
 
-        const GPES::Grid<Dimension::One>& _Grid;
-        GPES::WaveFunction<Dimension::One>& _Psi;
+        const gpes::Grid<Dimension::One>& _Grid;
+        gpes::WaveFunction<Dimension::One>& _Psi;
         
     public: 
 

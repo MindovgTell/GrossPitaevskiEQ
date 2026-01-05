@@ -13,7 +13,7 @@
 namespace plt = matplotlibcpp;
 
 
-namespace GPES {
+namespace gpes {
 
 
 void draw(std::vector<double>& vec, std::string xlabel = "time [s]",  std::string ylabel = "observation [m]"){

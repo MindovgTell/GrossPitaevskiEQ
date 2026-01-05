@@ -16,3 +16,10 @@ AresGPES
 srcAres
 inputs
 python
+
+include/gpes/Solvers/CrankNicolson1D.inl
+include/gpes/Solvers/CrankNicolson2D.inl
+
+#IDE files
+*.iml
+.idea/
