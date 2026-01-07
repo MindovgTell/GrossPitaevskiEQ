@@ -87,7 +87,7 @@ add_library(gpes::gpes ALIAS gpes)
 
 target_include_directories(gpes
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/gpes
 )
 
 # Link Eigen

@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 
-#include "gpes/Core/definitions.hpp"
+#include "Core/definitions.hpp"
 
 struct CliConfig {
     double a_s = 0.00607;

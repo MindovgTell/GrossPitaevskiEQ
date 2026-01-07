@@ -1,5 +1,5 @@
 #include "cli/cli.hpp"
-#include "gpes/gpes.hpp"
+#include "gpes.hpp"
 
 int main(int argc, char **argv) {
     auto [phys, sim] = parse_cli(argc, argv);

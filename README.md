@@ -24,6 +24,8 @@ where:
 - [FFTW](http://www.fftw.org/) (Fast Fourier Transform library)
 - Python 3.8+ (for post-processing)
 - [matplotlib](https://matplotlib.org/) (Python plotting library)
+- [spdlog](https://github.com/gabime/spdlog) (Logging information)
+- [CLI11] (https://github.com/CLIUtils/CLI11) (CLI tools)
 
 ### Clone and Build
 ```bash
@@ -43,29 +45,25 @@ To perform a calculation, first initialize a `Grid` object to define the spatial
 #include "GPES/WaveFunction.hpp"
 #include "GPES/CrankNicolson.hpp"
 
-int main() {
+int main(int argc, char **argv) {
     try {
-        // Initialize grid 
-        GPES::Grid<Dimension::Two> grid(300,300, -10, -10); 
-        // Setting up harmonic potential
-        grid.set_harmonic_potential(1,1); 
-        // Tunning the frequency of the trap
-        grid.set_z_freq(5); 
-        // Defining the wavefunction
-        GPES::WaveFunction<Dimension::Two> Phi(grid,0.00607, 0.00882, 10000);
-        // Initialize solver for finding ground state
-        GPES::CrankNicolson<Dimension::Two> solver(Phi,grid,0.001,0.1, 0.614);
-        // Running simulation
-        solver.simulation();
-        // Save wavefunction
-        GPES::save_wavefunction(Phi, "directory_for_saving");
+        auto [phys, sim] = parse_cli(argc, argv);
+        print_parsed_params(argc, argv);
+
+        const gpes::Dimension Dim = gpes::Dimension::One;
+
+        auto grid_ptr = std::make_shared<gpes::Grid<Dim>>(100,-10);
+        grid_ptr->set_harmonic_potential(5);
+
+        gpes::WaveFunction<Dim> Psi(grid_ptr);
+        Psi.set_state_Gauss(0, 5, 1000);
+
+        gpes::solvers::CrankNicolson<Dim> stepper(grid_ptr, Psi, phys, sim);
+
+        gpes::TDSESolver<Dim, decltype(stepper)> solver(grid_ptr, stepper, Psi, sim);
+
     }
-    catch (const std::exception& ex) {           // catches runtime_error and any std::exception
-        std::cout << "Error while saving wave-function: " << ex.what() << '\n';
-        return;                    // tell the OS something went wrong
-    }
-    catch (...)                                 // catches non-standard exceptions, just in case
-    {
+    catch (...) {                          
         std::cout << "Unknown error.\n";
         return;
     }

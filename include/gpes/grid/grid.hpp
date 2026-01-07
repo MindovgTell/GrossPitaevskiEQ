@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <Eigen/Dense>
-#include "gpes/Core/definitions.hpp"
+#include "Core/definitions.hpp"
 
 
 
@@ -82,7 +82,7 @@ void Grid<Dimension::One>::init_grid(){
 void Grid<Dimension::One>::set_harmonic_potential(double omega){
     Eigen::VectorXd V(size_);
     V.setZero();
-    for(int i = 0; i != size_ - 0; ++i){
+    for(size_t i = 0; i != size_; ++i){
         double x = start_ + i * step_;
         V(i) = 0.5 * (std::pow(omega * x,2.));
     }

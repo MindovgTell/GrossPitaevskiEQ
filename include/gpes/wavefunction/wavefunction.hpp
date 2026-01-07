@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "grid.hpp"
+#include "grid/grid.hpp"
 
 
 namespace gpes
@@ -145,12 +145,9 @@ Eigen::VectorXcd WaveFunction<Dimension::One>::TM_state(unsigned int Num, double
     double step = gridptr_->step();
 
     Eigen::VectorXcd U(size);
-
-    double x = gridptr_->start();
-    double step = gridptr_->step();
     std::complex<double> psum = 0;
 
-    for(int i = 0; i < size; ++i){
+    for(size_t i = 0; i < size; ++i){
         x += step;
         std::complex<double> c = thomas_fermi_state(x, Num, g_scat); // Add parameters for Thomas-Fermi function
         U(i) = c;
@@ -169,7 +166,7 @@ void WaveFunction<Dimension::One>::set_state_TF(double x_c, unsigned int Num, do
 
     Eigen::VectorXcd U(size);
     double psum = 0;
-    for(int i = 0; i < size; ++i){
+    for(size_t i = 0; i < size; ++i){
         std::complex<double> c = thomas_fermi_state(x - x_c, Num, g_scat); // Add parameters for Thomas-Fermi function
         U(i) = c;
         psum += std::norm(c);
@@ -188,7 +185,7 @@ void WaveFunction<Dimension::One>::set_state_Square(double x_c, unsigned int Num
 
     Eigen::VectorXcd U(size);
     double psum = 0;
-    for(int i = 0; i < size; ++i){
+    for(size_t i = 0; i < size; ++i){
         std::complex<double> c = square_func(x, Num, g_scat);
         U(i) = c;
         psum += std::norm(c);
@@ -208,7 +205,7 @@ void WaveFunction<Dimension::One>::set_state_Gauss(double x_c, double sigma_x, u
     Eigen::VectorXcd U(size);
     double psum = 0;
 
-    for(int i = 0; i < size; ++i){
+    for(size_t i = 0; i < size; ++i){
         std::complex<double> c = gauss_wave_packet(sigma_x, x, x_c);
         U(i) = c;
         psum += std::norm(c);
@@ -233,7 +230,7 @@ Eigen::VectorXd WaveFunction<Dimension::One>::prob() {
     size_t size = gridptr_->size();
 
     Eigen::VectorXd pr(size);
-    for(int i = 0; i < size; ++i){
+    for(size_t i = 0; i < size; ++i){
         pr(i) = std::norm(data_(i));
     }
     return pr;
@@ -281,7 +278,7 @@ public:
         data_   = VectorType::Zero(sx * sy);
     }
 
-    WaveFunction(ShrdPtrGridDim2 grid, VectorType& vec): gridptr_(std::move(grid)) {
+    WaveFunction(ShrdPtrGridDim2 grid, VectorType& vec): gridptr_(std::move(grid)), data_(vec) {
         if (!gridptr_) throw std::runtime_error("WaveFunction needs a grid");
         int sx = gridptr_->size_x();
         int sy = gridptr_->size_y();
@@ -303,7 +300,7 @@ public:
 
     //Overloaded operators
     Scalar& operator()(int i) { return data_(i); }
-    Scalar operator()(int i) const{ data_(i); }
+    Scalar operator()(int i) const{ return data_(i); }
 
     WaveFunction& operator*=(Scalar a) {
         data_ *= a;

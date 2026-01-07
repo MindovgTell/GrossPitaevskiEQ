@@ -32,8 +32,8 @@ namespace gpes {
 
 
     std::vector<double> calculate_DDI_not_FFT(
-        const GPES::Grid<Dimension::One> &grid,
-        const GPES::WaveFunction<Dimension::One> &vec
+        const gpes::Grid<Dimension::One> &grid,
+        const gpes::WaveFunction<Dimension::One> &vec
         ) {
         int size = vec.size(); //vec
         std::vector<double> U(size, 0.0);
