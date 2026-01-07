@@ -41,9 +41,8 @@ cmake --build .
 To perform a calculation, first initialize a `Grid` object to define the spatial domain. Next, create a `WaveFunction` object on this grid to represent the condensate state. Finally, choose and apply a solver—either the Crank-Nicolson or Split Step Fourier algorithm—to evolve the wavefunction in time.  
 
 ```cpp
-#include "GPES/Grid.hpp"
-#include "GPES/WaveFunction.hpp"
-#include "GPES/CrankNicolson.hpp"
+#include "cli/cli.hpp"
+#include "gpes.hpp"
 
 int main(int argc, char **argv) {
     try {
