@@ -25,7 +25,7 @@ where:
 - Python 3.8+ (for post-processing)
 - [matplotlib](https://matplotlib.org/) (Python plotting library)
 - [spdlog](https://github.com/gabime/spdlog) (Logging information)
-- [CLI11] (https://github.com/CLIUtils/CLI11) (CLI tools)
+- [CLI11](https://github.com/CLIUtils/CLI11) (CLI tools)
 
 ### Clone and Build
 ```bash
