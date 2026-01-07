@@ -7,8 +7,9 @@
 #include <source_location>
 #include <format>
 #include <concepts>
+#include <filesystem>
 
-#include "Core/utility.hpp"
+// #include "Core/utility.hpp"
 
 namespace gpes::log {
 
@@ -41,6 +42,7 @@ namespace gpes::log {
         const std::string& message,        //
         bool showLocation = false,         //
         const std::source_location location = std::source_location::current()) const;
+    void setLogFile(const std::filesystem::path& path);
 
     private: 
         Log();

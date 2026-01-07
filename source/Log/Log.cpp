@@ -42,9 +42,7 @@ public:
         m_consoleLogger = std::make_unique<logger>("console", consoleSink);
         m_consoleLogger->set_pattern(c_logPattern);
 
-        const auto fileSink = std::make_shared<sinks::basic_file_sink_mt>(makeLogFile().string(), true);
-        m_fileLogger = std::make_unique<logger>("file", fileSink);
-        m_fileLogger->set_pattern(c_logPattern);
+        setLogFile(makeLogFile());
     }
 
     void log(LogVerbosity verbosity, const std::string& message) const
@@ -66,6 +64,19 @@ public:
         }
     }
 
+    void setLogFile(const fs::path& logFile)
+    {
+        if (logFile.empty()) {
+            return;
+        }
+        if (logFile.has_parent_path()) {
+            fs::create_directories(logFile.parent_path());
+        }
+        const auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile.string(), true);
+        m_fileLogger = std::make_unique<spdlog::logger>("file", fileSink);
+        m_fileLogger->set_pattern(c_logPattern);
+    }
+
 private:
     std::unique_ptr<spdlog::logger> m_consoleLogger;
     std::unique_ptr<spdlog::logger> m_fileLogger;
@@ -85,6 +96,11 @@ private:
 
 Log::Log() : pImpl_(std::make_unique<Impl>()) {}
 Log::~Log() = default;
+
+void Log::setLogFile(const fs::path& path)
+{
+    pImpl_->setLogFile(path);
+}
 
 void Log::log(const LogCategory& category, LogVerbosity verbosity, const std::string& message, bool showLocation,
     const std::source_location location) const

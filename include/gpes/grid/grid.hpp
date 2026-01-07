@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <Eigen/Dense>
-#include "Core/definitions.hpp"
+#include "gpes/Core/definitions.hpp"
 
 
 

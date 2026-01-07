@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <stdexcept>
 
 #include "grid.hpp"
 #include "wavefunction.hpp"
@@ -22,19 +23,29 @@ namespace gpes {
         using WFType = WFT;
         using ShrdPtrGrid = std::shared_ptr<const Grid<D>>;
 
-        // constructor
-        TDSESolver() {
-
+        TDSESolver(ShrdPtrGrid grid, Algorythm& algo, WFType& psi, SimConfig simcnfg)
+            : Psi_(psi),
+              grid_(std::move(grid)),
+              algo_(algo),
+              sim_config_(simcnfg) {
+            if (!grid_) {
+                throw std::runtime_error("TDSESolver requires a valid grid");
+            }
         }
 
         void run() {
-            
+            for (size_t step = 0; step < sim_config_.num_of_steps; ++step) {
+                algo_.step(Psi_);
+            }
         }
 
+        const WFType& wavefunction() const { return Psi_; }
+        WFType& wavefunction() { return Psi_; }
+
     private:
-        WFType Psi_;
+        WFType Psi_
         ShrdPtrGrid grid_;
         Algorythm algo_;
-        SimConfig cnfg;
+        SimConfig sim_config_;
     };
 };

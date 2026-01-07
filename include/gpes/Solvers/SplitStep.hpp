@@ -1,13 +1,30 @@
 #ifndef SPLITSTEP_HPP
 #define SPLITSTEP_HPP
 
-#include "dipoleinteraction.hpp"
-#include "wavefunction.hpp"
-#include "grid.hpp"
+#include <cmath>
+#include <complex>
+#include <memory>
+#include <stdexcept>
+#include <vector>
 
-namespace gpes {
+#include <fftw3.h>
+#include <Eigen/Dense>
+#include <Eigen/SparseLU>
 
-    template <Dimension Dim>
+#include "Core/definitions.hpp"
+#include "Core/traits.hpp"
+#include "dipoleinteraction/dipoleinteraction.hpp"
+#include "grid/grid.hpp"
+#include "wavefunction/wavefunction.hpp"
+
+#ifndef M_PI
+constexpr double M_PI = 3.14159265358979323846;
+#endif
+
+namespace gpes::solvers {
+
+    template <Dimension Dim,
+                typename SolverType = Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>>>
     class SplitStep;
 
     //********************************/***********/********************************//
@@ -16,132 +33,174 @@ namespace gpes {
     //                                                                             //
     //********************************/***********/********************************//
 
-    template<>
-    class SplitStep<Dimension::One> {
+    template<typename SolverType>
+    class SplitStep<Dimension::One, SolverType> {
+    public:
+        static constexpr Dimension Dim = Dimension::One;
+        using WaveFuncType = gpes::WaveFunction<Dim>;
+        using GridType = gpes::Grid<Dim>;
+        using Tag = gpes::tags::SSFM;
+        using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
     private:
-        double dt, N_steps;
-     
-        Eigen::VectorXcd U_k;
-        Eigen::VectorXcd U_v;
 
-        const gpes::Grid<Dimension::One>& _Grid;
-        gpes::WaveFunction<Dimension::One>& _Psi;
+        Eigen::VectorXcd U_k_;
+        Eigen::VectorXcd U_v_;
+        Eigen::VectorXd U_ddi_;
+
+        ShrdPtrGrid grid_;
+        PhysConfig ph_config_;
+        SimConfig sim_config_;
+
+        double g_scattering_ = 0.0;
+        double g_lhy_ = 0.0;
+        double l_perp_ = 1.0;
+        double V_dd_ = 0.0;
+
+        std::unique_ptr<DipolarInteraction<Dim>> F_ddi_;
+
+    public:
         
-    public: 
+        SplitStep(
+            ShrdPtrGrid grid,
+            const WaveFuncType& vec,
+            PhysConfig phcnfg,
+            SimConfig simcnfg
+        ) : grid_(std::move(grid)),
+            ph_config_(phcnfg),
+            sim_config_(simcnfg) 
+        {
+            if (!grid_) {
+                throw std::runtime_error("SplitStep requires a valid grid");
+            }
+            if (vec.size() != static_cast<Eigen::Index>(grid_->size())) {
+                throw std::runtime_error("SplitStep wavefunction and grid size mismatch");
+            }
 
-        SplitStep(const Grid<Dimension::One>& grid, WaveFunction<Dimension::One>& psi, double delta_t, int Nsteps);
+            init_physics_params();
+            init_kinetic_op();
+
+            if (V_dd_ != 0.0) {
+                int N = static_cast<int>(grid_->size());
+                double L = static_cast<double>(N) * grid_->step();
+                F_ddi_ = std::make_unique<DipolarInteraction<Dim>>(N, L, l_perp_, V_dd_);
+                U_ddi_.resize(N);
+            }
+        }
+        
+        void step(WaveFuncType& vec) {
+            int N = static_cast<int>(vec.size());
+
+            Eigen::VectorXcd space_wf = vec.vec();
+            Eigen::VectorXcd momentum_wf(N);
+
+            fftw_plan plan_fwd = fftw_plan_dft_1d(
+                N,
+                reinterpret_cast<fftw_complex*>(space_wf.data()),
+                reinterpret_cast<fftw_complex*>(momentum_wf.data()),
+                FFTW_FORWARD,
+                FFTW_ESTIMATE
+            );
+            fftw_plan plan_bwd = fftw_plan_dft_1d(
+                N,
+                reinterpret_cast<fftw_complex*>(momentum_wf.data()),
+                reinterpret_cast<fftw_complex*>(space_wf.data()),
+                FFTW_BACKWARD,
+                FFTW_ESTIMATE
+            );
+
+            fftw_execute(plan_fwd);
+            for (int i = 0; i < N; ++i) {
+                momentum_wf(i) *= U_k_(i);
+            }
+            fftw_execute(plan_bwd);
+            space_wf /= static_cast<double>(N);
+
+            calc_potential_op(space_wf);
+            for (int i = 0; i < N; ++i) {
+                space_wf(i) *= U_v_(i);
+            }
+
+            fftw_execute(plan_fwd);
+            for (int i = 0; i < N; ++i) {
+                momentum_wf(i) *= U_k_(i);
+            }
+            fftw_execute(plan_bwd);
+            space_wf /= static_cast<double>(N);
+
+            vec.vec() = space_wf;
+
+            fftw_destroy_plan(plan_fwd);
+            fftw_destroy_plan(plan_bwd);
+        }
 
     private:
-        void init_kinetic_op();
-        void calc_potential_op(const Eigen::VectorXcd& psi);
-        void sim();
-        
+        void init_physics_params() {
+            double a_s = ph_config_.a_s;
+            double a_dd = ph_config_.a_dd;
+
+            double omega_t = grid_->get_omega_t();
+            if (omega_t > 0.0) {
+                l_perp_ = 1.0 / std::sqrt(omega_t);
+            }
+
+            if (a_dd != 0.0) {
+                V_dd_ = -0.75 * a_dd / std::pow(l_perp_, 3.0);
+            }
+
+            g_scattering_ = (8.0 / 3.0) * V_dd_;
+
+            if (a_s != 0.0) {
+                double C = 1.4603;
+                double denom = l_perp_ * l_perp_ * (1.0 - C * (a_s / l_perp_));
+                if (denom != 0.0) {
+                    g_scattering_ += 2.0 * a_s / denom;
+                }
+
+                g_lhy_ = (256.0 / (15.0 * M_PI)) * std::pow(a_s, 2.5) / std::pow(l_perp_, 3.0)
+                    * (1.0 + 1.5 * std::pow(a_dd / a_s, 2.0));
+            }
+        }
+
+            
+        void init_kinetic_op() {
+            int N = static_cast<int>(grid_->size());
+            double dx = grid_->step();
+            double L = static_cast<double>(N) * dx;
+            const double dk = 2.0 * M_PI / L;
+
+            U_k_.resize(N);
+
+            for (int m = 0; m < N; ++m) {
+                int q = (m <= N / 2) ? m : m - N;
+                double k = dk * q;
+                U_k_(m) = std::exp(std::complex<double>(0.0, -0.25 * k * k * sim_config_.dt));
+            }
+        }
+
+
+        void SplitStep<Dimension::One>::calc_potential_op(const Eigen::VectorXcd& vec){
+            int N = static_cast<int>(vec.size());
+
+            if (F_ddi_) {
+                F_ddi_->compute_DDI_term(vec, U_ddi_);
+            }
+
+            U_v_.resize(N);
+
+            for (int i = 0; i < N; ++i) {
+                double U_trap = grid_->potential()(i);
+                double U_scattering = g_scattering_ * std::norm(vec(i));
+                double U_dd = (U_ddi_.size() == N) ? U_ddi_(i) : 0.0;
+                double U_lhy = g_lhy_ * std::pow(std::norm(vec(i)), 1.5);
+
+                double total = U_trap + U_scattering + U_dd + U_lhy;
+                U_v_(i) = std::exp(std::complex<double>(0.0, -sim_config_.dt * total));
+            }
+        }
     };
 
 
-    SplitStep<Dimension::One>::SplitStep(const Grid<Dimension::One>& grid, WaveFunction<Dimension::One>& psi, double delta_t, int Nsteps) : _Grid(grid), _Psi(psi), dt(delta_t), N_steps(Nsteps) {}
 
-
-    void SplitStep<Dimension::One>::init_kinetic_op() {
-        int N = _Grid.size();
-        std::vector<double> k(N);
-        double dx = _Grid.step();
-        double L = N * dx;
-        const double dk = 2.0 * M_PI / L;
-
-        U_k.resize(N);
-
-        for (int m = 0; m < N; ++m) {
-            int q = (m <= N/2) ? m : m - N;  // integer wave index (positive + negative)
-            k[m] = dk * q;                   // physical k
-        }
-
-        for(int j = 0; j < N; j++){
-            U_k(j) = std::exp(std::complex<double>(0.0, -1.0 * k[j]*k[j] * dt / 4));
-        }    
-    }
-
-    void SplitStep<Dimension::One>::calc_potential_op(const Eigen::VectorXcd& vec){
-        int N = vec.size();
-
-        // calculate_DDI(vec);
-        std::vector<double> U = GPES::calculate_DDI_not_FFT(_Grid, vec);
-
-        U_v.resize(N);
-
-        double g_scat = _Psi.get_g_scat();
-        double g_lhy  = _Psi.get_g_lhy();
-
-        for(int i = 0; i < N; ++i){
-
-            double U_trap =  _Grid.potential()(i);
-            double U_scattering =  g_scat*std::norm(vec(i));
-            double U_lhy = g_lhy * std::pow(std::norm(vec(i)), 1.5);
-
-
-            U_v(i) = std::exp(std::complex(0.0, -dt*(U_trap + U_scattering + U[i] + U_lhy)));
-        }
-    }
-
-    void SplitStep<Dimension::One>::sim() {
-
-        int N = _Psi.size();
-
-        Eigen::VectorXcd space_wf(N);
-        Eigen::VectorXcd momentum_wf(N);
-
-
-        // Setting up Fourier transform
-        fftw_plan   plan_fwd, plan_bwd;
-        
-        plan_fwd = fftw_plan_dft_1d(
-            N,
-            reinterpret_cast<fftw_complex*>(space_wf.data()), 
-            reinterpret_cast<fftw_complex*>(momentum_wf.data()), 
-            FFTW_FORWARD,
-            FFTW_MEASURE
-        );
-        plan_bwd = fftw_plan_dft_1d(
-            N,
-            reinterpret_cast<fftw_complex*>(momentum_wf.data()), 
-            reinterpret_cast<fftw_complex*>(space_wf.data()), 
-            FFTW_FORWARD,
-            FFTW_MEASURE
-        );
-
-        // Time stepping 
-        for(int step = 0; step < N_steps; step++){
-
-            // 1) Half kinetic step
-            //      Transform wavefunction to momentum space
-            fftw_execute(plan_fwd);
-            //      Calculate the action of the kinetic operator on the wavefunction in Fourier space
-            for(int i = 0; i < N; i++) momentum_wf(i) *= U_k(i);
-            //      Return to the real space
-            fftw_execute(plan_bwd);
-            //      Normalization
-            for(int i = 0; i < N; i++) space_wf(i) /= double(N);
-
-            // 2) Full potential step
-            calc_potential_op(space_wf);
-            for(int i = 0; i < N; i++) space_wf(i) *= U_v(i);
-
-            // 3) Half kinetic step
-            //      Transform wavefunction to momentum space
-            fftw_execute(plan_fwd);
-            //      Calculate the action of the kinetic operator on the wavefunction in Fourier space
-            for(int i = 0; i < N; i++) momentum_wf(i) *= U_k(i);
-            //      Return to the real space
-            fftw_execute(plan_bwd);
-            //      Normalization
-            for(int i = 0; i < N; i++) space_wf(i) /= double(N);
-        }
-
-        _Psi = space_wf;
-
-        fftw_destroy_plan(plan_fwd);
-        fftw_destroy_plan(plan_bwd);
-    }
 
 
 
@@ -151,17 +210,34 @@ namespace gpes {
     //                                                                             //
     //********************************/***********/********************************//
 
-    class SplitStep<Dimension::Two> {
-    private:
-        double dt, N_steps;
-
-        Eigen::VectorXcd U_k;
-        Eigen::VectorXcd U_v;
-        
-        GPES::Grid<Dimension::Two>& _Grid;
-        GPES::WaveFunction<Dimension::Two>& _Psi;
+    template<typename SolverType>
+    class SplitStep<Dimension::Two, SolverType> {
     public:
-        void sim();
+        static constexpr Dimension Dim = Dimension::Two;
+        using WaveFuncType = gpes::WaveFunction<Dim>;
+        using GridType = gpes::Grid<Dim>;
+        using Tag = gpes::tags::SSFM;
+        using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
+    private:
+    
+        Eigen::VectorXcd U_k_;
+        Eigen::VectorXcd U_v_;
+        Eigen::VectorXd U_ddi_;
+
+        ShrdPtrGrid grid_;
+        PhysConfig ph_config_;
+        SimConfig sim_config_;
+
+        double g_scattering_ = 0.0;
+        double g_lhy_ = 0.0;
+        double l_perp_ = 1.0;
+        double V_dd_ = 0.0;
+
+        std::unique_ptr<DipolarInteraction<Dim>> F_ddi_;
+
+    public:
+
+        void step();
 
     private:
         void init_kinetic_op();
@@ -170,51 +246,8 @@ namespace gpes {
     };
 
 
-    void GPES::SplitStep<Dimension::Two>::sim() {
-        // Implementation of the 2D split-step method
-
-        int N_x = _Psi.grid_size_x();
-        int N_y = _Psi.grid_size_y();
-
-
-        // Setting up Fourier transform
-
-
-        
-
-    }
 
 
 
-    void SplitStep<Dimension::Two>::calc_potential_op(const Eigen::VectorXcd& vec){
-        int N = vec.size();
-
-        // calculate_DDI(vec);
-        std::vector<double> U = GPES::calculate_DDI_not_FFT(_Grid, vec);
-        
-
-        U_v.resize(N);
-
-        double g_scat = _Psi.get_g_scat();
-        double g_lhy  = _Psi.get_g_lhy();
-
-        for(int i = 0; i < N; ++i){
-
-            std::complex<double> U_trap = dt*0.5 * _Grid.potential()(i);
-            std::complex<double> U_scattering =  (dt*0.5 * g_scat)*std::norm(vec(i));
-            std::complex<double> U_dd = 1.0 * (dt*0.5) * U[i];  //;
-            std::complex<double> U_lhy = 1.0 * (dt*0.5) * g_lhy * std::pow(std::norm(vec(i)), 1.5);
-
-
-            U_v(i) = U_trap + U_scattering + U_dd + U_lhy;
-        }
-    }
-
-
-
-
-
-
-}
-
+} // namespace gpes::solvers
 #endif

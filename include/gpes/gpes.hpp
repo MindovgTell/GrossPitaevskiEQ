@@ -5,5 +5,6 @@
 #include "wavefunction/wavefunction.hpp"
 #include "Solvers/CrankNicolson.hpp"
 #include "Solvers/SplitStep.hpp"
+#include "Solvers/TDSESolver.hpp"
 
 #endif
