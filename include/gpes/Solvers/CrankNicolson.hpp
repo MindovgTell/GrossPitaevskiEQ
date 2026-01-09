@@ -11,6 +11,7 @@
 #include "wavefunction/wavefunction.hpp"
 #include "grid/grid.hpp"
 #include "dipoleinteraction/dipoleinteraction.hpp"
+#include "Core/traits.hpp"
 
 namespace gpes::solvers{
     
@@ -65,22 +66,22 @@ public:
         calc_time_evolution_matrices(vec);
     }
 
-    void calc_g_scattering() {
-        double a_s = 
-        double C = 1.4603; // riemann -zeta(1/2)
-        double g_scattering =  2 * a_s / ((_l_perp*_l_perp) * (1 - C*(a_s/_l_perp))) + 8./ 3 * _V_dd;
-    }
-    void calc_V_dd(double a_dd) {
-        // double cosTheta = 0; // Theta = 90 deg
-        // _V_dd = 0.375 * a_dd / ( std::pow(_l_perp,3));
-        // double cosTheta = 1; // Theta = 0 deg
-        double _V_dd = -0.75 * a_dd / ( std::pow(_l_perp,3.)); 
-        // _V_dd = 1.5 * a_dd / std::pow(_l_perp,3); 
-    }
+    // void calc_g_scattering() {
+    //     double a_s = 
+    //     double C = 1.4603; // riemann -zeta(1/2)
+    //     double g_scattering =  2 * a_s / ((_l_perp*_l_perp) * (1 - C*(a_s/_l_perp))) + 8./ 3 * _V_dd;
+    // }
+    // void calc_V_dd(double a_dd) {
+    //     // double cosTheta = 0; // Theta = 90 deg
+    //     // _V_dd = 0.375 * a_dd / ( std::pow(_l_perp,3));
+    //     // double cosTheta = 1; // Theta = 0 deg
+    //     double _V_dd = -0.75 * a_dd / ( std::pow(_l_perp,3.)); 
+    //     // _V_dd = 1.5 * a_dd / std::pow(_l_perp,3); 
+    // }
 
-    void calc_g_lhy(double a_s, double a_dd) {
-        double _g_lhy = (256. / (15 * M_PI) ) * std::pow(a_s, 2.5) / std::pow(_l_perp, 3.) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
-    }
+    // void calc_g_lhy(double a_s, double a_dd) {
+    //     double _g_lhy = (256. / (15 * M_PI) ) * std::pow(a_s, 2.5) / std::pow(_l_perp, 3.) * (1 + 1.5 * std::pow((a_dd / a_s ), 2.));
+    // }
 
     //Function for calculating Dipole-Dipole Interaction
     void calculate_DDI(Eigen::VectorXcd& vec) {
