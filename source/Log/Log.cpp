@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <filesystem>
 #include <chrono>
+#include <stdexcept>
 
 
 #include "spdlog/spdlog.h"
@@ -25,7 +26,6 @@ namespace {
         {LogVerbosity::Fatal, spdlog::level::critical}
     };
     constexpr const char* c_logPattern = "[%H:%M:%S.%e] [%^%l%$] %v";
-    const fs::path c_logDirectory = fs::path("logs");
     constexpr const char* c_logFilePrefix = "GPES";
     constexpr const char* c_logFileExtension = "txt";
     constexpr const char* c_timestampFormat = "{:%Y.%d.%m-%H.%M.%S}";
@@ -41,8 +41,6 @@ public:
         const auto consoleSink = std::make_shared<sinks::stdout_color_sink_mt>();
         m_consoleLogger = std::make_unique<logger>("console", consoleSink);
         m_consoleLogger->set_pattern(c_logPattern);
-
-        setLogFile(makeLogFile());
     }
 
     void log(LogVerbosity verbosity, const std::string& message) const
@@ -51,11 +49,13 @@ public:
         if (verbosity != LogVerbosity::Log && m_consoleLogger->should_log(spdLevel))
         {
             m_consoleLogger->log(spdLevel, message);
+            m_consoleLogger->flush();
         }
 
-        if (m_fileLogger->should_log(spdLevel))
+        if (m_fileLogger && m_fileLogger->should_log(spdLevel))
         {
             m_fileLogger->log(spdLevel, message);
+            m_fileLogger->flush();
         }
 
         if (verbosity == LogVerbosity::Fatal)
@@ -69,26 +69,39 @@ public:
         if (logFile.empty()) {
             return;
         }
-        if (logFile.has_parent_path()) {
-            fs::create_directories(logFile.parent_path());
+        const auto parentDir = logFile.parent_path();
+        if (!parentDir.empty() && (!fs::exists(parentDir) || !fs::is_directory(parentDir))) {
+            throw std::runtime_error(std::format("Log directory does not exist: {}", parentDir.string()));
         }
         const auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFile.string(), true);
         m_fileLogger = std::make_unique<spdlog::logger>("file", fileSink);
         m_fileLogger->set_pattern(c_logPattern);
+        m_fileLogger->flush_on(spdlog::level::info);
+    }
+
+    void setLogDirectory(const fs::path& logDirectory)
+    {
+        if (logDirectory.empty()) {
+            return;
+        }
+        if (!fs::exists(logDirectory) || !fs::is_directory(logDirectory)) {
+            throw std::runtime_error(
+                std::format("Log directory does not exist: {}", logDirectory.string()));
+        }
+        setLogFile(makeLogFile(logDirectory));
     }
 
 private:
     std::unique_ptr<spdlog::logger> m_consoleLogger;
     std::unique_ptr<spdlog::logger> m_fileLogger;
 
-    fs::path makeLogFile() const
+    fs::path makeLogFile(const fs::path& logDirectory) const
     {
-        fs::create_directory(c_logDirectory);
         const auto now = std::chrono::system_clock::now();
         const auto nowSeconds = std::chrono::floor<std::chrono::seconds>(now);
         const std::string timestamp = std::format(c_timestampFormat, nowSeconds);
         const std::string logName = std::format("{}-{}.{}", c_logFilePrefix, timestamp, c_logFileExtension);
-        return c_logDirectory / logName;
+        return logDirectory / logName;
     }
 };
 
@@ -100,6 +113,11 @@ Log::~Log() = default;
 void Log::setLogFile(const fs::path& path)
 {
     pImpl_->setLogFile(path);
+}
+
+void Log::setLogDirectory(const fs::path& path)
+{
+    pImpl_->setLogDirectory(path);
 }
 
 void Log::log(const LogCategory& category, LogVerbosity verbosity, const std::string& message, bool showLocation,

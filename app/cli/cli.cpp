@@ -1,12 +1,13 @@
-#include "CLI11.hpp"
-
-#include "cli.hpp"
-#include "gpes/Log/Log.hpp"
-
-#include <cmath>
+// #include <cmath>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+
+#include "CLI11.hpp"
+
+#include "cli.hpp"
+#include "Log/Log.hpp"
+
 
 namespace {
 
@@ -31,7 +32,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
     double num_particles = cfg.num_particles;
     double dt = cfg.dt;
     double duration = cfg.duration;
-    std::string log_file;
+    std::string log_dir;
 
     auto *opt_a_s = app.add_option("--a-s", a_s, "Scattering length")->check(CLI::PositiveNumber);
     auto *opt_a_dd = app.add_option("--a-dd", a_dd, "Dipole-dipole interaction strength")
@@ -41,7 +42,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
     auto *opt_dt = app.add_option("--dt", dt, "Time step")->check(CLI::PositiveNumber);
     auto *opt_duration = app.add_option("--duration", duration, "Simulation duration")
                              ->check(CLI::PositiveNumber);
-    auto *opt_log_file = app.add_option("--log-file", log_file, "Log file path (required)")
+    auto *opt_log_dir = app.add_option("--log-dir", log_dir, "Log directory path (required)")
                              ->required();
 
     try {
@@ -52,7 +53,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
 
     if (cli_only) {
         if (opt_a_s->count() == 0 || opt_a_dd->count() == 0 || opt_num_particles->count() == 0 ||
-            opt_dt->count() == 0 || opt_duration->count() == 0 || opt_log_file->count() == 0) {
+            opt_dt->count() == 0 || opt_duration->count() == 0 || opt_log_dir->count() == 0) {
             throw CLI::ValidationError(
                 "With --cli-only, all parameters must be provided on the command line.");
         }
@@ -63,7 +64,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
     cfg.num_particles = num_particles;
     cfg.dt = dt;
     cfg.duration = duration;
-    cfg.log_file = log_file;
+    cfg.log_dir = log_dir;
     gpes::PhysConfig phys{cfg.a_s, cfg.a_dd, cfg.num_particles};
     gpes::SimConfig sim{cfg.duration, cfg.dt,
         static_cast<std::size_t>(std::ceil(cfg.duration / cfg.dt))};
@@ -86,8 +87,8 @@ void print_row(std::ostream &os, const std::string &name, const std::string &val
 
 std::pair<gpes::PhysConfig, gpes::SimConfig> parse_cli(int argc, char **argv) {
     ParsedCli parsed = parse_cli_full(argc, argv);
-    if (!parsed.cfg.log_file.empty()) {
-        gpes::log::Log::getInstance().setLogFile(parsed.cfg.log_file);
+    if (!parsed.cfg.log_dir.empty()) {
+        gpes::log::Log::getInstance().setLogDirectory(parsed.cfg.log_dir);
     }
     return {parsed.phys, parsed.sim};
 }
@@ -105,5 +106,5 @@ void print_parsed_params(int argc, char **argv) {
     print_row(std::cout, "num_particles", std::to_string(cfg.num_particles), "Number of particles");
     print_row(std::cout, "dt", std::to_string(cfg.dt), "Time step");
     print_row(std::cout, "duration", std::to_string(cfg.duration), "Simulation duration");
-    print_row(std::cout, "log_file", cfg.log_file, "Log file path");
+    print_row(std::cout, "log_dir", cfg.log_dir, "Log directory path");
 }

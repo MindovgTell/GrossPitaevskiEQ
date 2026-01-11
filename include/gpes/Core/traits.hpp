@@ -13,16 +13,38 @@ namespace gpes::trait {
     template <typename...>
     using void_t = void;
 
-    // Check Grid-like requirements with size() method
+    // Check Grid-like requirements with 1D or 2D grid APIs.
+    template <typename G, typename = void>
+    struct has_1d_grid_api : std::false_type {};
+
+    template <typename G>
+    struct has_1d_grid_api<G, void_t<
+        decltype(std::declval<const G&>().size()),
+        decltype(std::declval<const G&>().step()),
+        decltype(std::declval<const G&>().start())
+    >> : std::true_type {};
+
+    template <typename G, typename = void>
+    struct has_2d_grid_api : std::false_type {};
+
+    template <typename G>
+    struct has_2d_grid_api<G, void_t<
+        decltype(std::declval<const G&>().size_x()),
+        decltype(std::declval<const G&>().size_y()),
+        decltype(std::declval<const G&>().step_x()),
+        decltype(std::declval<const G&>().step_y()),
+        decltype(std::declval<const G&>().start_pos_x()),
+        decltype(std::declval<const G&>().start_pos_y())
+    >> : std::true_type {};
+
     template <typename G, typename = void>
     struct is_grid : std::false_type {};
 
     template <typename G>
     struct is_grid<G, void_t<
         decltype(G::Dim),
-        typename G::PotVec,
-        decltype(std::declval<G&>().size()) 
-    >> : std::true_type {};
+        decltype(std::declval<const G&>().potential())
+    >> : std::bool_constant<has_1d_grid_api<G>::value || has_2d_grid_api<G>::value> {};
 
     template <typename G>
     inline constexpr bool is_grid_v = is_grid<G>::value;
@@ -55,22 +77,23 @@ namespace gpes::trait {
     private:
         using S = typename WF::Scalar;
     public:
-        inline constexpr bool value =
-            std::is_same_v<decltype(std::declval<WF&>.data()), S*> &&
-            std::is_same_v<decltype(std::declval<const WF&>.data()), const S*> &&
+        inline static constexpr bool value =
+            std::is_same_v<decltype(std::declval<WF&>().data()), S*> &&
+            std::is_same_v<decltype(std::declval<const WF&>().data()), const S*>;
     };
 
     template <typename WF>
     inline constexpr bool has_correct_data_ptr_v = has_correct_data_ptr<WF>::value;
 
-    // Algorithm must have static constexpr Dimension dim and step(WF&, double)
+    // Algorithm must have static constexpr Dimension dim, step(WF&), and last_energy()
     template <typename Algo, typename WF, typename = void>
     struct is_tstep_algo : std::false_type {};
 
     template <typename Algo, typename WF>
     struct is_tstep_algo<Algo, WF, void_t<
         decltype(Algo::Dim),
-        decltype(std::declval<Algo&>().step(std::declval<WF&>()))
+        decltype(std::declval<Algo&>().step(std::declval<WF&>())),
+        decltype(std::declval<const Algo&>().last_energy())
     >> : std::true_type {};
     
     template <typename Algo, typename WF>

@@ -43,6 +43,7 @@ namespace gpes::log {
         bool showLocation = false,         //
         const std::source_location location = std::source_location::current()) const;
     void setLogFile(const std::filesystem::path& path);
+    void setLogDirectory(const std::filesystem::path& path);
 
     private: 
         Log();
@@ -51,10 +52,6 @@ namespace gpes::log {
         class Impl;
         std::unique_ptr<Impl> pImpl_;
     };
-
-
-
-
 
 
     constexpr LogVerbosity c_minVerbosity = LogVerbosity::Display;
@@ -74,9 +71,8 @@ namespace gpes::log {
                                 || V == LogVerbosity::Error    //
                                 || V == LogVerbosity::Log      //
                                 || V == LogVerbosity::Fatal;
-
+                                
 }
-
 
 #define DEFINE_LOG_CATEGORY_STATIC(logName)       \
     namespace                                     \

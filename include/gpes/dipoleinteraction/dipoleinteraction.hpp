@@ -7,60 +7,47 @@
 namespace gpes {
 
     // Functions for calculating dipole dipole interaction potential without usage of DFT
-
-    double calc_V_1dd(double x, double V_dd, double w_ratio){
-        double V;
-
-        double xi = std::abs(x) / w_ratio;
-        double xi2 = xi*xi;
-
-        double alfa = std::abs(xi) / (std::sqrt(2.0));
-        double sqalfa = 0.5 * xi2;
-
-        if (xi2 / 2.0 < 700.0){
-            double erfc_val = std::erfc(alfa);
-            double exp_val = std::exp(sqalfa);
-            V = V_dd * (2.0 * std::abs(xi) - (std::sqrt(2.0 * M_PI) * (1.0 + xi2) * exp_val * erfc_val));
-        } 
-        else 
-            V = V_dd * 4 / std::pow(xi,3);
-
-        if(std::isnan(V)) std::cout << x << '\t' << xi<< '\t'  << xi2 << '\t' << alfa << '\t' << sqalfa<< '\t' << std::endl;
-
-        return V;
-    }   
-
-
-    std::vector<double> calculate_DDI_not_FFT(
-        const gpes::Grid<Dimension::One> &grid,
-        const gpes::WaveFunction<Dimension::One> &vec
-        ) {
-        int size = vec.size(); //vec
-        std::vector<double> U(size, 0.0);
-        double start = grid.start_pos();
-        double step  = grid.step();
-
-        double V_dd = vec.get_V_dd();
-        double w_ratio = grid.get_omega() / grid.get_omega_t();
-
-        for (int i = 0; i < size; ++i) {
-            double x = start + step * i; 
-            double Sum = 0.0;
-            for(int j = 0; j < size; ++j){
-                double x_prime = start + step * j;
-                
-                double dist = std::abs(x-x_prime);
-
-                double V_1d = calc_V_1dd(dist);
-                Sum += V_1d * std::norm(vec(j)) * step;
-            }
-            // if(std::isnan(Sum)) std::cout << vec(i) << '\t';
-            U[i] = Sum;
-        }
-        // std::cout << std::endl;
-
-        return U;
-    }
+    // double calc_V_1dd(double x, double V_dd, double w_ratio){
+    //     double V;
+    //     double xi = std::abs(x) / w_ratio;
+    //     double xi2 = xi*xi;
+    //     double alfa = std::abs(xi) / (std::sqrt(2.0));
+    //     double sqalfa = 0.5 * xi2;
+    //     if (xi2 / 2.0 < 700.0){
+    //         double erfc_val = std::erfc(alfa);
+    //         double exp_val = std::exp(sqalfa);
+    //         V = V_dd * (2.0 * std::abs(xi) - (std::sqrt(2.0 * M_PI) * (1.0 + xi2) * exp_val * erfc_val));
+    //     } 
+    //     else 
+    //         V = V_dd * 4 / std::pow(xi,3);
+    //     if(std::isnan(V)) std::cout << x << '\t' << xi<< '\t'  << xi2 << '\t' << alfa << '\t' << sqalfa<< '\t' << std::endl;
+    //     return V;
+    // }   
+    // std::vector<double> calculate_DDI_not_FFT(
+    //     const gpes::Grid<Dimension::One> &grid,
+    //     const gpes::WaveFunction<Dimension::One> &vec
+    //     ) {
+    //     int size = vec.size(); //vec
+    //     std::vector<double> U(size, 0.0);
+    //     double start = grid.start_pos();
+    //     double step  = grid.step();
+    //     double V_dd = vec.get_V_dd();
+    //     double w_ratio = grid.get_omega() / grid.get_omega_t();
+    //     for (int i = 0; i < size; ++i) {
+    //         double x = start + step * i; 
+    //         double Sum = 0.0;
+    //         for(int j = 0; j < size; ++j){
+    //             double x_prime = start + step * j;          
+    //             double dist = std::abs(x-x_prime);
+    //             double V_1d = calc_V_1dd(dist);
+    //             Sum += V_1d * std::norm(vec(j)) * step;
+    //         }
+    //         // if(std::isnan(Sum)) std::cout << vec(i) << '\t';
+    //         U[i] = Sum;
+    //     }
+    //     // std::cout << std::endl;
+    //     return U;
+    // }
 
 
 
@@ -74,8 +61,19 @@ namespace gpes {
     constexpr double SQRT2      =   1.41421356237309504880;
 
 
+//********************************/***********/********************************//
+//********************************/***********/********************************//
+//*************************/One dimensional FFT sim/***************************//
+//********************************/***********/********************************//
+//********************************/***********/********************************//
+
+
     template <>
     class DipolarInteraction<Dimension::One> {
+    public:
+        inline static constexpr Dimension Dim = Dimension::One;
+        using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
+
     private:
         int N;
         double L;
@@ -92,6 +90,8 @@ namespace gpes {
         Eigen::VectorXd U_tilde; // kernel in Fourier space
 
     public:
+        explicit DipolarInteraction(ShrdPtrGrid& grid);
+
         DipolarInteraction(int size_of_grid, double length, double confinement_length, double dipolar_interaction_strength)
             : N(size_of_grid), L(length), lz(confinement_length), Cdd(dipolar_interaction_strength) {
 
@@ -165,14 +165,24 @@ namespace gpes {
     };
 
 
+//********************************/***********/********************************//
+//********************************/***********/********************************//
+//*************************/Two dimensional FFT sim/***************************//
+//********************************/***********/********************************//
+//********************************/***********/********************************//
+
     template <>
     class DipolarInteraction<Dimension::Two> {
+    public:
+        inline static constexpr Dimension Dim = Dimension::Two;
+        using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
+
     private:
         int Nx, Ny;
         double Lx, Ly;
+        double dx, dy;
         double lz;
         double V_dd;
-        double dx, dy;
         
         // FFTW plans and arrays
         fftw_plan plan_forward, plan_backward;
@@ -186,11 +196,17 @@ namespace gpes {
 
 
     public:
-        DipolarInteraction(int nx, int ny, double lx, double ly, double confinement_length, double interaction_strength)
-            : Nx(nx), Ny(ny), Lx(lx), Ly(ly), lz(confinement_length), V_dd(interaction_strength) {
-            
-            dx = Lx / Nx;
-            dy = Ly / Ny;
+
+        explicit DipolarInteraction(ShrdPtrGrid grid, double confinement_length, double interaction_strength) : 
+            Nx(grid->size_x()),
+            Ny(grid->size_y()),
+            dx(grid->step_x()),
+            dy(grid->step_y()),
+            lz(confinement_length),
+            V_dd(interaction_strength)
+        {
+            Lx = Nx * dx;
+            Ly = Ny * dy;
             
             // Allocate memory for FFTW
             density_real        =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
@@ -205,6 +221,23 @@ namespace gpes {
             // Precompute U_tilde
             precompute_U_tilde();
         }
+
+        // Old constructor, kept during tests for backward compatibility
+        // DipolarInteraction(int nx, int ny, double lx, double ly, double confinement_length, double interaction_strength)
+        //     : Nx(nx), Ny(ny), Lx(lx), Ly(ly), lz(confinement_length), V_dd(interaction_strength) {
+        //     dx = Lx / Nx;
+        //     dy = Ly / Ny;
+        //     // Allocate memory for FFTW
+        //     density_real        =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
+        //     density_fourier     =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
+        //     potential_fourier   =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
+        //     potential_real      =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
+        //     // Create FFTW plans
+        //     plan_forward        =   fftw_plan_dft_r2c_2d(Nx, Ny, density_real, density_fourier, FFTW_MEASURE);
+        //     plan_backward       =   fftw_plan_dft_c2r_2d(Nx, Ny, potential_fourier, potential_real, FFTW_MEASURE);
+        //     // Precompute U_tilde
+        //     precompute_U_tilde();
+        // }
         
         ~DipolarInteraction() {
             fftw_destroy_plan(plan_forward);

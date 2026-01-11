@@ -23,3 +23,4 @@ include/gpes/Solvers/CrankNicolson2D.inl
 #IDE files
 *.iml
 .idea/
+Log

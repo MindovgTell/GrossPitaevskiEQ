@@ -51,19 +51,18 @@ int main(int argc, char **argv) {
 
         const gpes::Dimension Dim = gpes::Dimension::One;
 
-        auto grid_ptr = std::make_shared<gpes::Grid<Dim>>(100,-10);
-        grid_ptr->set_harmonic_potential(5);
+        auto grid_ptr = std::make_shared<gpes::Grid<Dim>>(128, -10, 1, 5); // Grid ctor parameters 100 -- grid size; -10 -- start
 
         gpes::WaveFunction<Dim> Psi(grid_ptr);
-        Psi.set_state_Gauss(0, 5, 1000);
+        Psi.set_state_Gauss(0, 1, phys.num_of_prt);
 
         gpes::solvers::CrankNicolson<Dim> stepper(grid_ptr, Psi, phys, sim);
-
         gpes::TDSESolver<Dim, decltype(stepper)> solver(grid_ptr, stepper, Psi, sim);
+        solver.run();
 
-    }
-    catch (...) {                          
-        std::cout << "Unknown error.\n";
-        return;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cout << "Fatal error: " << e.what() << "\n";
+        return 1;
     }
 }

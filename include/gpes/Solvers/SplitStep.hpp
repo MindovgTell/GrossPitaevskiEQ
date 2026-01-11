@@ -1,8 +1,8 @@
-#ifndef SPLITSTEP_HPP
-#define SPLITSTEP_HPP
+#pragma once
 
 #include <cmath>
 #include <complex>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -37,9 +37,9 @@ namespace gpes::solvers {
     class SplitStep<Dimension::One, SolverType> {
     public:
         static constexpr Dimension Dim = Dimension::One;
-        using WaveFuncType = gpes::WaveFunction<Dim>;
-        using GridType = gpes::Grid<Dim>;
-        using Tag = gpes::tags::SSFM;
+        using WaveFuncType = WaveFunction<Dim>;
+        using GridType = Grid<Dim>;
+        using Tag = tags::SSFM;
         using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
     private:
 
@@ -51,18 +51,13 @@ namespace gpes::solvers {
         PhysConfig ph_config_;
         SimConfig sim_config_;
 
-        double g_scattering_ = 0.0;
-        double g_lhy_ = 0.0;
-        double l_perp_ = 1.0;
-        double V_dd_ = 0.0;
-
-        std::unique_ptr<DipolarInteraction<Dim>> F_ddi_;
+        std::vector<double> vec_energy_;
 
     public:
         
         SplitStep(
             ShrdPtrGrid grid,
-            const WaveFuncType& vec,
+            WaveFuncType& vec,
             PhysConfig phcnfg,
             SimConfig simcnfg
         ) : grid_(std::move(grid)),
@@ -76,19 +71,24 @@ namespace gpes::solvers {
                 throw std::runtime_error("SplitStep wavefunction and grid size mismatch");
             }
 
-            init_physics_params();
-            init_kinetic_op();
+            detail::validate_phys_config(ph_config_);
+            // TODO: I'm not sure about this form, need to varify 
 
-            if (V_dd_ != 0.0) {
-                int N = static_cast<int>(grid_->size());
-                double L = static_cast<double>(N) * grid_->step();
-                F_ddi_ = std::make_unique<DipolarInteraction<Dim>>(N, L, l_perp_, V_dd_);
-                U_ddi_.resize(N);
+            if (!std::isfinite(grid_->omega_t()) || grid_->omega_t() <= 0.0) {
+                throw std::invalid_argument("CrankNicolson<Dimension::One>: omega_t must be positive and finite");
             }
+            double l_perp = 1 / std::sqrt(grid_->omega_t());
+
+            calc_inter_consts<Dim>(ph_config_,l_perp);
+            detail::validate_inter_consts(ph_config_, "CrankNicolson<Dimension::One>");
+
+            vec_energy_.reserve(sim_config_.num_of_steps);
+
+            init_kinetic_op();
         }
         
         void step(WaveFuncType& vec) {
-            int N = static_cast<int>(vec.size());
+            int N = static_cast<int>(vec.size());// Size of the grid
 
             Eigen::VectorXcd space_wf = vec.vec();
             Eigen::VectorXcd momentum_wf(N);
@@ -131,35 +131,71 @@ namespace gpes::solvers {
 
             fftw_destroy_plan(plan_fwd);
             fftw_destroy_plan(plan_bwd);
+
+            double current_energy = calc_state_energy(vec.vec());
+            vec_energy_.push_back(current_energy);
+        }
+
+        const std::vector<double>& energies() const {
+            return vec_energy_;
+        }
+
+        double last_energy() const {
+            if (vec_energy_.empty()) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            return vec_energy_.back();
         }
 
     private:
-        void init_physics_params() {
-            double a_s = ph_config_.a_s;
-            double a_dd = ph_config_.a_dd;
+        // Repeated functions for calculating DDI for CN and SSFM algorithm in future should be in DipolarInteraction class
+        double V_1DD(double x) {
+            double V;
 
-            double omega_t = grid_->get_omega_t();
-            if (omega_t > 0.0) {
-                l_perp_ = 1.0 / std::sqrt(omega_t);
-            }
+            double xi = std::abs(x) / ph_config_.l_; // TODO: check correctness of the code
+            double xi2 = xi*xi;
 
-            if (a_dd != 0.0) {
-                V_dd_ = -0.75 * a_dd / std::pow(l_perp_, 3.0);
-            }
+            double alfa = std::abs(xi) / (std::sqrt(2.0));
+            double sqalfa = 0.5 * xi2;
 
-            g_scattering_ = (8.0 / 3.0) * V_dd_;
+            if (xi2 / 2.0 < 700.0){
+                double erfc_val = std::erfc(alfa);
+                double exp_val = std::exp(sqalfa);
+                V = ph_config_.V_dd * (2.0 * std::abs(xi) - (std::sqrt(2.0 * M_PI) * (1.0 + xi2) * exp_val * erfc_val));
+            } 
+            else 
+                V = ph_config_.V_dd * 4 / std::pow(xi,3.);
 
-            if (a_s != 0.0) {
-                double C = 1.4603;
-                double denom = l_perp_ * l_perp_ * (1.0 - C * (a_s / l_perp_));
-                if (denom != 0.0) {
-                    g_scattering_ += 2.0 * a_s / denom;
-                }
+            // TODO: in case of error throw exception
+            if(std::isnan(V)) std::cout << x << '\t' << xi<< '\t'  << xi2 << '\t' << alfa << '\t' << sqalfa<< '\t' << std::endl;
 
-                g_lhy_ = (256.0 / (15.0 * M_PI)) * std::pow(a_s, 2.5) / std::pow(l_perp_, 3.0)
-                    * (1.0 + 1.5 * std::pow(a_dd / a_s, 2.0));
-            }
+            return V;
         }
+
+        // Function for calculating Dipole-Dipole Interaction using FFT
+        std::vector<double> calculate_DDI_not_FFT(const Eigen::VectorXcd& vec) {
+            int size = vec.size(); //vec
+            std::vector<double> U(size, 0.0);
+            // TODO add checking correct numerical values
+            for (int i = 0; i < size; ++i) {
+                double x = grid_->start() + grid_->step() * i; 
+                double Sum = 0.0;
+                for(int j = 0; j < size; ++j){
+                    double x_prime = grid_->start() + grid_->step() * j;
+                    
+                    double dist = std::abs(x-x_prime);
+
+                    double V_1d = V_1DD(dist);
+
+                    Sum += V_1d * std::norm(vec(j)) * grid_->step();
+                }
+                
+                U[i] = Sum;
+            }
+
+            return U;
+        }
+
 
             
         void init_kinetic_op() {
@@ -178,25 +214,46 @@ namespace gpes::solvers {
         }
 
 
-        void SplitStep<Dimension::One>::calc_potential_op(const Eigen::VectorXcd& vec){
-            int N = static_cast<int>(vec.size());
+        void calc_potential_op(const Eigen::VectorXcd& vec){
+            int size = vec.size();
+            U_v_.resize(size);
+            std::vector<double> U = calculate_DDI_not_FFT(vec);
 
-            if (F_ddi_) {
-                F_ddi_->compute_DDI_term(vec, U_ddi_);
-            }
 
-            U_v_.resize(N);
-
-            for (int i = 0; i < N; ++i) {
+            //TODO check the correctness of this definition
+            for (int i = 0; i < size; ++i) {
                 double U_trap = grid_->potential()(i);
-                double U_scattering = g_scattering_ * std::norm(vec(i));
-                double U_dd = (U_ddi_.size() == N) ? U_ddi_(i) : 0.0;
-                double U_lhy = g_lhy_ * std::pow(std::norm(vec(i)), 1.5);
+                double U_scat = ph_config_.g_scat * std::norm(vec(i));
+                double U_dd = 0.5 * U[i] * std::norm(vec(i));
+                double U_lhy = ph_config_.g_lhy * std::pow(std::norm(vec(i)), 1.5);
 
-                double total = U_trap + U_scattering + U_dd + U_lhy;
+                double total = U_trap + U_scat + U_dd + U_lhy;
                 U_v_(i) = std::exp(std::complex<double>(0.0, -sim_config_.dt * total));
             }
         }
+
+        double calc_state_energy(const Eigen::VectorXcd& vec) {
+            int size = vec.size();
+            double energy = 0.0;
+
+            std::vector<double> U = calculate_DDI_not_FFT(vec);
+
+            for (int i = 1; i < size - 1; ++i) {
+                std::complex<double> derivative = (vec(i + 1) - vec(i - 1)) * (1. / (2 * grid_->step()));
+                double kinetic = std::norm(derivative) * 0.5;
+                double potential = grid_->potential()(i) * std::norm(vec(i));
+                double interaction = 0.5 * ph_config_.g_scat * std::norm(vec(i)) * std::norm(vec(i));
+                double ddi = 0.5 * U[i] * std::norm(vec(i));
+                double lhy = ph_config_.g_lhy * 0.4 * std::pow(std::norm(vec(i)), 2.5);
+
+                energy += grid_->step() * (kinetic + potential + interaction + ddi + lhy);
+            }
+            return energy;
+        }
+
+
+
+
     };
 
 
@@ -245,9 +302,4 @@ namespace gpes::solvers {
 
     };
 
-
-
-
-
 } // namespace gpes::solvers
-#endif

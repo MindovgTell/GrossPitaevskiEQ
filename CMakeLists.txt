@@ -62,7 +62,32 @@ find_package(spdlog REQUIRED)
 
 # Only search Python if plotting is enabled
 if(GPES_ENABLE_PLOTTING)
-  find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter Development NumPy)
+  # Python configuration (override with -DGPES_PYTHON_ROOT / -DGPES_PYTHON_EXECUTABLE / -DGPES_PYTHON_VERSION)
+  set(GPES_PYTHON_VERSION "3.11" CACHE STRING "Preferred Python version for plotting")
+  set(GPES_PYTHON_ROOT "" CACHE PATH "Preferred Python root directory")
+  set(GPES_PYTHON_EXECUTABLE "" CACHE FILEPATH "Preferred Python executable")
+
+  if(APPLE)
+    set(Python3_FIND_FRAMEWORK FIRST)
+    set(Python3_FIND_STRATEGY LOCATION)
+    if(NOT GPES_PYTHON_ROOT AND NOT Python3_ROOT_DIR)
+      set(Python3_ROOT_DIR "/Library/Frameworks/Python.framework/Versions/3.11")
+    endif()
+  endif()
+
+  if(GPES_PYTHON_ROOT)
+    set(Python3_ROOT_DIR "${GPES_PYTHON_ROOT}")
+  endif()
+  if(GPES_PYTHON_EXECUTABLE)
+    set(Python3_EXECUTABLE "${GPES_PYTHON_EXECUTABLE}")
+  endif()
+
+  find_package(Python3 ${GPES_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development NumPy)
+
+  message(STATUS "Python executable: ${Python3_EXECUTABLE}")
+  message(STATUS "Python include directory: ${Python3_INCLUDE_DIRS}")
+  message(STATUS "Python NumPy include directory: ${Python3_NumPy_INCLUDE_DIRS}")
+  message(STATUS "Python libraries: ${Python3_LIBRARIES}")
 endif()
 
 
@@ -129,8 +154,8 @@ if(GPES_ENABLE_PLOTTING)
   target_include_directories(gpes_plot
     PUBLIC
       ${CMAKE_CURRENT_SOURCE_DIR}/include
+      ${CMAKE_CURRENT_SOURCE_DIR}/third_party
     PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/third_party/matplotlib-cpp
       ${Python3_INCLUDE_DIRS}
       ${Python3_NumPy_INCLUDE_DIRS}
   )

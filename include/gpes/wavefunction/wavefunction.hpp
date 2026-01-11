@@ -109,7 +109,7 @@ public:
 };
 
 
-double WaveFunction<Dimension::One>::square_func(double x, unsigned int Num, double g_scat){
+inline double WaveFunction<Dimension::One>::square_func(double x, unsigned int Num, double g_scat){
     double R_tf = std::cbrt(1.5 * Num * g_scat);
     double high = Num / R_tf;
     double potential = R_tf * R_tf * 0.5;
@@ -122,14 +122,14 @@ double WaveFunction<Dimension::One>::square_func(double x, unsigned int Num, dou
     
 }
 
-std::complex<double> WaveFunction<Dimension::One>::gauss_wave_packet(double sigma_x,  double x,  double x_c){
+inline std::complex<double> WaveFunction<Dimension::One>::gauss_wave_packet(double sigma_x,  double x,  double x_c){
     // std::complex<double> i(0, 1); // Define the imaginary unit
     double exponent = -(pow(x-x_c,2) / (2 * pow(sigma_x,2))); //this->m_size/2 //-x_c
     //std::complex<double> phase = i * p_x * (x - x_c); 
     return std::exp(exponent); //+ phase
 }
 
-double WaveFunction<Dimension::One>::thomas_fermi_state(double x,  unsigned int Num, double g_scat){
+inline double WaveFunction<Dimension::One>::thomas_fermi_state(double x,  unsigned int Num, double g_scat){
     double R_tf = std::cbrt(1.5 * Num * g_scat); // mult times _g_scattering
     double potential = R_tf * R_tf * 0.5;
     double out = potential * (1 - std::pow(x/R_tf,2.));
@@ -139,7 +139,7 @@ double WaveFunction<Dimension::One>::thomas_fermi_state(double x,  unsigned int 
         return 0;
 }
 
-Eigen::VectorXcd WaveFunction<Dimension::One>::TM_state(unsigned int Num, double g_scat){
+inline Eigen::VectorXcd WaveFunction<Dimension::One>::TM_state(unsigned int Num, double g_scat){
     size_t size = gridptr_->size();
     double x = gridptr_->start();
     double step = gridptr_->step();
@@ -159,7 +159,7 @@ Eigen::VectorXcd WaveFunction<Dimension::One>::TM_state(unsigned int Num, double
     return U;
 }
 
-void WaveFunction<Dimension::One>::set_state_TF(double x_c, unsigned int Num, double g_scat){
+inline void WaveFunction<Dimension::One>::set_state_TF(double x_c, unsigned int Num, double g_scat){
     size_t size = gridptr_->size();
     double x = gridptr_->start();
     double step = gridptr_->step();
@@ -178,7 +178,7 @@ void WaveFunction<Dimension::One>::set_state_TF(double x_c, unsigned int Num, do
     data_ = U * std::abs(normalization_factor);
 }
 
-void WaveFunction<Dimension::One>::set_state_Square(double x_c, unsigned int Num, double g_scat){
+inline void WaveFunction<Dimension::One>::set_state_Square(double x_c, unsigned int Num, double g_scat){
     size_t size = gridptr_->size();
     double x = gridptr_->start();
     double step = gridptr_->step();
@@ -197,7 +197,7 @@ void WaveFunction<Dimension::One>::set_state_Square(double x_c, unsigned int Num
     data_ = U * std::abs(normalization_factor);
 }
 
-void WaveFunction<Dimension::One>::set_state_Gauss(double x_c, double sigma_x, unsigned int Num){
+inline void WaveFunction<Dimension::One>::set_state_Gauss(double x_c, double sigma_x, unsigned int Num){
     size_t size = gridptr_->size();
     double x = gridptr_->start();
     double step = gridptr_->step();
@@ -217,7 +217,7 @@ void WaveFunction<Dimension::One>::set_state_Gauss(double x_c, double sigma_x, u
 } 
 
 // Returning the probability density vector
-Eigen::VectorXd WaveFunction<Dimension::One>::prob(Eigen::VectorXcd &vec) {
+inline Eigen::VectorXd WaveFunction<Dimension::One>::prob(Eigen::VectorXcd &vec) {
     int size = vec.size();
     Eigen::VectorXd pr(size);
     for(int i = 0; i < size; ++i){
@@ -226,7 +226,7 @@ Eigen::VectorXd WaveFunction<Dimension::One>::prob(Eigen::VectorXcd &vec) {
     return pr;
 }
 
-Eigen::VectorXd WaveFunction<Dimension::One>::prob() {
+inline Eigen::VectorXd WaveFunction<Dimension::One>::prob() {
     size_t size = gridptr_->size();
 
     Eigen::VectorXd pr(size);
@@ -236,7 +236,7 @@ Eigen::VectorXd WaveFunction<Dimension::One>::prob() {
     return pr;
 }
 
-void WaveFunction<Dimension::One>::normalize(Eigen::VectorXcd &vec, unsigned int Num){
+inline void WaveFunction<Dimension::One>::normalize(Eigen::VectorXcd &vec, unsigned int Num){
     double step = gridptr_->step();
     int size = vec.size();
     std::complex<double> psum = 0;
@@ -260,25 +260,25 @@ class WaveFunction<Dimension::Two> {
 public: 
     using VectorType = Eigen::VectorXcd;
     using Scalar = VectorType::Scalar;
-    using ShrdPtrGridDim2 = std::shared_ptr<const Grid<Dimension::Two>>;
+    using ShrdPtrGrid = std::shared_ptr<const Grid<Dimension::Two>>;
 
 private:
     VectorType data_;
-    ShrdPtrGridDim2 gridptr_;
+    ShrdPtrGrid gridptr_;
 
 public:
 
     // Constructors 
     WaveFunction() = default; 
 
-    explicit WaveFunction(ShrdPtrGridDim2 grid): gridptr_(std::move(grid)) {
+    explicit WaveFunction(ShrdPtrGrid grid): gridptr_(std::move(grid)) {
         if (!gridptr_) throw std::runtime_error("WaveFunction needs a grid");
         int sx = gridptr_->size_x();
         int sy = gridptr_->size_y();
         data_   = VectorType::Zero(sx * sy);
     }
 
-    WaveFunction(ShrdPtrGridDim2 grid, VectorType& vec): gridptr_(std::move(grid)), data_(vec) {
+    WaveFunction(ShrdPtrGrid grid, VectorType& vec): data_(vec), gridptr_(std::move(grid)){
         if (!gridptr_) throw std::runtime_error("WaveFunction needs a grid");
         int sx = gridptr_->size_x();
         int sy = gridptr_->size_y();
@@ -293,7 +293,7 @@ public:
     WaveFunction& operator=(const WaveFunction&) = default;
     WaveFunction& operator=(WaveFunction&&) noexcept = default;
 
-    const ShrdPtrGridDim2& grid() const { return gridptr_; }
+    const ShrdPtrGrid& grid() const { return gridptr_; }
 
     // Destructor
     ~WaveFunction() = default; 
@@ -371,24 +371,24 @@ public:
     double prob(int index);
 };
 
-double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(const double &wx, const double &wy, unsigned int _Num){
+inline double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(const double &wx, const double &wy, unsigned int _Num){
     double numerator = 4.0 * wy * _Num;
     double denumerator = std::pow(wx, 3.) * M_PI;
     return std::pow(( numerator / denumerator), 0.25);
 }
 
-double WaveFunction<Dimension::Two>::thomas_fermi_radius_y(const double &wx, const double &wy, unsigned int _Num){
+inline double WaveFunction<Dimension::Two>::thomas_fermi_radius_y(const double &wx, const double &wy, unsigned int _Num){
     double numerator = 4.0 * wx * _Num;
     double denumerator = std::pow(wy, 3.) * M_PI;
     return std::pow(( numerator / denumerator), 0.25);
 }
 
-double WaveFunction<Dimension::Two>::chem_potential(const double &wx, const double &wy, unsigned int _Num){
+inline double WaveFunction<Dimension::Two>::chem_potential(const double &wx, const double &wy, unsigned int _Num){
     double numerator = 1 * wx * wy * _Num; //add g_scattering
     return std::sqrt(numerator / M_PI);
 }
 
-double WaveFunction<Dimension::Two>::thomas_fermi_state(double x, double y, unsigned int number_of_prt){
+inline double WaveFunction<Dimension::Two>::thomas_fermi_state(double x, double y, unsigned int number_of_prt){
 
     double wx = gridptr_->omega_x();
     double wy = gridptr_->omega_y();
@@ -405,7 +405,7 @@ double WaveFunction<Dimension::Two>::thomas_fermi_state(double x, double y, unsi
         return 0;
 }
 
-std::complex<double> WaveFunction<Dimension::Two>::gauss_wave_packet(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y){ //, double p_x, double p_y
+inline std::complex<double> WaveFunction<Dimension::Two>::gauss_wave_packet(double x, double y, double x_c, double y_c, double sigma_x, double sigma_y){ //, double p_x, double p_y
     //std::complex<double> i(0, 1); // Define the imaginary unit
     double exponent = -1.0 * (std::pow(x - x_c ,2.) / (2 * std::pow(sigma_x,2.))) - (std::pow(y - y_c, 2.) / (2*std::pow(sigma_y, 2.)));
 
@@ -413,7 +413,7 @@ std::complex<double> WaveFunction<Dimension::Two>::gauss_wave_packet(double x, d
     return std::exp(exponent); // + phase
 }
 
-Eigen::VectorXcd WaveFunction<Dimension::Two>::TF_state(unsigned int number_of_prt){
+inline Eigen::VectorXcd WaveFunction<Dimension::Two>::TF_state(unsigned int number_of_prt){
 
     int sizex = gridptr_->size_x();
     int sizey = gridptr_->size_y();
@@ -446,7 +446,7 @@ Eigen::VectorXcd WaveFunction<Dimension::Two>::TF_state(unsigned int number_of_p
 }
 
 // Function for initializing wave function in Thomas-Fermi limit without ddi 
-void WaveFunction<Dimension::Two>::set_state_TF(double x_c, double y_c, unsigned int number_of_prt){
+inline void WaveFunction<Dimension::Two>::set_state_TF(double x_c, double y_c, unsigned int number_of_prt){
 
     int sizex = gridptr_->size_x();
     int sizey = gridptr_->size_y();
@@ -480,7 +480,7 @@ void WaveFunction<Dimension::Two>::set_state_TF(double x_c, double y_c, unsigned
 }
 
 // Function for initializing wave function in Thomas-Fermi limit without ddi 
-void WaveFunction<Dimension::Two>::set_state_Gauss(double x_c, double y_c, double sigma_x, double sigma_y, unsigned int number_of_prt){
+inline void WaveFunction<Dimension::Two>::set_state_Gauss(double x_c, double y_c, double sigma_x, double sigma_y, unsigned int number_of_prt){
 
     int sizex = gridptr_->size_x();
     int sizey = gridptr_->size_y();
@@ -515,7 +515,7 @@ void WaveFunction<Dimension::Two>::set_state_Gauss(double x_c, double y_c, doubl
             
 
 // Returning the probability density vector
-Eigen::VectorXd WaveFunction<Dimension::Two>::prob(Eigen::VectorXcd &vec){
+inline Eigen::VectorXd WaveFunction<Dimension::Two>::prob(Eigen::VectorXcd &vec){
     int size = vec.size();
     Eigen::VectorXd pr(size);
     for(int i = 0; i < size; ++i){
@@ -524,7 +524,7 @@ Eigen::VectorXd WaveFunction<Dimension::Two>::prob(Eigen::VectorXcd &vec){
     return pr;
 }
 
-Eigen::VectorXd WaveFunction<Dimension::Two>::prob(){
+inline Eigen::VectorXd WaveFunction<Dimension::Two>::prob(){
     int sizex =  gridptr_->size_x();
     int sizey =  gridptr_->size_y();
     int size = sizex * sizey;
@@ -535,7 +535,7 @@ Eigen::VectorXd WaveFunction<Dimension::Two>::prob(){
     return pr;
 }
 
-double WaveFunction<Dimension::Two>::prob(int index){
+inline double WaveFunction<Dimension::Two>::prob(int index){
     int sizex =  gridptr_->size_x();
     int sizey =  gridptr_->size_y();
     int size = sizex * sizey;
@@ -545,7 +545,7 @@ double WaveFunction<Dimension::Two>::prob(int index){
         return 0;
 }
 
-Eigen::VectorXd WaveFunction<Dimension::Two>::get_x_slice(){
+inline Eigen::VectorXd WaveFunction<Dimension::Two>::get_x_slice(){
     int sizex =  gridptr_->size_x();
     int sizey =  gridptr_->size_y();
     int y_center = sizey / 2;
@@ -557,7 +557,7 @@ Eigen::VectorXd WaveFunction<Dimension::Two>::get_x_slice(){
 }
 
 
-Eigen::VectorXd WaveFunction<Dimension::Two>::get_y_slice(){
+inline Eigen::VectorXd WaveFunction<Dimension::Two>::get_y_slice(){
     int sizex = gridptr_->size_x();
     int sizey =  gridptr_->size_y();
     int x_center = sizex / 2;
