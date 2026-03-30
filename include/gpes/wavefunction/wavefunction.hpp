@@ -1,7 +1,8 @@
-#ifndef WAVEFUNCTION_HPP
-#define WAVEFUNCTION_HPP
+#pragma once
 
+#include <array>
 #include <memory>
+#include <vector>
 
 #include "grid/grid.hpp"
 
@@ -261,6 +262,8 @@ public:
     using VectorType = Eigen::VectorXcd;
     using Scalar = VectorType::Scalar;
     using ShrdPtrGrid = std::shared_ptr<const Grid<Dimension::Two>>;
+    using GaussianComponent = std::array<double, 5>; // x_c, y_c, sigma_x, sigma_y, weight
+    static constexpr Dimension Dim = Dimension::Two;
 
 private:
     VectorType data_;
@@ -318,8 +321,8 @@ public:
 
 
     int get_index(int i, int j){ 
-        int sx = gridptr_->size_x();
-        return i*sx + j; 
+        int sy = gridptr_->size_y();
+        return i*sy + j; 
     }
     
     //Thomas-Fermi anzats
@@ -334,6 +337,7 @@ public:
     //Initialization of starting 1D state
     void set_state_TF(double x_c, double y_c, unsigned int number_of_prt);
     void set_state_Gauss(double x_c, double y_c, double sigma_x, double sigma_y, unsigned int number_of_prt);
+    void set_state_GaussSum(const std::vector<GaussianComponent>& components, unsigned int number_of_prt);
 
     void set_vec(Eigen::VectorXcd& vec) {   
         int sx = gridptr_->size_x();
@@ -512,6 +516,55 @@ inline void WaveFunction<Dimension::Two>::set_state_Gauss(double x_c, double y_c
     data_ = U;
 }
 
+inline void WaveFunction<Dimension::Two>::set_state_GaussSum(
+    const std::vector<GaussianComponent>& components,
+    unsigned int number_of_prt
+){
+    if (components.empty()) {
+        throw std::invalid_argument("set_state_GaussSum: components must not be empty");
+    }
+
+    const int sizex = gridptr_->size_x();
+    const int sizey = gridptr_->size_y();
+    const double startx = gridptr_->start_pos_x();
+    const double starty = gridptr_->start_pos_y();
+    const double stepx = gridptr_->step_x();
+    const double stepy = gridptr_->step_y();
+
+    Eigen::VectorXcd U = Eigen::VectorXcd::Zero(sizex * sizey);
+    double psum = 0.0;
+
+    for (int i = 0; i < sizex; ++i) {
+        const double x = startx + i * stepx;
+        for (int j = 0; j < sizey; ++j) {
+            const double y = starty + j * stepy;
+            std::complex<double> value = 0.0;
+
+            for (const auto& component : components) {
+                const double x_c = component[0];
+                const double y_c = component[1];
+                const double sigma_x = component[2];
+                const double sigma_y = component[3];
+                const double weight = component[4];
+                value += weight * gauss_wave_packet(x, y, x_c, y_c, sigma_x, sigma_y);
+            }
+
+            const int index = get_index(i, j);
+            U(index) = value;
+            psum += std::norm(value);
+        }
+    }
+
+    if (psum <= 0.0) {
+        throw std::runtime_error("set_state_GaussSum: constructed state has zero norm");
+    }
+
+    const std::complex<double> normalization_factor =
+        std::sqrt(number_of_prt) / std::sqrt(psum * stepx * stepy);
+    U *= std::abs(normalization_factor);
+    data_ = U;
+}
+
             
 
 // Returning the probability density vector
@@ -551,7 +604,7 @@ inline Eigen::VectorXd WaveFunction<Dimension::Two>::get_x_slice(){
     int y_center = sizey / 2;
     Eigen::VectorXd slice(sizex);
     for(int i = 0; i < sizex; ++i){
-        slice(i) = std::norm(data_(y_center * sizex + i));
+        slice(i) = std::norm(data_(get_index(i, y_center)));
     }
     return slice;
 }
@@ -563,11 +616,9 @@ inline Eigen::VectorXd WaveFunction<Dimension::Two>::get_y_slice(){
     int x_center = sizex / 2;
     Eigen::VectorXd slice(sizey);
     for(int j = 0; j < sizey; ++j){
-        slice(j) = std::norm(data_(j * sizex + x_center));
+        slice(j) = std::norm(data_(get_index(x_center, j)));
     }
     return slice;
 }
 
 } // end of the namespace
-
-#endif

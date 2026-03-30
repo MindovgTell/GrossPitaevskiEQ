@@ -1,5 +1,4 @@
-#ifndef GRID_HPP
-#define GRID_HPP
+#pragma once
 
 #include <iostream>
 #include <Eigen/Dense>
@@ -126,7 +125,7 @@ private:
 public:
     //Constructor 
     Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y);
-    Grid();
+    Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y, double omega_x, double omega_y, double omega_z);
     // Delete copy and move constructors
     // Grid(const GPES::Grid<Dimension::Two>&) = delete;
     // Grid(GPES::Grid<Dimension::Two> &&) 
@@ -165,6 +164,14 @@ public:
 
 };
 
+inline Grid<Dimension::Two>::Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y, double omega_x, double omega_y, double omega_z):
+    size_x_(number_of_nodes_x), size_y_(number_of_nodes_y), start_x_(start_x), start_y_(start_y), omega_z_(omega_z) {
+        //Setting steps
+        step_x_ = std::abs((2 * start_x_) / size_x_);
+        step_y_ = std::abs((2 * start_y_) / size_y_);
+        set_harmonic_potential(omega_x, omega_y);
+}
+
 inline Grid<Dimension::Two>::Grid(int number_of_nodes_x, int number_of_nodes_y, double start_x, double start_y):
     size_x_(number_of_nodes_x), size_y_(number_of_nodes_y), start_x_(start_x), start_y_(start_y) {
         //Setting steps
@@ -201,6 +208,4 @@ inline void Grid<Dimension::Two>::set_harmonic_potential(double omega_x, double 
 
 
 
-} // namespace GPES
-
-#endif
+} // namespace GPESą

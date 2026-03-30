@@ -197,7 +197,7 @@ namespace gpes {
 
     public:
 
-        explicit DipolarInteraction(ShrdPtrGrid grid, double confinement_length, double interaction_strength) : 
+        DipolarInteraction(ShrdPtrGrid grid, double confinement_length, double interaction_strength) : 
             Nx(grid->size_x()),
             Ny(grid->size_y()),
             dx(grid->step_x()),
@@ -221,23 +221,6 @@ namespace gpes {
             // Precompute U_tilde
             precompute_U_tilde();
         }
-
-        // Old constructor, kept during tests for backward compatibility
-        // DipolarInteraction(int nx, int ny, double lx, double ly, double confinement_length, double interaction_strength)
-        //     : Nx(nx), Ny(ny), Lx(lx), Ly(ly), lz(confinement_length), V_dd(interaction_strength) {
-        //     dx = Lx / Nx;
-        //     dy = Ly / Ny;
-        //     // Allocate memory for FFTW
-        //     density_real        =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
-        //     density_fourier     =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
-        //     potential_fourier   =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
-        //     potential_real      =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
-        //     // Create FFTW plans
-        //     plan_forward        =   fftw_plan_dft_r2c_2d(Nx, Ny, density_real, density_fourier, FFTW_MEASURE);
-        //     plan_backward       =   fftw_plan_dft_c2r_2d(Nx, Ny, potential_fourier, potential_real, FFTW_MEASURE);
-        //     // Precompute U_tilde
-        //     precompute_U_tilde();
-        // }
         
         ~DipolarInteraction() {
             fftw_destroy_plan(plan_forward);
@@ -261,8 +244,12 @@ namespace gpes {
             if(std::isnan(answ)) std::cout << "F_perp is nan: "<< q << std::endl;
             return answ;
         } 
+        
         inline double F_parallel(double q_x, double q_y) {
             double q = std::sqrt(q_x*q_x + q_y*q_y);
+            if (q == 0.0) {
+                return -1.0;
+            }
             
             double q2 = q*q;
             double answ;
@@ -284,23 +271,17 @@ namespace gpes {
                 double kx = (i < Nx/2) ? (2.0 * M_PI * i / Lx) : (2.0 * M_PI * (i - Nx) / Lx);
                 for (int j = 0; j < Ny/2 + 1; ++j) {
                     double ky = 2.0 * M_PI * j / Ly;
-                    double k_perp = std::sqrt(kx*kx + ky*ky);
-                    double kappa = k_perp * lz / SQRT2;
 
-                    // const double pref = 3.0 * std::sqrt(2.0 * M_PI);   // √(2π) instead of π
+                    // const double q_x = kx * lz / SQRT2;
+                    // const double q_y = ky * lz / SQRT2;
+                    // U_tilde(i,j) = V_dd * F_parallel(q_x, q_y);
 
-                    // The general form of quasi DDI is given by 
-                    // V_2D = V_dd * (sin^2(alpha)*F_parallel + cos^2(alpha)*F_perp)
-                    // where alpha define the angle between momentum direction and z axis
-                    // for now we assume alpha == 0 deg
+                    const double k_perp = std::sqrt(kx * kx + ky * ky);
+                    const double kappa = k_perp * lz / SQRT2;
                     if (k_perp == 0.0) {
                         U_tilde(i,j) = 2.0 * V_dd;
                     } else {
-                    // U_tilde(i,j) = V_dd  * ( 2.0 - pref * kappa * std::exp(kappa * kappa) * std::erfc(kappa) );
-                        U_tilde(i,j) = V_dd * F_perp(kappa); //
-                        // U_tilde(i,j) = V_dd * F_parallel(kx*lz/SQRT2, ky*lz/SQRT2); 
-                    // For any alpha the expression above would take the form
-                    // U_tilde(i,j) = V_dd * (std::pow(std::cos(alpha),2) * F_perp(kappa) + std::pow(std::sin(alpha),2) * F_parallel(k_x*lz/SQRT2, k_y*lz/ SQRT2))
+                        U_tilde(i,j) = V_dd * F_perp(kappa);
                     }
                 }
             }
@@ -336,7 +317,7 @@ namespace gpes {
             // Copy result to Eigen matrix and normalize
             for (int i = 0; i < Nx; ++i) {
                 for (int j = 0; j < Ny; ++j) {
-                    Phi_DDI(i*Ny + j) = potential_real[i*Ny + j] / (Nx * Ny);
+                    Phi_DDI(i*Ny + j) = potential_real[i*Ny + j] * (dx * dy) / (Nx * Ny);
                 }
             }
         } 

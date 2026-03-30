@@ -98,14 +98,14 @@ add_library(cli11 INTERFACE)
 add_library(CLI11::CLI11 ALIAS cli11)
 
 target_include_directories(cli11 INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/CLI11
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party/CLI11
 )
 
 # —————————————————————————————————————————
 # 6. Core library
 # —————————————————————————————————————————
 add_library(gpes STATIC
-  source/Log/log.cpp
+  include/gpes/source/Log/Log.cpp
 )
 
 add_library(gpes::gpes ALIAS gpes)
@@ -147,14 +147,14 @@ endif()
 # --- plotting module (optional) ---
 if(GPES_ENABLE_PLOTTING)
   add_library(gpes_plot STATIC
-    source/plot/plot.cpp
+    include/gpes/source/plot/plot.cpp
   )
   add_library(gpes::plot ALIAS gpes_plot)
 
   target_include_directories(gpes_plot
     PUBLIC
-      ${CMAKE_CURRENT_SOURCE_DIR}/include
-      ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+      ${CMAKE_CURRENT_SOURCE_DIR}/include/gpes
+      ${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party
     PRIVATE
       ${Python3_INCLUDE_DIRS}
       ${Python3_NumPy_INCLUDE_DIRS}

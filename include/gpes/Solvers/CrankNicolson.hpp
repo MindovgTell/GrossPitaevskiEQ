@@ -11,6 +11,7 @@
 #include <Eigen/SparseLU>
 
 #include "Core/utility.hpp"
+#include "Log/Log.hpp"
 
 #include "wavefunction/wavefunction.hpp"
 #include "grid/grid.hpp"
@@ -41,6 +42,7 @@ public:
     using GridType = Grid<Dim>;
     using Tag = tags::CrankNicolson;
     using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
+    inline static const gpes::log::LogCategory kLogCategory{"CrankNicolson1D"};
 private:
     ShrdPtrGrid grid_; // shared_ptr to the grid object
 
@@ -71,22 +73,43 @@ public:
         sim_config_(simcnfg) 
     {
         if (!grid_) {
+                GPES_LOG(kLogCategory, Error, "SplitStep requires a valid grid");
                 throw std::runtime_error("SplitStep requires a valid grid");
             }
         if (vec.size() != static_cast<Eigen::Index>(grid_->size())) {
+            GPES_LOG(kLogCategory, Error, "SplitStep wavefunction and grid size mismatch");
             throw std::runtime_error("SplitStep wavefunction and grid size mismatch");
         }
 
-        detail::validate_phys_config(ph_config_);
+        try {
+            detail::validate_phys_config(ph_config_);
+        } catch (const std::exception& ex) {
+            GPES_LOG(kLogCategory, Error, "{}", ex.what());
+            throw;
+        }
+        if (!std::isfinite(grid_->step()) || grid_->step() == 0.0) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::One>: step must be non-zero and finite");
+            throw std::invalid_argument("CrankNicolson<Dimension::One>: step must be non-zero and finite");
+        }
+        if (!std::isfinite(sim_config_.dt) || sim_config_.dt == 0.0) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::One>: dt must be non-zero and finite");
+            throw std::invalid_argument("CrankNicolson<Dimension::One>: dt must be non-zero and finite");
+        }
         // TODO: I'm not sure about this form, need to varify 
 
         if (!std::isfinite(grid_->omega_t()) || grid_->omega_t() <= 0.0) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::One>: omega_t must be positive and finite");
             throw std::invalid_argument("CrankNicolson<Dimension::One>: omega_t must be positive and finite");
         }
         double l_perp = 1 / std::sqrt(grid_->omega_t());
 
         calc_inter_consts<Dim>(ph_config_,l_perp);
-        detail::validate_inter_consts(ph_config_, "CrankNicolson<Dimension::One>");
+        try {
+            detail::validate_inter_consts(ph_config_, "CrankNicolson<Dimension::One>");
+        } catch (const std::exception& ex) {
+            GPES_LOG(kLogCategory, Error, "{}", ex.what());
+            throw;
+        }
 
         lambda_x_ = -1.0*sim_config_.dt/(4.0*std::pow(grid_->step(),2.));
         vec_energy_.reserve(sim_config_.num_of_steps);
@@ -152,7 +175,8 @@ public:
 
         typedef Eigen::Triplet<std::complex<double> > T;
         std::vector<T> tripletList;
-        tripletList.reserve(std::pow(S,2));
+        tripletList.reserve(S*3);
+        
         tripletList.push_back(T(0, 0, d(0)));
         
         for (int i = 1; i < S; ++i) {
@@ -243,6 +267,7 @@ public:
 
         solver.compute(A_);
         if (solver.info() != Eigen::Success) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::One>: solver factorization failed");
             throw std::runtime_error("CrankNicolson<Dimension::One>: solver factorization failed");
         }
 
@@ -251,6 +276,7 @@ public:
         // // Solve the system A * x = b
         x = solver.solve(b);
         if (solver.info() != Eigen::Success) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::One>: solver solve failed");
             throw std::runtime_error("CrankNicolson<Dimension::One>: solver solve failed");
         }
 
@@ -310,7 +336,7 @@ public:
     }
 
     double calc_state_energy(WaveFuncType& vec) {
-        calc_state_energy(vec.vec());
+        return calc_state_energy(vec.vec());
     }
 
     const std::vector<double>& energies(){ return vec_energy_;}
@@ -333,14 +359,15 @@ public:
     using GridType = Grid<Dim>;
     using Tag = tags::CrankNicolson;
     using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
+    inline static const gpes::log::LogCategory kLogCategory{"CrankNicolson2D"};
 private:
     SparseMat A_;
     SparseMat B_;
 
     ShrdPtrGrid grid_;
 
-    PhysConfig& ph_config_;
-    SimConfig& sim_config_;
+    PhysConfig ph_config_;
+    SimConfig sim_config_;
 
     double lambda_x_, lambda_y_;
 
@@ -354,10 +381,46 @@ public:
         ph_config_(phcnfg),
         sim_config_(simcnfg) 
     {
-        detail::validate_phys_config(ph_config_);
-        double l_z = 1.0 / std::sqrt(grid->omega_z());
+        if (!grid_) {
+                GPES_LOG(kLogCategory, Error, "SplitStep requires a valid grid");
+                throw std::runtime_error("SplitStep requires a valid grid");
+            }
+        if (vec.size() != static_cast<Eigen::Index>(grid_->size_x()*grid_->size_x())) {
+            GPES_LOG(kLogCategory, Error, "SplitStep wavefunction and grid size mismatch");
+            throw std::runtime_error("SplitStep wavefunction and grid size mismatch");
+        }
+
+        try {
+            detail::validate_phys_config(ph_config_);
+        } catch (const std::exception& ex) {
+            GPES_LOG(kLogCategory, Error, "{}", ex.what());
+            throw;
+        }
+        if (grid_->size_x() <= 0 || grid_->size_y() <= 0) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::Two>: grid sizes must be positive");
+            throw std::invalid_argument("CrankNicolson<Dimension::Two>: grid sizes must be positive");
+        }
+        if (!std::isfinite(grid_->step_x()) || grid_->step_x() == 0.0 ||
+            !std::isfinite(grid_->step_y()) || grid_->step_y() == 0.0) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::Two>: step_x and step_y must be non-zero and finite");
+            throw std::invalid_argument("CrankNicolson<Dimension::Two>: step_x and step_y must be non-zero and finite");
+        }
+        if (!std::isfinite(grid_->omega_z()) || grid_->omega_z() <= 0.0) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::Two>: omega_z must be positive and finite");
+            throw std::invalid_argument("CrankNicolson<Dimension::Two>: omega_z must be positive and finite");
+        }
+        if (!std::isfinite(sim_config_.dt) || sim_config_.dt == 0.0) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::Two>: dt must be non-zero and finite");
+            throw std::invalid_argument("CrankNicolson<Dimension::Two>: dt must be non-zero and finite");
+        }
+        double l_z = 1.0 / std::sqrt(grid_->omega_z());
         calc_inter_consts<Dim>(ph_config_, l_z);
-        detail::validate_inter_consts(ph_config_, "CrankNicolson<Dimension::Two>");
+        try {
+            detail::validate_inter_consts(ph_config_, "CrankNicolson<Dimension::Two>");
+        } catch (const std::exception& ex) {
+            GPES_LOG(kLogCategory, Error, "{}", ex.what());
+            throw;
+        }
         vec_energy_.reserve(sim_config_.num_of_steps);
 
         lambda_x_       =   -1.0*sim_config_.dt/(4*std::pow(grid_->step_x(),2.));
@@ -375,10 +438,13 @@ public:
         return vec_energy_.back();
     }
     
+    const std::vector<double>& energies() const { return vec_energy_;}
+
     int get_index(int i,int j) {
         return i * grid_->size_x() + j;
     }
-    // Old version previosly used, now prefere DipolarInteraction class
+    
+    // // Old version previosly used, now prefere DipolarInteraction class
     // //Function for calculating 2D DDI
     // Eigen::VectorXd calc_FFT_DDI(const Eigen::VectorXcd& wave) {
     //     const int Nx = _Psi.grid_size_x();
@@ -560,14 +626,15 @@ public:
         // Set up the sparse LU solver
         // Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>> solver;
         // Eigen::SimplicialLLT<Eigen::SparseMatrix<std::complex<double>>> solver;
-        // Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>> solver;
-        SolverType solver;
+        Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>> solver;
+        // SolverType solver;
 
         normalize(b);
         calc_time_evolution_matrices(b);
 
         solver.compute(A_);
         if (solver.info() != Eigen::Success) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::Two>: solver factorization failed");
             throw std::runtime_error("CrankNicolson<Dimension::Two>: solver factorization failed");
         }
         
@@ -577,6 +644,7 @@ public:
         // // Solve the system A * x = b
         x = solver.solve(b);
         if (solver.info() != Eigen::Success) {
+            GPES_LOG(kLogCategory, Error, "CrankNicolson<Dimension::Two>: solver solve failed");
             throw std::runtime_error("CrankNicolson<Dimension::Two>: solver solve failed");
         }
 
@@ -595,7 +663,6 @@ public:
             psum += std::norm(vec(i));
         }
         std::complex<double> normalization_factor = std::sqrt(ph_config_.num_of_prt) / std::sqrt(psum * grid_->step_x() * grid_->step_y()); // 
-
         vec *= std::abs(normalization_factor);
     }
 

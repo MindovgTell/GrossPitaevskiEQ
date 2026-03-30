@@ -5,13 +5,24 @@
 #include "Core/utility.hpp"
 
 struct CliConfig {
-    double a_s = 0.00607;
-    double a_dd = 0.00882;
-    double num_particles = 10000.0;
-    double dt = 0.001;
+    double a_s = 0.005;
+    double a_dd = 0.00772;
+    double num_particles = 60000.0;
+    double dt = 0.018;
     double duration = 0.1;
+    double w_x = 1.0;
+    double w_y = 3;
+    double w_z = 5.0;
     std::string log_dir;
+    std::string wavefunction_out = "wavefunction.csv";
 };
 
-std::pair<gpes::PhysConfig, gpes::SimConfig> parse_cli(int argc, char **argv);
+struct ParsedCli {
+    bool cli_only = false;
+    CliConfig cli;
+    gpes::PhysConfig phys{};
+    gpes::SimConfig sim{};
+};
+
+ParsedCli parse_cli(int argc, char **argv);
 void print_parsed_params(int argc, char **argv);

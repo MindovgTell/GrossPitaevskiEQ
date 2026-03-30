@@ -3,6 +3,10 @@ add_executable(${PROJECT_NAME}
   cli/cli.cpp
 )
 
+target_include_directories(${PROJECT_NAME} PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include/gpes
+)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
   CLI11::CLI11
 )
