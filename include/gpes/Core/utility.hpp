@@ -184,12 +184,12 @@ namespace gpes {
             //   (5/2) from f^(5/2) factorisation, +1 from Jacobian => (7/2) on (1-u*)
             const double pre = 2.0 * std::pow(3.0 * eps, 2.5) * std::pow(one_mu, 3.5);
 
-            // Regularised integrand h(s) = s^5 * [2u* + (1-u*)*s^2]^(5/2)
-            // C-infinity on [0,1]: bracket is positive everywhere, s^5 kills s=0.
+            // Regularised integrand after u = u_star + (1-u_star) s^2.
+            // The Jacobian contributes one additional power of s.
             return pre * gl64::Integrate(
                 [u_star, one_mu](double s) noexcept -> double {
                     const double bracket = 2.0 * u_star + one_mu * s * s;
-                    return s * s * s * s * s * std::pow(bracket, 2.5);
+                    return s * s * s * s * s * s * std::pow(bracket, 2.5);
                 }, 0.0, 1.0);
         }
 
@@ -422,12 +422,13 @@ namespace gpes {
 
         cnf.g_scat = std::sqrt(8.0 * M_PI) * cnf.a_s / l_z;
         cnf.V_dd   = std::sqrt(8.0 * M_PI) * cnf.a_dd / l_z;
-        cnf.g_lhy  = (128.0 / (3.0 * std::pow(M_PI, 0.25)))
-                    * std::sqrt(0.4)
+        cnf.g_lhy  = (128.0 / (3.0 * std::pow(M_PI, 0.25))) //1.25
+                    * std::sqrt(0.4) // 2.5
                     * std::pow(cnf.a_s, 2.5)
                     / std::pow(l_z,     1.5)
-                    * (1 + 1.5 * std::pow((cnf.a_dd / cnf.a_s ), 2.));
-                    // * Q5;
+                    * Q5;
+
+        //(1 + 1.5 * std::pow((cnf.a_dd / cnf.a_s ), 2.));            
 
         // GPES_LOG(kLogCategory, Info,
         //     "calc_inter_consts<2D>: a_s={:.8f} a_dd={:.8f} l_z={:.8f} "

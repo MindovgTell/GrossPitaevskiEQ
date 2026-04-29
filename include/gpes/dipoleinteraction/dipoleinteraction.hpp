@@ -179,7 +179,9 @@ namespace gpes {
 
     private:
         int Nx, Ny;
+        int Nx_pad, Ny_pad;
         double Lx, Ly;
+        double Lx_pad, Ly_pad;
         double dx, dy;
         double lz;
         double V_dd;
@@ -200,6 +202,8 @@ namespace gpes {
         DipolarInteraction(ShrdPtrGrid grid, double confinement_length, double interaction_strength) : 
             Nx(grid->size_x()),
             Ny(grid->size_y()),
+            Nx_pad(2 * Nx),
+            Ny_pad(2 * Ny),
             dx(grid->step_x()),
             dy(grid->step_y()),
             lz(confinement_length),
@@ -207,16 +211,18 @@ namespace gpes {
         {
             Lx = Nx * dx;
             Ly = Ny * dy;
+            Lx_pad = Nx_pad * dx;
+            Ly_pad = Ny_pad * dy;
             
-            // Allocate memory for FFTW
-            density_real        =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
-            density_fourier     =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
-            potential_fourier   =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx * (Ny/2 + 1));
-            potential_real      =   (double*)fftw_malloc(sizeof(double) * Nx * Ny);
+            // Zero-padding removes periodic-image coupling in the trap region.
+            density_real        =   (double*)fftw_malloc(sizeof(double) * Nx_pad * Ny_pad);
+            density_fourier     =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx_pad * (Ny_pad/2 + 1));
+            potential_fourier   =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx_pad * (Ny_pad/2 + 1));
+            potential_real      =   (double*)fftw_malloc(sizeof(double) * Nx_pad * Ny_pad);
             
             // Create FFTW plans
-            plan_forward        =   fftw_plan_dft_r2c_2d(Nx, Ny, density_real, density_fourier, FFTW_MEASURE);
-            plan_backward       =   fftw_plan_dft_c2r_2d(Nx, Ny, potential_fourier, potential_real, FFTW_MEASURE);
+            plan_forward        =   fftw_plan_dft_r2c_2d(Nx_pad, Ny_pad, density_real, density_fourier, FFTW_MEASURE);
+            plan_backward       =   fftw_plan_dft_c2r_2d(Nx_pad, Ny_pad, potential_fourier, potential_real, FFTW_MEASURE);
             
             // Precompute U_tilde
             precompute_U_tilde();
@@ -265,12 +271,12 @@ namespace gpes {
             return answ;
         }
         void precompute_U_tilde() {
-            U_tilde.resize(Nx, Ny/2 + 1);
+            U_tilde.resize(Nx_pad, Ny_pad/2 + 1);
             
-            for (int i = 0; i < Nx; ++i) {
-                double kx = (i < Nx/2) ? (2.0 * M_PI * i / Lx) : (2.0 * M_PI * (i - Nx) / Lx);
-                for (int j = 0; j < Ny/2 + 1; ++j) {
-                    double ky = 2.0 * M_PI * j / Ly;
+            for (int i = 0; i < Nx_pad; ++i) {
+                double kx = (i < Nx_pad/2) ? (2.0 * M_PI * i / Lx_pad) : (2.0 * M_PI * (i - Nx_pad) / Lx_pad);
+                for (int j = 0; j < Ny_pad/2 + 1; ++j) {
+                    double ky = 2.0 * M_PI * j / Ly_pad;
 
                     // const double q_x = kx * lz / SQRT2;
                     // const double q_y = ky * lz / SQRT2;
@@ -292,11 +298,12 @@ namespace gpes {
 
             assert(psi.size() == Nx * Ny && "psi dimensions must match Nx x Ny");
 
+            std::fill(density_real, density_real + (Nx_pad * Ny_pad), 0.0);
 
             for (int i = 0; i < Nx; ++i) {
                 for (int j = 0; j < Ny; ++j) {
                     int index = i * Ny + j;
-                    density_real[i*Ny + j] = std::norm(psi(index));
+                    density_real[i * Ny_pad + j] = std::norm(psi(index));
                 }
             }
             
@@ -304,10 +311,12 @@ namespace gpes {
             fftw_execute(plan_forward);
             
             // Multiply by U_tilde in Fourier space
-            for (int i = 0; i < Nx; ++i) {
-                for (int j = 0; j < Ny/2 + 1; ++j) {
-                    potential_fourier[i*(Ny/2 + 1) + j][0] = U_tilde(i, j) * density_fourier[i*(Ny/2 + 1) + j][0];
-                    potential_fourier[i*(Ny/2 + 1) + j][1] = U_tilde(i, j) * density_fourier[i*(Ny/2 + 1) + j][1];
+            for (int i = 0; i < Nx_pad; ++i) {
+                for (int j = 0; j < Ny_pad/2 + 1; ++j) {
+                    potential_fourier[i * (Ny_pad/2 + 1) + j][0] =
+                        U_tilde(i, j) * density_fourier[i * (Ny_pad/2 + 1) + j][0];
+                    potential_fourier[i * (Ny_pad/2 + 1) + j][1] =
+                        U_tilde(i, j) * density_fourier[i * (Ny_pad/2 + 1) + j][1];
                 }
             }
             
@@ -315,9 +324,10 @@ namespace gpes {
             fftw_execute(plan_backward);
             
             // Copy result to Eigen matrix and normalize
+            Phi_DDI.resize(Nx * Ny);
             for (int i = 0; i < Nx; ++i) {
                 for (int j = 0; j < Ny; ++j) {
-                    Phi_DDI(i*Ny + j) = potential_real[i*Ny + j] * (dx * dy) / (Nx * Ny);
+                    Phi_DDI(i * Ny + j) = potential_real[i * Ny_pad + j] / (Nx_pad * Ny_pad); // * (dx * dy) 
                 }
             }
         } 

@@ -24,3 +24,7 @@ include/gpes/Solvers/CrankNicolson2D.inl
 *.iml
 .idea/
 Log
+
+GPES
+
+investigation_summary.md

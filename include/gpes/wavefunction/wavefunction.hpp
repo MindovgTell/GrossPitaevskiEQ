@@ -3,6 +3,7 @@
 #include <array>
 #include <memory>
 #include <vector>
+#include <fftw3.h>
 
 #include "grid/grid.hpp"
 
@@ -318,8 +319,6 @@ public:
 
     // TODO: overload few more operators for using wavefunction almost as eigen Vector
 
-
-
     int get_index(int i, int j){ 
         int sy = gridptr_->size_y();
         return i*sy + j; 
@@ -373,7 +372,14 @@ public:
     Eigen::VectorXd prob(Eigen::VectorXcd &vec);
     Eigen::VectorXd prob();
     double prob(int index);
+
+    // Fourier transform
+    VectorType fourierTransform();
 };
+
+WaveFunction<Dimension::Two>::VectorType WaveFunction<Dimension::Two>::fourierTransform() {
+    
+}
 
 inline double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(const double &wx, const double &wy, unsigned int _Num){
     double numerator = 4.0 * wy * _Num;
