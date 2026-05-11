@@ -7,6 +7,27 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../include/gpes
 )
 
+# Add executable-only compile flags here.
+# Example:
+#   -O3
+#   -march=native
+set(GPES_EXECUTABLE_COMPILE_OPTIONS
+    -O3
+    -march=native
+    -ffast-math
+    -s
+)
+
+target_compile_options(${PROJECT_NAME} PRIVATE
+  ${GPES_EXECUTABLE_COMPILE_OPTIONS}
+)
+
+if(GPES_WARNINGS)
+  target_compile_options(${PROJECT_NAME} PRIVATE
+    $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-Wall;-Wextra;-Wpedantic>
+  )
+endif()
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
   CLI11::CLI11
 )
@@ -19,11 +40,4 @@ else()
   target_link_libraries(${PROJECT_NAME} PRIVATE
     gpes::gpes
   )
-endif()
-
-
-if(GPES_WARNINGS)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
-  endif()
 endif()

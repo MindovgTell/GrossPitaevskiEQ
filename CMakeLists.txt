@@ -29,10 +29,20 @@ endif()
 # —————————————————————————————————————————
 # 4. Dependencies (installed packages)
 # —————————————————————————————————————————
+include(FetchContent)
 
 # Eigen
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
+# Spectra (header-only; depends on Eigen)
+set(BUILD_TESTS OFF CACHE BOOL "Build dependency tests" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "Build dependency examples" FORCE)
+FetchContent_Declare(
+  spectra
+  GIT_REPOSITORY https://github.com/yixuan/spectra.git
+  GIT_TAG v1.2.0
+)
+FetchContent_MakeAvailable(spectra)
 
 if(APPLE)
   message(STATUS "Configuring for macOS (Homebrew)")
@@ -118,6 +128,10 @@ target_include_directories(gpes
 # Link Eigen
 target_link_libraries(gpes PUBLIC Eigen3::Eigen)
 
+# Link Spectra
+target_include_directories(gpes PRIVATE
+    ${spectra_SOURCE_DIR}/include
+)
 # Link FFTW3 (handle both "target" and "variables" styles)
 if(TARGET FFTW3::fftw3)
   target_link_libraries(gpes PUBLIC FFTW3::fftw3)

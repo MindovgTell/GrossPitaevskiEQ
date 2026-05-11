@@ -374,11 +374,57 @@ public:
     double prob(int index);
 
     // Fourier transform
-    VectorType fourierTransform();
+    VectorType fft_shifted();
 };
 
-WaveFunction<Dimension::Two>::VectorType WaveFunction<Dimension::Two>::fourierTransform() {
-    
+inline WaveFunction<Dimension::Two>::VectorType WaveFunction<Dimension::Two>::fft_shifted() {
+    if (!gridptr_) {
+        throw std::runtime_error("Fourier Transform: WaveFunction has no grid");
+    }
+
+    const int sx = gridptr_->size_x();
+    const int sy = gridptr_->size_y();
+    const int size = sx * sy;
+
+    if (data_.size() != size) {
+        throw std::runtime_error("fourierTransform: wavefunction size does not match grid size");
+    }
+
+    VectorType raw(size);
+
+    fftw_complex* in = reinterpret_cast<fftw_complex*>(data_.data());
+    fftw_complex* out = reinterpret_cast<fftw_complex*>(raw.data());
+
+    fftw_plan plan = fftw_plan_dft_2d(
+        sx,
+        sy,
+        in,
+        out,
+        FFTW_FORWARD,
+        FFTW_ESTIMATE
+    );
+
+    if (!plan) {
+        throw std::runtime_error("fourierTransform: FFTW plan creation failed");
+    }
+
+    fftw_execute(plan);
+    fftw_destroy_plan(plan);
+
+    raw *= gridptr_->step_x() * gridptr_->step_y();
+
+    VectorType shifted(size);
+
+    for (int i = 0; i < sx; ++i) {
+        for (int j = 0; j < sy; ++j) {
+            const int shifted_i = (i + sx / 2) % sx;
+            const int shifted_j = (j + sy / 2) % sy;
+
+            shifted(get_index(shifted_i, shifted_j)) = raw(get_index(i, j));
+        }
+    }
+
+    return shifted;
 }
 
 inline double WaveFunction<Dimension::Two>::thomas_fermi_radius_x(const double &wx, const double &wy, unsigned int _Num){
