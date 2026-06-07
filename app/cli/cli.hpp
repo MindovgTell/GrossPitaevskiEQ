@@ -14,7 +14,7 @@ struct CliConfig {
     double w_y = 3.0;
     double w_z = 5.0;
     std::string log_dir;
-    std::string wavefunction_out = "wavefunction.csv";
+    std::string wavefunction_out = "wavefunction";
 };
 
 struct ParsedCli {

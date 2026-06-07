@@ -4,9 +4,14 @@
 #include <cmath>
 #include <complex>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <Eigen/Core>
@@ -640,5 +645,114 @@ namespace gpes::bdg {
     };
 
     using BdGSolver2D = BdGSolver<Dimension::Two>;
+
+    inline double bdg_mode_norm(
+        const BdGMode& mode,
+        double dx,
+        double dy
+    ) {
+        if (mode.u.size() != mode.v.size()) {
+            throw std::invalid_argument("bdg_mode_norm: u and v sizes differ");
+        }
+
+        double qnorm = 0.0;
+        for (Eigen::Index i = 0; i < mode.u.size(); ++i) {
+            qnorm += std::norm(mode.u(i)) - std::norm(mode.v(i));
+        }
+
+        return qnorm * dx * dy;
+    }
+
+    inline std::string mode_filename(std::size_t mode_index) {
+        std::ostringstream name;
+        name << "mode_" << std::setw(4) << std::setfill('0') << mode_index << ".csv";
+        return name.str();
+    }
+
+    inline std::filesystem::path save_bdg_result(
+        const BdGResult& result,
+        const Grid<Dimension::Two>& grid,
+        const std::filesystem::path& destination_folder
+    ) {
+        const int nx = static_cast<int>(grid.size_x());
+        const int ny = static_cast<int>(grid.size_y());
+        const int n = nx * ny;
+        const double dx = grid.step_x();
+        const double dy = grid.step_y();
+
+        std::filesystem::create_directories(destination_folder);
+        const std::filesystem::path modes_folder = destination_folder / "excited_states";
+        std::filesystem::create_directories(modes_folder);
+
+        const std::filesystem::path spectrum_path = destination_folder / "spectrum.csv";
+        std::ofstream spectrum(spectrum_path);
+        if (!spectrum) {
+            throw std::runtime_error("save_bdg_result: cannot open file: " + spectrum_path.string());
+        }
+
+        spectrum << "mode,omega_real,omega_imag,bdg_norm,state_file\n";
+        spectrum << std::setprecision(17);
+
+        for (std::size_t m = 0; m < result.modes.size(); ++m) {
+            const BdGMode& mode = result.modes[m];
+            if (mode.u.size() != n || mode.v.size() != n) {
+                throw std::invalid_argument("save_bdg_result: mode size does not match grid size");
+            }
+
+            const std::string state_filename = mode_filename(m);
+            const std::filesystem::path state_path = modes_folder / state_filename;
+            const double qnorm = bdg_mode_norm(mode, dx, dy);
+
+            spectrum << m << ','
+                     << mode.omega.real() << ','
+                     << mode.omega.imag() << ','
+                     << qnorm << ','
+                     << ("excited_states/" + state_filename) << '\n';
+
+            std::ofstream state(state_path);
+            if (!state) {
+                throw std::runtime_error("save_bdg_result: cannot open file: " + state_path.string());
+            }
+
+            state << "ix,iy,x,y,u_real,u_imag,u_abs2,v_real,v_imag,v_abs2,local_bdg_weight\n";
+            state << std::setprecision(17);
+
+            for (int i = 0; i < nx; ++i) {
+                const double x = grid.start_pos_x() + static_cast<double>(i) * dx;
+                for (int j = 0; j < ny; ++j) {
+                    const double y = grid.start_pos_y() + static_cast<double>(j) * dy;
+                    const int k = i * ny + j;
+                    const double local_bdg_weight =
+                        std::norm(mode.u(k)) - std::norm(mode.v(k));
+
+                    state << i << ','
+                          << j << ','
+                          << x << ','
+                          << y << ','
+                          << mode.u(k).real() << ','
+                          << mode.u(k).imag() << ','
+                          << std::norm(mode.u(k)) << ','
+                          << mode.v(k).real() << ','
+                          << mode.v(k).imag() << ','
+                          << std::norm(mode.v(k)) << ','
+                          << local_bdg_weight << '\n';
+                }
+            }
+        }
+
+        return spectrum_path;
+    }
+
+    inline std::filesystem::path save_bdg_result(
+        const BdGResult& result,
+        const std::shared_ptr<const Grid<Dimension::Two>>& grid,
+        const std::filesystem::path& destination_folder
+    ) {
+        if (!grid) {
+            throw std::invalid_argument("save_bdg_result: grid is null");
+        }
+
+        return save_bdg_result(result, *grid, destination_folder);
+    }
 
 } // namespace gpes::bdg

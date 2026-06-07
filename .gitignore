@@ -17,6 +17,8 @@ srcAres
 inputs
 python
 
+params.txt
+
 include/gpes/Solvers/CrankNicolson1D.inl
 include/gpes/Solvers/CrankNicolson2D.inl
 

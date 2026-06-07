@@ -3,11 +3,13 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <iostream>
 #include <memory>
 #include <numeric>
 #include <string>
 #include <vector>
 #include <Eigen/Dense>
+#include "Solvers/BogoliubovdeGennes.hpp"
 #include "grid/grid.hpp"
 #include "wavefunction/wavefunction.hpp"
 #if defined(__clang__)
@@ -138,10 +140,10 @@ void draw_energy(const std::vector<double>& vec_of_energies){
     plt::show();
 }
 
-inline void save_energy_plot(
-    const std::vector<double>& vec_of_energies,
-    const std::filesystem::path& output_path
-) {
+	inline void save_energy_plot(
+	    const std::vector<double>& vec_of_energies,
+	    const std::filesystem::path& output_path
+	) {
     if (vec_of_energies.empty()) {
         std::cerr << "save_energy_plot: empty energy vector\n";
         return;
@@ -169,11 +171,137 @@ inline void save_energy_plot(
             plt::close();
         } catch (...) {
         }
-    }
-}
+	    }
+	}
 
-void draw_energy_relative_fluctuations(
-    const std::vector<double>& vec_of_energies,
+    inline void draw_excitation_spectrum(
+        const gpes::bdg::BdGResult& result,
+        double imaginary_tolerance = 1e-8,
+        const std::string& name = "BdG excitation spectrum"
+    ) {
+        if (result.modes.empty()) {
+            std::cerr << "draw_excitation_spectrum: no modes to plot\n";
+            return;
+        }
+
+        std::vector<double> stable_mode_idx;
+        std::vector<double> stable_omega;
+        std::vector<double> unstable_mode_idx;
+        std::vector<double> unstable_omega;
+
+        stable_mode_idx.reserve(result.modes.size());
+        stable_omega.reserve(result.modes.size());
+        unstable_mode_idx.reserve(result.modes.size());
+        unstable_omega.reserve(result.modes.size());
+
+        for (std::size_t i = 0; i < result.modes.size(); ++i) {
+            const double mode_index = static_cast<double>(i);
+            const double omega_re = result.modes[i].omega.real();
+            const double omega_im = result.modes[i].omega.imag();
+
+            if (std::abs(omega_im) <= imaginary_tolerance) {
+                stable_mode_idx.push_back(mode_index);
+                stable_omega.push_back(omega_re);
+            } else {
+                unstable_mode_idx.push_back(mode_index);
+                unstable_omega.push_back(omega_re);
+            }
+        }
+
+        try {
+            plt::figure();
+            if (!stable_mode_idx.empty()) {
+                plt::scatter(stable_mode_idx, stable_omega, 28.0, {{"label", "real modes"}});
+            }
+            if (!unstable_mode_idx.empty()) {
+                plt::scatter(unstable_mode_idx, unstable_omega, 36.0, {{"label", "complex modes"}});
+            }
+            plt::axhline(0.0, {{"color", "black"}, {"linewidth", "0.8"}});
+            plt::title(name);
+            plt::xlabel("mode index");
+            plt::ylabel("Re(omega)");
+            plt::grid();
+            plt::legend();
+            plt::show();
+        } catch (const std::exception& e) {
+            std::cerr << "draw_excitation_spectrum: plotting failed: " << e.what() << "\n";
+        }
+    }
+
+    inline void save_excitation_spectrum_plot(
+        const gpes::bdg::BdGResult& result,
+        const std::filesystem::path& output_path,
+        double imaginary_tolerance = 1e-8,
+        const std::string& name = "BdG excitation spectrum"
+    ) {
+        if (result.modes.empty()) {
+            std::cerr << "save_excitation_spectrum_plot: no modes to plot\n";
+            return;
+        }
+
+        std::vector<double> stable_mode_idx;
+        std::vector<double> stable_omega;
+        std::vector<double> unstable_mode_idx;
+        std::vector<double> unstable_omega;
+        std::vector<double> imag_mode_idx;
+        std::vector<double> omega_imag;
+
+        stable_mode_idx.reserve(result.modes.size());
+        stable_omega.reserve(result.modes.size());
+        unstable_mode_idx.reserve(result.modes.size());
+        unstable_omega.reserve(result.modes.size());
+        imag_mode_idx.reserve(result.modes.size());
+        omega_imag.reserve(result.modes.size());
+
+        for (std::size_t i = 0; i < result.modes.size(); ++i) {
+            const double mode_index = static_cast<double>(i);
+            const double omega_re = result.modes[i].omega.real();
+            const double omega_im = result.modes[i].omega.imag();
+
+            imag_mode_idx.push_back(mode_index);
+            omega_imag.push_back(omega_im);
+
+            if (std::abs(omega_im) <= imaginary_tolerance) {
+                stable_mode_idx.push_back(mode_index);
+                stable_omega.push_back(omega_re);
+            } else {
+                unstable_mode_idx.push_back(mode_index);
+                unstable_omega.push_back(omega_re);
+            }
+        }
+
+        if (output_path.has_parent_path()) {
+            std::filesystem::create_directories(output_path.parent_path());
+        }
+
+        try {
+            plt::figure();
+            if (!stable_mode_idx.empty()) {
+                plt::scatter(stable_mode_idx, stable_omega, 28.0, {{"label", "Re(omega), real modes"}});
+            }
+            if (!unstable_mode_idx.empty()) {
+                plt::scatter(unstable_mode_idx, unstable_omega, 36.0, {{"label", "Re(omega), complex modes"}});
+            }
+            plt::plot(imag_mode_idx, omega_imag, "r--", {{"label", "Im(omega)"}});
+            plt::axhline(0.0, {{"color", "black"}, {"linewidth", "0.8"}});
+            plt::title(name);
+            plt::xlabel("mode index");
+            plt::ylabel("omega");
+            plt::grid();
+            plt::legend();
+            plt::savefig(output_path.string());
+            plt::close();
+        } catch (const std::exception& e) {
+            std::cerr << "save_excitation_spectrum_plot: plotting failed: " << e.what() << "\n";
+            try {
+                plt::close();
+            } catch (...) {
+            }
+        }
+    }
+
+	void draw_energy_relative_fluctuations(
+	    const std::vector<double>& vec_of_energies,
     bool in_percent = true
 ){
     if (vec_of_energies.empty()) {
@@ -315,9 +443,9 @@ std::vector<std::vector<double>> Eigen_to_vector2D(WaveFunction<Dimension::Two>&
     return result;
 }
 
-void heatmap(WaveFunction<Dimension::Two>& wave, std::string name = "Wavefunction"){
-    try {
-        std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(wave);
+	void heatmap(WaveFunction<Dimension::Two>& wave, std::string name = "Wavefunction"){
+	    try {
+	        std::vector< std::vector<double> > heatmap_data = Eigen_to_vector2D(wave);
 
         // Optional: verify data
         if (heatmap_data.empty() || heatmap_data[0].empty()) {
@@ -336,11 +464,43 @@ void heatmap(WaveFunction<Dimension::Two>& wave, std::string name = "Wavefunctio
     }
     catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
-    }
-}
+	    }
+	}
 
-inline void draw_slices(WaveFunction<Dimension::Two>& wave, const std::string& name = "Wavefunction") {
-    try {
+    inline void save_heatmap(
+        WaveFunction<Dimension::Two>& wave,
+        const std::filesystem::path& output_path,
+        const std::string& name = "Wavefunction"
+    ) {
+        try {
+            std::vector<std::vector<double>> heatmap_data = Eigen_to_vector2D(wave);
+            if (heatmap_data.empty() || heatmap_data[0].empty()) {
+                throw std::runtime_error("Data is empty.");
+            }
+
+            if (output_path.has_parent_path()) {
+                std::filesystem::create_directories(output_path.parent_path());
+            }
+
+            plt::figure();
+            plt::imshow(heatmap_data);
+            plt::colorbar();
+            plt::title(name);
+            plt::xlabel("X", {{"fontsize", "18"}});
+            plt::ylabel("Y", {{"fontsize", "18"}});
+            plt::savefig(output_path.string());
+            plt::close();
+        } catch (const std::exception& e) {
+            std::cerr << "save_heatmap: plotting failed: " << e.what() << "\n";
+            try {
+                plt::close();
+            } catch (...) {
+            }
+        }
+    }
+
+	inline void draw_slices(WaveFunction<Dimension::Two>& wave, const std::string& name = "Wavefunction") {
+	    try {
         const int size_x = wave.grid()->size_x();
         const int size_y = wave.grid()->size_y();
         const double start_x = wave.grid()->start_pos_x();
@@ -374,7 +534,57 @@ inline void draw_slices(WaveFunction<Dimension::Two>& wave, const std::string& n
     }
     catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
-    }
-}
+	    }
+	}
 
-} // namespace gpes
+    inline void save_slices(
+        WaveFunction<Dimension::Two>& wave,
+        const std::filesystem::path& output_path,
+        const std::string& name = "Wavefunction"
+    ) {
+        try {
+            const int size_x = wave.grid()->size_x();
+            const int size_y = wave.grid()->size_y();
+            const double start_x = wave.grid()->start_pos_x();
+            const double start_y = wave.grid()->start_pos_y();
+            const double step_x = wave.grid()->step_x();
+            const double step_y = wave.grid()->step_y();
+
+            std::vector<double> x_axis(size_x);
+            std::vector<double> y_axis(size_y);
+            for (int i = 0; i < size_x; ++i) {
+                x_axis[i] = start_x + i * step_x;
+            }
+            for (int j = 0; j < size_y; ++j) {
+                y_axis[j] = start_y + j * step_y;
+            }
+
+            const Eigen::VectorXd x_slice = wave.get_x_slice();
+            const Eigen::VectorXd y_slice = wave.get_y_slice();
+            std::vector<double> x_slice_vec(x_slice.data(), x_slice.data() + x_slice.size());
+            std::vector<double> y_slice_vec(y_slice.data(), y_slice.data() + y_slice.size());
+
+            if (output_path.has_parent_path()) {
+                std::filesystem::create_directories(output_path.parent_path());
+            }
+
+            plt::figure();
+            plt::plot(x_axis, x_slice_vec, "b-", {{"label", "center slice along x"}});
+            plt::plot(y_axis, y_slice_vec, "r-", {{"label", "center slice along y"}});
+            plt::title(name + " slices");
+            plt::xlabel("position", {{"fontsize", "18"}});
+            plt::ylabel("|Psi|^2", {{"fontsize", "18"}});
+            plt::grid();
+            plt::legend();
+            plt::savefig(output_path.string());
+            plt::close();
+        } catch (const std::exception& e) {
+            std::cerr << "save_slices: plotting failed: " << e.what() << "\n";
+            try {
+                plt::close();
+            } catch (...) {
+            }
+        }
+    }
+
+	} // namespace gpes
