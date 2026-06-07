@@ -14,6 +14,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(GPES_BUILD_APP "Build CLI executable" ON)
 option(GPES_ENABLE_PLOTTING "Build plotting module (Python/NumPy + matplotlib-cpp)" ON)
 option(GPES_WARNINGS "Enable -Wall -Wextra -Wpedantic" ON)
+option(GPES_ALLOW_FETCHCONTENT "Allow CMake to download missing header-only dependencies" ON)
+set(GPES_SPECTRA_SOURCE_DIR "" CACHE PATH "Use an existing Spectra source tree instead of downloading with FetchContent")
 
 # —————————————————————————————————————————
 # 3. Platform messages
@@ -32,48 +34,96 @@ endif()
 include(FetchContent)
 
 # Eigen
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(Eigen3 3.3 QUIET NO_MODULE)
+if(NOT TARGET Eigen3::Eigen)
+  find_path(EIGEN3_INCLUDE_DIR
+    NAMES Eigen/Core
+    PATH_SUFFIXES eigen3 Eigen3
+  )
+  if(NOT EIGEN3_INCLUDE_DIR)
+    message(FATAL_ERROR "Eigen3 not found. Load an Eigen module or set CMAKE_PREFIX_PATH/EIGEN3_INCLUDE_DIR.")
+  endif()
+  add_library(Eigen3::Eigen INTERFACE IMPORTED)
+  target_include_directories(Eigen3::Eigen INTERFACE "${EIGEN3_INCLUDE_DIR}")
+endif()
 
 # Spectra (header-only; depends on Eigen)
-set(BUILD_TESTS OFF CACHE BOOL "Build dependency tests" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "Build dependency examples" FORCE)
-FetchContent_Declare(
-  spectra
-  GIT_REPOSITORY https://github.com/yixuan/spectra.git
-  GIT_TAG v1.2.0
-)
-FetchContent_MakeAvailable(spectra)
-
-if(APPLE)
-  message(STATUS "Configuring for macOS (Homebrew)")
-  
-  # FFTW3 (Homebrew)
-  find_path(FFTW3_INCLUDE_DIR fftw3.h
-      PATHS /opt/homebrew/include /usr/local/include /usr/include)
-  find_library(FFTW3_LIBRARY
-      NAMES fftw3
-      PATHS /opt/homebrew/lib /usr/local/lib /usr/lib)
-  if(NOT FFTW3_INCLUDE_DIR OR NOT FFTW3_LIBRARY)
-      message(FATAL_ERROR "FFTW3 not found on macOS. Please brew install fftw")
+if(GPES_SPECTRA_SOURCE_DIR)
+  if(NOT EXISTS "${GPES_SPECTRA_SOURCE_DIR}/include/Spectra/GenEigsSolver.h")
+    message(FATAL_ERROR "GPES_SPECTRA_SOURCE_DIR does not look like a Spectra source tree: ${GPES_SPECTRA_SOURCE_DIR}")
   endif()
-  set(FFTW3_INCLUDE_DIRS ${FFTW3_INCLUDE_DIR})
-  set(FFTW3_LIBRARIES ${FFTW3_LIBRARY})
+  set(GPES_SPECTRA_INCLUDE_DIR "${GPES_SPECTRA_SOURCE_DIR}/include")
 else()
-  message(STATUS "Configuring for Linux/UNIX")
-  
-  # FFTW3 (Linux)
-  find_package(FFTW3 REQUIRED)
+  find_path(GPES_SPECTRA_INCLUDE_DIR
+    NAMES Spectra/GenEigsSolver.h
+  )
+  if(NOT GPES_SPECTRA_INCLUDE_DIR)
+    if(NOT GPES_ALLOW_FETCHCONTENT)
+      message(FATAL_ERROR "Spectra not found. Load/provide Spectra, set GPES_SPECTRA_SOURCE_DIR, or enable GPES_ALLOW_FETCHCONTENT.")
+    endif()
+    set(BUILD_TESTS OFF CACHE BOOL "Build dependency tests" FORCE)
+    set(BUILD_EXAMPLES OFF CACHE BOOL "Build dependency examples" FORCE)
+    FetchContent_Declare(
+      spectra
+      GIT_REPOSITORY https://github.com/yixuan/spectra.git
+      GIT_TAG v1.2.0
+      GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(spectra)
+    set(GPES_SPECTRA_INCLUDE_DIR "${spectra_SOURCE_DIR}/include")
+  endif()
+endif()
+
+# FFTW3: use package config/module if available, otherwise search headers/libs.
+find_package(FFTW3 QUIET)
+if(NOT TARGET FFTW3::fftw3)
+  find_path(FFTW3_INCLUDE_DIR
+    NAMES fftw3.h
+    PATHS /opt/homebrew/include /usr/local/include /usr/include
+  )
+  find_library(FFTW3_LIBRARY
+    NAMES fftw3
+    PATHS /opt/homebrew/lib /usr/local/lib /usr/lib
+  )
+  if(NOT FFTW3_INCLUDE_DIR OR NOT FFTW3_LIBRARY)
+    message(FATAL_ERROR "FFTW3 not found. Load an FFTW module or set CMAKE_PREFIX_PATH/FFTW3_INCLUDE_DIR/FFTW3_LIBRARY.")
+  endif()
+  add_library(FFTW3::fftw3 UNKNOWN IMPORTED)
+  set_target_properties(FFTW3::fftw3 PROPERTIES
+    IMPORTED_LOCATION "${FFTW3_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${FFTW3_INCLUDE_DIR}"
+  )
 endif()
 
 
-# spdlog (installed)
-# On most systems this provides spdlog::spdlog or spdlog::spdlog_header_only
-find_package(spdlog REQUIRED)
+# spdlog: prefer installed module/package, otherwise fetch it.
+find_package(spdlog QUIET)
+if(NOT TARGET spdlog::spdlog_header_only AND NOT TARGET spdlog::spdlog)
+  find_path(SPDLOG_INCLUDE_DIR
+    NAMES spdlog/spdlog.h
+  )
+  if(SPDLOG_INCLUDE_DIR)
+    add_library(spdlog::spdlog_header_only INTERFACE IMPORTED)
+    target_compile_definitions(spdlog::spdlog_header_only INTERFACE SPDLOG_HEADER_ONLY)
+    target_include_directories(spdlog::spdlog_header_only INTERFACE "${SPDLOG_INCLUDE_DIR}")
+  else()
+    if(NOT GPES_ALLOW_FETCHCONTENT)
+      message(FATAL_ERROR "spdlog not found. Load/provide spdlog or enable GPES_ALLOW_FETCHCONTENT.")
+    endif()
+    FetchContent_Declare(
+      spdlog
+      GIT_REPOSITORY https://github.com/gabime/spdlog.git
+      GIT_TAG v1.15.3
+      GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(spdlog)
+  endif()
+endif()
 
 # Only search Python if plotting is enabled
 if(GPES_ENABLE_PLOTTING)
   # Python configuration (override with -DGPES_PYTHON_ROOT / -DGPES_PYTHON_EXECUTABLE / -DGPES_PYTHON_VERSION)
-  set(GPES_PYTHON_VERSION "3.11" CACHE STRING "Preferred Python version for plotting")
+  set(GPES_PYTHON_VERSION "" CACHE STRING "Preferred Python version for plotting; empty means use loaded/default Python3")
   set(GPES_PYTHON_ROOT "" CACHE PATH "Preferred Python root directory")
   set(GPES_PYTHON_EXECUTABLE "" CACHE FILEPATH "Preferred Python executable")
 
@@ -92,7 +142,11 @@ if(GPES_ENABLE_PLOTTING)
     set(Python3_EXECUTABLE "${GPES_PYTHON_EXECUTABLE}")
   endif()
 
-  find_package(Python3 ${GPES_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development NumPy)
+  if(GPES_PYTHON_VERSION)
+    find_package(Python3 ${GPES_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development NumPy)
+  else()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development NumPy)
+  endif()
 
   message(STATUS "Python executable: ${Python3_EXECUTABLE}")
   message(STATUS "Python include directory: ${Python3_INCLUDE_DIRS}")
@@ -130,23 +184,10 @@ target_link_libraries(gpes PUBLIC Eigen3::Eigen)
 
 # Link Spectra
 target_include_directories(gpes PUBLIC
-    ${spectra_SOURCE_DIR}/include
+    ${GPES_SPECTRA_INCLUDE_DIR}
 )
 # Link FFTW3 (handle both "target" and "variables" styles)
-if(TARGET FFTW3::fftw3)
-  target_link_libraries(gpes PUBLIC FFTW3::fftw3)
-else()
-  # Common variables exported by FindFFTW3.cmake:
-  # FFTW3_LIBRARIES, FFTW3_INCLUDE_DIRS
-  if(FFTW3_INCLUDE_DIRS)
-    target_include_directories(gpes PUBLIC ${FFTW3_INCLUDE_DIRS})
-  endif()
-  if(FFTW3_LIBRARIES)
-    target_link_libraries(gpes PUBLIC ${FFTW3_LIBRARIES})
-  else()
-    message(FATAL_ERROR "FFTW3 found but no FFTW3::fftw3 target and no FFTW3_LIBRARIES provided.")
-  endif()
-endif()
+target_link_libraries(gpes PUBLIC FFTW3::fftw3)
 
 # Link spdlog (prefer header_only if available, else compiled target)
 if(TARGET spdlog::spdlog_header_only)
