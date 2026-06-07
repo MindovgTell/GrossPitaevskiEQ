@@ -108,6 +108,7 @@ namespace gpes::tags {
 // algorithms
 struct CrankNicolson {};
 struct SSFM {};
+struct BdG {};
 
 // // in future could be added boundary conditions, actually support only Dirichlet
 // struct Dirichlet {};
@@ -132,6 +133,13 @@ struct algo_traits<tags::SSFM> {
     static constexpr bool implicit = false;
     static constexpr bool requires_fft = true;
     static constexpr std::string_view name() { return "Split-Step Fourier (SSFM)"; }
+};
+
+template <>
+struct algo_traits<tags::BdG> {
+    static constexpr bool implicit = false;
+    static constexpr bool requires_fft = true;
+    static constexpr std::string_view name() { return "Bogoliubov-de Gennes"; }
 };
 
 } // namespace gpes

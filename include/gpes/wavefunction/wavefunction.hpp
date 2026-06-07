@@ -24,7 +24,7 @@ class WaveFunction;
 template<>
 class WaveFunction<Dimension::One> {
 
-public: 
+public:
     using VectorType = Eigen::VectorXcd;
     using Scalar     = VectorType::Scalar;
     using ShrdPtrGridDim1 = std::shared_ptr<const Grid<Dimension::One>>;
@@ -36,7 +36,7 @@ private:
     ShrdPtrGridDim1 gridptr_;
 
 public:
-    WaveFunction() = default; 
+    WaveFunction() = default;
 
     explicit WaveFunction(ShrdPtrGridDim1 grid) : gridptr_(std::move(grid)) {
         if (!gridptr_) throw std::runtime_error("WaveFunction needs a grid");
@@ -59,7 +59,7 @@ public:
     const ShrdPtrGridDim1& grid() const { return gridptr_; }
 
     // Destructor
-    ~WaveFunction() = default; 
+    ~WaveFunction() = default;
 
     //Overloaded operators
     Scalar& operator()(int i) { return data_(i); }
@@ -119,15 +119,15 @@ inline double WaveFunction<Dimension::One>::square_func(double x, unsigned int N
 
     if(out > 0)
         return high;
-    else 
+    else
         return 0;
-    
+
 }
 
 inline std::complex<double> WaveFunction<Dimension::One>::gauss_wave_packet(double sigma_x,  double x,  double x_c){
     // std::complex<double> i(0, 1); // Define the imaginary unit
     double exponent = -(pow(x-x_c,2) / (2 * pow(sigma_x,2))); //this->m_size/2 //-x_c
-    //std::complex<double> phase = i * p_x * (x - x_c); 
+    //std::complex<double> phase = i * p_x * (x - x_c);
     return std::exp(exponent); //+ phase
 }
 
@@ -137,7 +137,7 @@ inline double WaveFunction<Dimension::One>::thomas_fermi_state(double x,  unsign
     double out = potential * (1 - std::pow(x/R_tf,2.));
     if(out > 0)
         return std::sqrt(out);
-    else 
+    else
         return 0;
 }
 
@@ -216,7 +216,7 @@ inline void WaveFunction<Dimension::One>::set_state_Gauss(double x_c, double sig
 
     std::complex<double> normalization_factor = std::sqrt(Num) / std::sqrt(psum * step);
     data_ = U * std::abs(normalization_factor);
-} 
+}
 
 // Returning the probability density vector
 inline Eigen::VectorXd WaveFunction<Dimension::One>::prob(Eigen::VectorXcd &vec) {
@@ -245,7 +245,7 @@ inline void WaveFunction<Dimension::One>::normalize(Eigen::VectorXcd &vec, unsig
     for(int i = 0; i < size; ++i){
         psum += std::norm(vec(i));
     }
-    std::complex<double> normalization_factor = std::sqrt(Num) / std::sqrt(psum * step); // 
+    std::complex<double> normalization_factor = std::sqrt(Num) / std::sqrt(psum * step); //
     vec *= std::abs(normalization_factor);
 }
 
@@ -259,7 +259,7 @@ inline void WaveFunction<Dimension::One>::normalize(Eigen::VectorXcd &vec, unsig
 
 template<>
 class WaveFunction<Dimension::Two> {
-public: 
+public:
     using VectorType = Eigen::VectorXcd;
     using Scalar = VectorType::Scalar;
     using ShrdPtrGrid = std::shared_ptr<const Grid<Dimension::Two>>;
@@ -272,8 +272,8 @@ private:
 
 public:
 
-    // Constructors 
-    WaveFunction() = default; 
+    // Constructors
+    WaveFunction() = default;
 
     explicit WaveFunction(ShrdPtrGrid grid): gridptr_(std::move(grid)) {
         if (!gridptr_) throw std::runtime_error("WaveFunction needs a grid");
@@ -282,11 +282,13 @@ public:
         data_   = VectorType::Zero(sx * sy);
     }
 
-    WaveFunction(ShrdPtrGrid grid, VectorType& vec): data_(vec), gridptr_(std::move(grid)){
+    WaveFunction(ShrdPtrGrid grid, VectorType vec): data_(std::move(vec)), gridptr_(std::move(grid)){
         if (!gridptr_) throw std::runtime_error("WaveFunction needs a grid");
         int sx = gridptr_->size_x();
         int sy = gridptr_->size_y();
-        data_   = VectorType::Zero(sx * sy);
+        if (data_.size() != sx * sy) {
+            throw std::runtime_error("WaveFunction vector size does not match grid size");
+        }
     }
 
     // Copy and Move constructors
@@ -300,7 +302,7 @@ public:
     const ShrdPtrGrid& grid() const { return gridptr_; }
 
     // Destructor
-    ~WaveFunction() = default; 
+    ~WaveFunction() = default;
 
     //Overloaded operators
     Scalar& operator()(int i) { return data_(i); }
@@ -314,16 +316,16 @@ public:
     WaveFunction& operator*=(double a) {
         data_ *= a;
         return *this;
-    } 
+    }
 
 
     // TODO: overload few more operators for using wavefunction almost as eigen Vector
 
-    int get_index(int i, int j){ 
+    int get_index(int i, int j){
         int sy = gridptr_->size_y();
-        return i*sy + j; 
+        return i*sy + j;
     }
-    
+
     //Thomas-Fermi anzats
     double thomas_fermi_radius_x(const double &wx, const double &wy, unsigned int _Num);
     double thomas_fermi_radius_y(const double &wx, const double &wy, unsigned int _Num);
@@ -338,10 +340,10 @@ public:
     void set_state_Gauss(double x_c, double y_c, double sigma_x, double sigma_y, unsigned int number_of_prt);
     void set_state_GaussSum(const std::vector<GaussianComponent>& components, unsigned int number_of_prt);
 
-    void set_vec(Eigen::VectorXcd& vec) {   
+    void set_vec(Eigen::VectorXcd& vec) {
         int sx = gridptr_->size_x();
         int sy = gridptr_->size_y();
-        if(vec.size() == sx * sy) 
+        if(vec.size() == sx * sy)
             data_ = vec;
     }
 
@@ -415,12 +417,27 @@ inline WaveFunction<Dimension::Two>::VectorType WaveFunction<Dimension::Two>::ff
 
     VectorType shifted(size);
 
+    const double start_x = gridptr_->start_pos_x();
+    const double start_y = gridptr_->start_pos_y();
+    const double dx = gridptr_->step_x();
+    const double dy = gridptr_->step_y();
+    const double Lx = static_cast<double>(sx) * dx;
+    const double Ly = static_cast<double>(sy) * dy;
+    const double dkx = 2.0 * M_PI / Lx;
+    const double dky = 2.0 * M_PI / Ly;
+
     for (int i = 0; i < sx; ++i) {
+        const int qx = (i <= sx / 2) ? i : i - sx;
+        const double kx = dkx * static_cast<double>(qx);
         for (int j = 0; j < sy; ++j) {
+            const int qy = (j <= sy / 2) ? j : j - sy;
+            const double ky = dky * static_cast<double>(qy);
             const int shifted_i = (i + sx / 2) % sx;
             const int shifted_j = (j + sy / 2) % sy;
+            const std::complex<double> origin_phase =
+                std::exp(std::complex<double>(0.0, -(kx * start_x + ky * start_y)));
 
-            shifted(get_index(shifted_i, shifted_j)) = raw(get_index(i, j));
+            shifted(get_index(shifted_i, shifted_j)) = origin_phase * raw(get_index(i, j));
         }
     }
 
@@ -453,11 +470,11 @@ inline double WaveFunction<Dimension::Two>::thomas_fermi_state(double x, double 
     R_x = thomas_fermi_radius_x(wx, wy, number_of_prt);
     R_y = thomas_fermi_radius_y(wx, wy, number_of_prt);
 
-    out = chem_potential(wx, wy, number_of_prt) * (1 - std::pow(x/R_x, 2.) - std::pow(y/R_y, 2.)); // 
+    out = chem_potential(wx, wy, number_of_prt) * (1 - std::pow(x/R_x, 2.) - std::pow(y/R_y, 2.)); //
 
     if (out > 0)
         return std::sqrt(out);
-    else 
+    else
         return 0;
 }
 
@@ -501,7 +518,7 @@ inline Eigen::VectorXcd WaveFunction<Dimension::Two>::TF_state(unsigned int numb
     return U;
 }
 
-// Function for initializing wave function in Thomas-Fermi limit without ddi 
+// Function for initializing wave function in Thomas-Fermi limit without ddi
 inline void WaveFunction<Dimension::Two>::set_state_TF(double x_c, double y_c, unsigned int number_of_prt){
 
     int sizex = gridptr_->size_x();
@@ -516,10 +533,10 @@ inline void WaveFunction<Dimension::Two>::set_state_TF(double x_c, double y_c, u
     int size = sizex * sizey;
     Eigen::VectorXcd U(size);
     std::complex<double> psum = 0;
-    
+
     for(int i = 0; i < sizex; ++i){
         double x = startx + i * stepx;
-        
+
         for(int j = 0; j < sizey; ++j){
             double y = starty + j * stepy;
             //Initial state function
@@ -535,7 +552,7 @@ inline void WaveFunction<Dimension::Two>::set_state_TF(double x_c, double y_c, u
     data_ = U;
 }
 
-// Function for initializing wave function in Thomas-Fermi limit without ddi 
+// Function for initializing wave function in Thomas-Fermi limit without ddi
 inline void WaveFunction<Dimension::Two>::set_state_Gauss(double x_c, double y_c, double sigma_x, double sigma_y, unsigned int number_of_prt){
 
     int sizex = gridptr_->size_x();
@@ -617,7 +634,7 @@ inline void WaveFunction<Dimension::Two>::set_state_GaussSum(
     data_ = U;
 }
 
-            
+
 
 // Returning the probability density vector
 inline Eigen::VectorXd WaveFunction<Dimension::Two>::prob(Eigen::VectorXcd &vec){
@@ -644,9 +661,9 @@ inline double WaveFunction<Dimension::Two>::prob(int index){
     int sizex =  gridptr_->size_x();
     int sizey =  gridptr_->size_y();
     int size = sizex * sizey;
-    if(index > 0 && index < size)
+    if(index >= 0 && index < size)
         return std::norm(data_(index));
-    else 
+    else
         return 0;
 }
 
@@ -672,5 +689,8 @@ inline Eigen::VectorXd WaveFunction<Dimension::Two>::get_y_slice(){
     }
     return slice;
 }
+
+
+
 
 } // end of the namespace

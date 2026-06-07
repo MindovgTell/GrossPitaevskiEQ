@@ -1,55 +1,13 @@
-#ifndef DIPOLEINTERACTION_HPP
-#define DIPOLEINTERACTION_HPP
+#pragma once
 
 #include <fftw3.h>
 #include <Eigen/Dense>
+#include <memory>
+
+#include "Core/definitions.hpp"
+#include "grid/grid.hpp"
 
 namespace gpes {
-
-    // Functions for calculating dipole dipole interaction potential without usage of DFT
-    // double calc_V_1dd(double x, double V_dd, double w_ratio){
-    //     double V;
-    //     double xi = std::abs(x) / w_ratio;
-    //     double xi2 = xi*xi;
-    //     double alfa = std::abs(xi) / (std::sqrt(2.0));
-    //     double sqalfa = 0.5 * xi2;
-    //     if (xi2 / 2.0 < 700.0){
-    //         double erfc_val = std::erfc(alfa);
-    //         double exp_val = std::exp(sqalfa);
-    //         V = V_dd * (2.0 * std::abs(xi) - (std::sqrt(2.0 * M_PI) * (1.0 + xi2) * exp_val * erfc_val));
-    //     } 
-    //     else 
-    //         V = V_dd * 4 / std::pow(xi,3);
-    //     if(std::isnan(V)) std::cout << x << '\t' << xi<< '\t'  << xi2 << '\t' << alfa << '\t' << sqalfa<< '\t' << std::endl;
-    //     return V;
-    // }   
-    // std::vector<double> calculate_DDI_not_FFT(
-    //     const gpes::Grid<Dimension::One> &grid,
-    //     const gpes::WaveFunction<Dimension::One> &vec
-    //     ) {
-    //     int size = vec.size(); //vec
-    //     std::vector<double> U(size, 0.0);
-    //     double start = grid.start_pos();
-    //     double step  = grid.step();
-    //     double V_dd = vec.get_V_dd();
-    //     double w_ratio = grid.get_omega() / grid.get_omega_t();
-    //     for (int i = 0; i < size; ++i) {
-    //         double x = start + step * i; 
-    //         double Sum = 0.0;
-    //         for(int j = 0; j < size; ++j){
-    //             double x_prime = start + step * j;          
-    //             double dist = std::abs(x-x_prime);
-    //             double V_1d = calc_V_1dd(dist);
-    //             Sum += V_1d * std::norm(vec(j)) * step;
-    //         }
-    //         // if(std::isnan(Sum)) std::cout << vec(i) << '\t';
-    //         U[i] = Sum;
-    //     }
-    //     // std::cout << std::endl;
-    //     return U;
-    // }
-
-
 
     template <Dimension Dim>
     class DipolarInteraction;
@@ -171,169 +129,467 @@ namespace gpes {
 //********************************/***********/********************************//
 //********************************/***********/********************************//
 
-    template <>
+    template<>
     class DipolarInteraction<Dimension::Two> {
     public:
         inline static constexpr Dimension Dim = Dimension::Two;
         using ShrdPtrGrid = std::shared_ptr<const Grid<Dim>>;
 
     private:
-        int Nx, Ny;
-        int Nx_pad, Ny_pad;
-        double Lx, Ly;
-        double Lx_pad, Ly_pad;
-        double dx, dy;
-        double lz;
-        double V_dd;
-        
-        // FFTW plans and arrays
-        fftw_plan plan_forward, plan_backward;
-        double* density_real;
-        fftw_complex* density_fourier;
-        fftw_complex* potential_fourier;
-        double* potential_real;
-        
-        // Precomputed U_tilde
+        int Nx = 0;
+        int Ny = 0;
+        int Nx_pad = 0;
+        int Ny_pad = 0;
+        int Nk_y = 0;
+
+        double Lx = 0.0;
+        double Ly = 0.0;
+        double Lx_pad = 0.0;
+        double Ly_pad = 0.0;
+        double dx = 0.0;
+        double dy = 0.0;
+        double lz = 0.0;
+        double V_dd = 0.0;
+
+        fftw_plan plan_forward = nullptr;
+        fftw_plan plan_backward = nullptr;
+
+        double* source_real = nullptr;
+        fftw_complex* source_fourier = nullptr;
+        fftw_complex* potential_fourier = nullptr;
+        double* potential_real = nullptr;
+
         Eigen::MatrixXd U_tilde;
 
-
     public:
-
-        DipolarInteraction(ShrdPtrGrid grid, double confinement_length, double interaction_strength) : 
-            Nx(grid->size_x()),
-            Ny(grid->size_y()),
+        DipolarInteraction(
+            ShrdPtrGrid grid,
+            double confinement_length,
+            double interaction_strength
+        ) :
+            Nx(static_cast<int>(grid->size_x())),
+            Ny(static_cast<int>(grid->size_y())),
             Nx_pad(2 * Nx),
             Ny_pad(2 * Ny),
+            Nk_y(Ny_pad / 2 + 1),
             dx(grid->step_x()),
             dy(grid->step_y()),
             lz(confinement_length),
             V_dd(interaction_strength)
         {
-            Lx = Nx * dx;
-            Ly = Ny * dy;
-            Lx_pad = Nx_pad * dx;
-            Ly_pad = Ny_pad * dy;
-            
-            // Zero-padding removes periodic-image coupling in the trap region.
-            density_real        =   (double*)fftw_malloc(sizeof(double) * Nx_pad * Ny_pad);
-            density_fourier     =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx_pad * (Ny_pad/2 + 1));
-            potential_fourier   =   (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * Nx_pad * (Ny_pad/2 + 1));
-            potential_real      =   (double*)fftw_malloc(sizeof(double) * Nx_pad * Ny_pad);
-            
-            // Create FFTW plans
-            plan_forward        =   fftw_plan_dft_r2c_2d(Nx_pad, Ny_pad, density_real, density_fourier, FFTW_MEASURE);
-            plan_backward       =   fftw_plan_dft_c2r_2d(Nx_pad, Ny_pad, potential_fourier, potential_real, FFTW_MEASURE);
-            
-            // Precompute U_tilde
+            if (!grid) {
+                throw std::runtime_error("DipolarInteraction<Dimension::Two>: grid is null");
+            }
+
+            if (Nx <= 0 || Ny <= 0) {
+                throw std::invalid_argument("DipolarInteraction<Dimension::Two>: grid sizes must be positive");
+            }
+
+            if (!std::isfinite(dx) || dx == 0.0 ||
+                !std::isfinite(dy) || dy == 0.0) {
+                throw std::invalid_argument("DipolarInteraction<Dimension::Two>: grid steps must be finite and non-zero");
+            }
+
+            if (!std::isfinite(lz) || lz <= 0.0) {
+                throw std::invalid_argument("DipolarInteraction<Dimension::Two>: confinement length must be positive and finite");
+            }
+
+            if (!std::isfinite(V_dd)) {
+                throw std::invalid_argument("DipolarInteraction<Dimension::Two>: V_dd must be finite");
+            }
+
+            Lx = static_cast<double>(Nx) * dx;
+            Ly = static_cast<double>(Ny) * dy;
+
+            Lx_pad = static_cast<double>(Nx_pad) * dx;
+            Ly_pad = static_cast<double>(Ny_pad) * dy;
+
+            allocate_fftw();
             precompute_U_tilde();
         }
-        
+
         ~DipolarInteraction() {
-            fftw_destroy_plan(plan_forward);
-            fftw_destroy_plan(plan_backward);
-            fftw_free(density_real);
-            fftw_free(density_fourier);
-            fftw_free(potential_fourier);
-            fftw_free(potential_real);
+            destroy_fftw();
         }
 
-        inline double F_perp(double q) {
-            double answ; 
-            double q2 = q*q;
+        DipolarInteraction(const DipolarInteraction&) = delete;
+        DipolarInteraction& operator=(const DipolarInteraction&) = delete;
+
+        DipolarInteraction(DipolarInteraction&&) = delete;
+        DipolarInteraction& operator=(DipolarInteraction&&) = delete;
+
+        // -------------------------------------------------------------------------
+        // Main GPE API:
+        //
+        //     Phi_DDI = U_dd * |psi|^2
+        //
+        // -------------------------------------------------------------------------
+        void compute_DDI_term(
+            const Eigen::VectorXcd& psi,
+            Eigen::VectorXd& Phi_DDI
+        ) {
+            validate_complex_field(psi, "compute_DDI_term");
+
+            Eigen::VectorXd density(Nx * Ny);
+
+            for (int i = 0; i < Nx * Ny; ++i) {
+                density(i) = std::norm(psi(i));
+            }
+
+            compute_DDI_from_real_source(density, Phi_DDI);
+        }
+
+        // -------------------------------------------------------------------------
+        // Real-source convolution:
+        //
+        //     Phi_DDI = U_dd * source
+        //
+        // -------------------------------------------------------------------------
+        void compute_DDI_from_real_source(
+            const Eigen::VectorXd& source,
+            Eigen::VectorXd& Phi_DDI
+        ) {
+            validate_real_field(source, "compute_DDI_from_real_source");
+
+            clear_source();
+
+            for (int i = 0; i < Nx; ++i) {
+                for (int j = 0; j < Ny; ++j) {
+                    const int index = get_index(i, j);
+                    const int pindex = get_padded_index(i, j);
+
+                    source_real[pindex] = source(index);
+                }
+            }
+
+            fftw_execute(plan_forward);
+
+            multiply_kernel();
+
+            fftw_execute(plan_backward);
+
+            copy_real_output(Phi_DDI);
+        }
+
+        // -------------------------------------------------------------------------
+        // Complex-source convolution:
+        //
+        //     Phi_DDI = U_dd * source
+        //
+        // This is needed for BdG because the linearized density perturbation
+        //
+        //     delta_n = conj(psi0) * u + psi0 * v
+        //
+        // is complex in general.
+        //
+        // This implementation reuses the real r2c/c2r FFTW plans twice:
+        // one convolution for Re(source), one for Im(source).
+        // -------------------------------------------------------------------------
+        void compute_DDI_from_complex_source(
+            const Eigen::VectorXcd& source,
+            Eigen::VectorXcd& Phi_DDI
+        ) {
+            validate_complex_field(source, "compute_DDI_from_complex_source");
+
+            Eigen::VectorXd source_re(Nx * Ny);
+            Eigen::VectorXd source_im(Nx * Ny);
+
+            for (int i = 0; i < Nx * Ny; ++i) {
+                source_re(i) = source(i).real();
+                source_im(i) = source(i).imag();
+            }
+
+            Eigen::VectorXd phi_re;
+            Eigen::VectorXd phi_im;
+
+            compute_DDI_from_real_source(source_re, phi_re);
+            compute_DDI_from_real_source(source_im, phi_im);
+
+            Phi_DDI.resize(Nx * Ny);
+
+            for (int i = 0; i < Nx * Ny; ++i) {
+                Phi_DDI(i) = std::complex<double>(phi_re(i), phi_im(i));
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // BdG convenience API:
+        //
+        //     delta_Phi_DDI = U_dd * delta_n
+        //
+        // where
+        //
+        //     delta_n = conj(psi0) * u + psi0 * v
+        //
+        // -------------------------------------------------------------------------
+        void compute_BdG_DDI_response(
+            const Eigen::VectorXcd& psi0,
+            const Eigen::VectorXcd& u,
+            const Eigen::VectorXcd& v,
+            Eigen::VectorXcd& delta_Phi_DDI
+        ) {
+            validate_complex_field(psi0, "compute_BdG_DDI_response: psi0");
+            validate_complex_field(u, "compute_BdG_DDI_response: u");
+            validate_complex_field(v, "compute_BdG_DDI_response: v");
+
+            Eigen::VectorXcd delta_density(Nx * Ny);
+
+            for (int i = 0; i < Nx * Ny; ++i) {
+                delta_density(i) = std::conj(psi0(i)) * u(i) + psi0(i) * v(i);
+            }
+
+            compute_DDI_from_complex_source(delta_density, delta_Phi_DDI);
+        }
+
+        // Optional helper if you want to explicitly build the BdG perturbation.
+        Eigen::VectorXcd compute_BdG_density_perturbation(
+            const Eigen::VectorXcd& psi0,
+            const Eigen::VectorXcd& u,
+            const Eigen::VectorXcd& v
+        ) const {
+            validate_complex_field(psi0, "compute_BdG_density_perturbation: psi0");
+            validate_complex_field(u, "compute_BdG_density_perturbation: u");
+            validate_complex_field(v, "compute_BdG_density_perturbation: v");
+
+            Eigen::VectorXcd delta_density(Nx * Ny);
+
+            for (int i = 0; i < Nx * Ny; ++i) {
+                delta_density(i) = std::conj(psi0(i)) * u(i) + psi0(i) * v(i);
+            }
+
+            return delta_density;
+        }
+
+    private:
+        int get_index(int i, int j) const {
+            return i * Ny + j;
+        }
+
+        int get_padded_index(int i, int j) const {
+            return i * Ny_pad + j;
+        }
+
+        int get_fourier_index(int i, int j) const {
+            return i * Nk_y + j;
+        }
+
+        void allocate_fftw() {
+            const int real_size = Nx_pad * Ny_pad;
+            const int fourier_size = Nx_pad * Nk_y;
+
+            source_real = static_cast<double*>(
+                fftw_malloc(sizeof(double) * real_size)
+            );
+
+            source_fourier = static_cast<fftw_complex*>(
+                fftw_malloc(sizeof(fftw_complex) * fourier_size)
+            );
+
+            potential_fourier = static_cast<fftw_complex*>(
+                fftw_malloc(sizeof(fftw_complex) * fourier_size)
+            );
+
+            potential_real = static_cast<double*>(
+                fftw_malloc(sizeof(double) * real_size)
+            );
+
+            if (!source_real || !source_fourier || !potential_fourier || !potential_real) {
+                destroy_fftw();
+                throw std::runtime_error("DipolarInteraction<Dimension::Two>: FFTW allocation failed");
+            }
+
+            plan_forward = fftw_plan_dft_r2c_2d(
+                Nx_pad,
+                Ny_pad,
+                source_real,
+                source_fourier,
+                FFTW_MEASURE
+            );
+
+            plan_backward = fftw_plan_dft_c2r_2d(
+                Nx_pad,
+                Ny_pad,
+                potential_fourier,
+                potential_real,
+                FFTW_MEASURE
+            );
+
+            if (!plan_forward || !plan_backward) {
+                destroy_fftw();
+                throw std::runtime_error("DipolarInteraction<Dimension::Two>: FFTW plan creation failed");
+            }
+        }
+
+        void destroy_fftw() {
+            if (plan_forward) {
+                fftw_destroy_plan(plan_forward);
+                plan_forward = nullptr;
+            }
+
+            if (plan_backward) {
+                fftw_destroy_plan(plan_backward);
+                plan_backward = nullptr;
+            }
+
+            if (source_real) {
+                fftw_free(source_real);
+                source_real = nullptr;
+            }
+
+            if (source_fourier) {
+                fftw_free(source_fourier);
+                source_fourier = nullptr;
+            }
+
+            if (potential_fourier) {
+                fftw_free(potential_fourier);
+                potential_fourier = nullptr;
+            }
+
+            if (potential_real) {
+                fftw_free(potential_real);
+                potential_real = nullptr;
+            }
+        }
+
+        void clear_source() {
+            std::fill(
+                source_real,
+                source_real + Nx_pad * Ny_pad,
+                0.0
+            );
+        }
+
+        void multiply_kernel() {
+        for (int i = 0; i < Nx_pad; ++i) {
+            for (int j = 0; j < Nk_y; ++j) {
+                const int k = get_fourier_index(i, j);
+                const double U = U_tilde(i, j);
+
+                potential_fourier[k][0] = U * source_fourier[k][0];
+                potential_fourier[k][1] = U * source_fourier[k][1];
+            }
+        }
+    }
+
+        void copy_real_output(Eigen::VectorXd& Phi_DDI) const {
+            Phi_DDI.resize(Nx * Ny);
+
+            const double norm = static_cast<double>(Nx_pad * Ny_pad);
+
+            for (int i = 0; i < Nx; ++i) {
+                for (int j = 0; j < Ny; ++j) {
+                    const int index = get_index(i, j);
+                    const int pindex = get_padded_index(i, j);
+
+                    Phi_DDI(index) = potential_real[pindex] / norm;
+                }
+            }
+        }
+
+        void validate_real_field(
+            const Eigen::VectorXd& field,
+            const char* where
+        ) const {
+            if (field.size() != Nx * Ny) {
+                throw std::invalid_argument(
+                    std::string("DipolarInteraction<Dimension::Two>::") +
+                    where +
+                    ": field size mismatch"
+                );
+            }
+        }
+
+        void validate_complex_field(
+            const Eigen::VectorXcd& field,
+            const char* where
+        ) const {
+            if (field.size() != Nx * Ny) {
+                throw std::invalid_argument(
+                    std::string("DipolarInteraction<Dimension::Two>::") +
+                    where +
+                    ": field size mismatch"
+                );
+            }
+        }
+
+        double F_perp(double q) const {
+            const double q2 = q * q;
+
             if (q2 < 700.0) {
-                double erfc_val = std::erfc(q);
-                double exp_val = std::exp(q2);
-                answ = 2.0 - 3.0 * SQRT_PI * q * exp_val * erfc_val;
-            } 
-            else 
-                answ = -1.0;
-            if(std::isnan(answ)) std::cout << "F_perp is nan: "<< q << std::endl;
-            return answ;
-        } 
-        
-        inline double F_parallel(double q_x, double q_y) {
-            double q = std::sqrt(q_x*q_x + q_y*q_y);
+                const double erfc_val = std::erfc(q);
+                const double exp_val = std::exp(q2);
+
+                const double answ =
+                    2.0 - 3.0 * SQRT_PI * q * exp_val * erfc_val;
+
+                if (!std::isfinite(answ)) {
+                    throw std::runtime_error("DipolarInteraction<Dimension::Two>::F_perp produced non-finite value");
+                }
+
+                return answ;
+            }
+
+            return -1.0;
+        }
+
+        double F_parallel(double q_x, double q_y) const {
+            const double q = std::sqrt(q_x * q_x + q_y * q_y);
+
             if (q == 0.0) {
                 return -1.0;
             }
-            
-            double q2 = q*q;
-            double answ;
+
+            const double q2 = q * q;
+
             if (q2 < 700.0) {
-                double erfc_val = std::erfc(q);
-                double exp_val = std::exp(q2);
-                answ = -1.0 + 3.0 * SQRT_PI * (q_x * q_x / q) * exp_val * erfc_val;
-            } 
-            else 
-                answ = 2.0;
+                const double erfc_val = std::erfc(q);
+                const double exp_val = std::exp(q2);
 
-            if(std::isnan(answ)) std::cout << "F_perp is nan: "<< q << std::endl;
-            return answ;
+                const double answ =
+                    -1.0 + 3.0 * SQRT_PI * (q_x * q_x / q) * exp_val * erfc_val;
+
+                if (!std::isfinite(answ)) {
+                    throw std::runtime_error("DipolarInteraction<Dimension::Two>::F_parallel produced non-finite value");
+                }
+
+                return answ;
+            }
+
+            return 2.0;
         }
-        void precompute_U_tilde() {
-            U_tilde.resize(Nx_pad, Ny_pad/2 + 1);
-            
-            for (int i = 0; i < Nx_pad; ++i) {
-                double kx = (i < Nx_pad/2) ? (2.0 * M_PI * i / Lx_pad) : (2.0 * M_PI * (i - Nx_pad) / Lx_pad);
-                for (int j = 0; j < Ny_pad/2 + 1; ++j) {
-                    double ky = 2.0 * M_PI * j / Ly_pad;
 
-                    // const double q_x = kx * lz / SQRT2;
-                    // const double q_y = ky * lz / SQRT2;
-                    // U_tilde(i,j) = V_dd * F_parallel(q_x, q_y);
+        void precompute_U_tilde() {
+            U_tilde.resize(Nx_pad, Nk_y);
+
+            for (int i = 0; i < Nx_pad; ++i) {
+                const double kx =
+                    (i < Nx_pad / 2)
+                        ? (2.0 * M_PI * static_cast<double>(i) / Lx_pad)
+                        : (2.0 * M_PI * static_cast<double>(i - Nx_pad) / Lx_pad);
+
+                for (int j = 0; j < Nk_y; ++j) {
+                    const double ky =
+                        2.0 * M_PI * static_cast<double>(j) / Ly_pad;
 
                     const double k_perp = std::sqrt(kx * kx + ky * ky);
-                    const double kappa = k_perp * lz / SQRT2;
+
                     if (k_perp == 0.0) {
-                        U_tilde(i,j) = 2.0 * V_dd;
+                        U_tilde(i, j) = 2.0 * V_dd;
                     } else {
-                        U_tilde(i,j) = V_dd * F_perp(kappa);
+                        const double kappa = k_perp * lz / SQRT2;
+                        U_tilde(i, j) = V_dd * F_perp(kappa);
                     }
+
+                    // If you later want in-plane polarization, replace the block
+                    // above with something like:
+                    //
+                    // const double q_x = kx * lz / SQRT2;
+                    // const double q_y = ky * lz / SQRT2;
+                    // U_tilde(i, j) = V_dd * F_parallel(q_x, q_y);
                 }
             }
         }
-        
-        void compute_DDI_term(const Eigen::VectorXcd& psi, Eigen::VectorXd& Phi_DDI) {
-            // Copy |psi|^2 to real array
-
-            assert(psi.size() == Nx * Ny && "psi dimensions must match Nx x Ny");
-
-            std::fill(density_real, density_real + (Nx_pad * Ny_pad), 0.0);
-
-            for (int i = 0; i < Nx; ++i) {
-                for (int j = 0; j < Ny; ++j) {
-                    int index = i * Ny + j;
-                    density_real[i * Ny_pad + j] = std::norm(psi(index));
-                }
-            }
-            
-            // Forward FFT
-            fftw_execute(plan_forward);
-            
-            // Multiply by U_tilde in Fourier space
-            for (int i = 0; i < Nx_pad; ++i) {
-                for (int j = 0; j < Ny_pad/2 + 1; ++j) {
-                    potential_fourier[i * (Ny_pad/2 + 1) + j][0] =
-                        U_tilde(i, j) * density_fourier[i * (Ny_pad/2 + 1) + j][0];
-                    potential_fourier[i * (Ny_pad/2 + 1) + j][1] =
-                        U_tilde(i, j) * density_fourier[i * (Ny_pad/2 + 1) + j][1];
-                }
-            }
-            
-            // Inverse FFT
-            fftw_execute(plan_backward);
-            
-            // Copy result to Eigen matrix and normalize
-            Phi_DDI.resize(Nx * Ny);
-            for (int i = 0; i < Nx; ++i) {
-                for (int j = 0; j < Ny; ++j) {
-                    Phi_DDI(i * Ny + j) = potential_real[i * Ny_pad + j] / (Nx_pad * Ny_pad); // * (dx * dy) 
-                }
-            }
-        } 
 
     };
-
-
 }
-#endif

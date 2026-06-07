@@ -47,6 +47,28 @@ inline bool is_comment_or_empty(const std::string& line) {
 
 } // namespace detail
 
+inline std::vector<std::filesystem::path> findWavefunctionCsvFiles(const std::filesystem::path& folderPath)
+{
+    std::vector<std::filesystem::path> results;
+
+    if (!std::filesystem::exists(folderPath)) {
+        throw std::runtime_error("Folder does not exist: " + folderPath.string());
+    }
+
+    if (!std::filesystem::is_directory(folderPath)) {
+        throw std::runtime_error("Path is not a directory: " + folderPath.string());
+    }
+
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(folderPath)) {
+        if (entry.is_regular_file() &&
+            entry.path().filename() == "wavefunction.csv") {
+            results.push_back(entry.path());
+        }
+    }
+
+    return results;
+}
+
 inline void save_wavefunction_csv(
     const WaveFunction<Dimension::One>& psi,
     const std::filesystem::path& filepath

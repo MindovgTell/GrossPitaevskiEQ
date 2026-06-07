@@ -13,7 +13,7 @@
 
 namespace gpes::solvers::experimental {
 
-struct SpectralEnergyTerms {
+struct SystemEnergy {
     double kinetic = 0.0;
     double potential = 0.0;
     double contact = 0.0;
@@ -32,7 +32,7 @@ inline double trap_weight_1d(int i, int size) {
     return (i == 0 || i == size - 1) ? 0.5 : 1.0;
 }
 
-inline SpectralEnergyTerms energy_1d(
+inline SystemEnergy energy_1d(
     const Grid<Dimension::One>& grid,
     const Eigen::VectorXcd& psi,
     const PhysConfig& phys,
@@ -49,7 +49,7 @@ inline SpectralEnergyTerms energy_1d(
         throw std::invalid_argument("energy_1d: invalid grid");
     }
 
-    SpectralEnergyTerms out;
+    SystemEnergy out;
     const double dx = grid.step();
     const double L = static_cast<double>(n) * dx;
     const double dk = 2.0 * M_PI / L;
@@ -83,7 +83,7 @@ inline SpectralEnergyTerms energy_1d(
     return out;
 }
 
-inline SpectralEnergyTerms energy_1d(
+inline SystemEnergy energy_1d(
     const WaveFunction<Dimension::One>& psi,
     const PhysConfig& phys,
     const Eigen::VectorXd* ddi_potential = nullptr
@@ -94,7 +94,7 @@ inline SpectralEnergyTerms energy_1d(
     return energy_1d(*psi.grid(), psi.vec(), phys, ddi_potential);
 }
 
-inline SpectralEnergyTerms energy_2d(
+inline SystemEnergy energy_2d(
     const Grid<Dimension::Two>& grid,
     const Eigen::VectorXcd& psi,
     const PhysConfig& phys,
@@ -116,7 +116,7 @@ inline SpectralEnergyTerms energy_2d(
         throw std::invalid_argument("energy_2d: invalid grid");
     }
 
-    SpectralEnergyTerms out;
+    SystemEnergy out;
     const double dx = grid.step_x();
     const double dy = grid.step_y();
     const double Lx = static_cast<double>(nx) * dx;
@@ -162,7 +162,7 @@ inline SpectralEnergyTerms energy_2d(
     return out;
 }
 
-inline SpectralEnergyTerms energy_2d(
+inline SystemEnergy energy_2d(
     const WaveFunction<Dimension::Two>& psi,
     const PhysConfig& phys,
     const Eigen::VectorXd* ddi_potential = nullptr

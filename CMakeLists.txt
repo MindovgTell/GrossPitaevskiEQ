@@ -129,7 +129,7 @@ target_include_directories(gpes
 target_link_libraries(gpes PUBLIC Eigen3::Eigen)
 
 # Link Spectra
-target_include_directories(gpes PRIVATE
+target_include_directories(gpes PUBLIC
     ${spectra_SOURCE_DIR}/include
 )
 # Link FFTW3 (handle both "target" and "variables" styles)

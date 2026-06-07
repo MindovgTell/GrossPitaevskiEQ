@@ -24,7 +24,7 @@
 
 namespace plt = matplotlibcpp;
 namespace gpes::plot {
-    
+
     inline void draw(Grid<Dimension::One>& grid, std::string xlabel = "x",  std::string ylabel = "V");
 
     inline void draw(std::shared_ptr<const Grid<Dimension::One>> grid, std::string xlabel = "x",  std::string ylabel = "V"){
@@ -68,7 +68,7 @@ namespace gpes::plot {
         plt::ylabel("");
         plt::legend();
         plt::grid();
-        plt::show(); 
+        plt::show();
     }
 
     void draw(Grid<Dimension::One>& grid,  WaveFunction<Dimension::One>& wave){
@@ -91,7 +91,7 @@ namespace gpes::plot {
         plt::ylabel("");
         plt::legend();
         plt::grid();
-        plt::show(); 
+        plt::show();
     }
 
 void draw(WaveFunction<Dimension::One>& first_wave,  WaveFunction<Dimension::One>& second_wave){
@@ -117,7 +117,7 @@ void draw(WaveFunction<Dimension::One>& first_wave,  WaveFunction<Dimension::One
     plt::ylabel("");
     plt::legend();
     plt::grid();
-    plt::show(); 
+    plt::show();
 }
 
 
@@ -135,7 +135,7 @@ void draw_energy(const std::vector<double>& vec_of_energies){
     plt::ylabel("observation [m]");
     plt::legend();
     plt::grid();
-    plt::show(); 
+    plt::show();
 }
 
 inline void save_energy_plot(
@@ -213,7 +213,7 @@ void draw_energy_relative_fluctuations(
 }
 
 
-// Two dimensional functions 
+// Two dimensional functions
 void draw(Grid<Dimension::Two>& grid);
 void draw(std::shared_ptr<const Grid<Dimension::Two>> grid) {
     int size_x = grid->size_x();
@@ -234,7 +234,7 @@ void draw(std::shared_ptr<const Grid<Dimension::Two>> grid) {
 
     try {
         // plt::backend("Agg");
-        
+
         // First subplot (left)
         plt::figure();  // (rows, cols, index)
         plt::plot(x_vec, y_vec, "r-", {{"label", "Quadratic"}});
@@ -243,7 +243,7 @@ void draw(std::shared_ptr<const Grid<Dimension::Two>> grid) {
         plt::ylabel("Y Values");
         plt::grid();
         plt::legend();
-        
+
         // Second subplot (right)
         plt::figure();
         plt::plot(x_vec, z_vec, "b-", {{"label", "Custom Pattern"}});
@@ -252,10 +252,10 @@ void draw(std::shared_ptr<const Grid<Dimension::Two>> grid) {
         plt::ylabel("Y Values");
         plt::grid();
         plt::legend();
-        
+
         // // Adjust spacing between subplots
         // plt::tight_layout();
-        
+
         // Display or save
         plt::show();
     }
@@ -289,7 +289,7 @@ void heatmap(std::shared_ptr<const Grid<Dimension::Two>> mat){
         plt::title("Eigen Heatmap");
         // plt::xlim(mat.get_start_position_x(), -1. * mat.get_start_position_x());
         // plt::ylim(mat.get_start_position_y(), -1. * mat.get_start_position_y());
-        
+
         plt::xlabel("X");
         plt::ylabel("Y");
         plt::legend();
@@ -300,6 +300,8 @@ void heatmap(std::shared_ptr<const Grid<Dimension::Two>> mat){
     }
 
 }
+
+
 
 
 
@@ -374,8 +376,5 @@ inline void draw_slices(WaveFunction<Dimension::Two>& wave, const std::string& n
         std::cerr << "Exception: " << e.what() << std::endl;
     }
 }
-
-
-
 
 } // namespace gpes

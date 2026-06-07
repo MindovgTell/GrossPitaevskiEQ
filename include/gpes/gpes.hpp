@@ -8,5 +8,6 @@
 #include "Solvers/SplitStep.hpp"
 #include "Solvers/TDSESolver.hpp"
 #include "Solvers/experimental.hpp"
+#include "Solvers/BogoliubovdeGennes.hpp"
 
 #endif

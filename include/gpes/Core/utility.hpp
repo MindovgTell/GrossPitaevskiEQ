@@ -339,15 +339,6 @@ namespace gpes {
         psi *= std::sqrt(initial_norm / noisy_norm);
     }
 
-    // inline void seed_supersolid_state(
-    //     WaveFunction<Dimension::One>& psi,
-    //     double modulation_depth,
-    //     double modulation_wavelength,
-    //     double phase = 0.0
-    // ) {
-    //     add_sinusoidal_modulation(psi, modulation_depth, modulation_wavelength, phase);
-    // }
-
     inline void seed_supersolid_state(
         WaveFunction<Dimension::Two>& psi,
         SeedType seed_type,
@@ -469,4 +460,12 @@ namespace gpes {
         }
 
     } // namespace detail
+
+
+    namespace operators {
+        template <typename GridType>
+        class KineticOperator {
+
+        };
+    }
 }
