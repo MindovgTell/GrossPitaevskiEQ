@@ -8,8 +8,9 @@ bin
 Drawings
 Matrices
 oldVersion
-scripts/examples
-scripts
+scripts/*
+!scripts/build.slurm
+!scripts/run.slurm
 res
 AresRes
 AresGPES
@@ -26,5 +27,7 @@ include/gpes/Solvers/CrankNicolson2D.inl
 *.iml
 .idea/
 Log
-
+.cache/
 /GPES/
+runs/
+scripts/

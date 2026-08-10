@@ -5,14 +5,14 @@
 #include "Core/utility.hpp"
 
 struct CliConfig {
-    double a_s = 0.008;
+    double a_s = 0.00265;
     double a_dd = 0.008843;
     double num_particles = 80000.0;
     double dt = 0.001;
     double duration = 0.1;
     double w_x = 1.0;
-    double w_y = 3.0;
-    double w_z = 5.0;
+    double w_y = 5.0;
+    double w_z = 8.0;
     std::string log_dir;
     std::string wavefunction_out = "wavefunction";
 };

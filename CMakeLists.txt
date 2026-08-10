@@ -74,19 +74,31 @@ else()
   endif()
 endif()
 
-# FFTW3: use package config/module if available, otherwise search headers/libs.
-find_package(FFTW3 QUIET)
+# FFTW3: search headers/libs directly. Some cluster FFTW CMake package files are
+# incomplete, so avoid find_package(FFTW3) unless a target already exists.
 if(NOT TARGET FFTW3::fftw3)
   find_path(FFTW3_INCLUDE_DIR
     NAMES fftw3.h
+    HINTS
+      "${FFTW3_ROOT}"
+      "$ENV{FFTW3_ROOT}"
+      "$ENV{FFTW_ROOT}"
+      "$ENV{EBROOTFFTW}"
+    PATH_SUFFIXES include
     PATHS /opt/homebrew/include /usr/local/include /usr/include
   )
   find_library(FFTW3_LIBRARY
     NAMES fftw3
+    HINTS
+      "${FFTW3_ROOT}"
+      "$ENV{FFTW3_ROOT}"
+      "$ENV{FFTW_ROOT}"
+      "$ENV{EBROOTFFTW}"
+    PATH_SUFFIXES lib lib64
     PATHS /opt/homebrew/lib /usr/local/lib /usr/lib
   )
   if(NOT FFTW3_INCLUDE_DIR OR NOT FFTW3_LIBRARY)
-    message(FATAL_ERROR "FFTW3 not found. Load an FFTW module or set CMAKE_PREFIX_PATH/FFTW3_INCLUDE_DIR/FFTW3_LIBRARY.")
+    message(FATAL_ERROR "FFTW3 not found. Load an FFTW module or set FFTW3_ROOT/FFTW3_INCLUDE_DIR/FFTW3_LIBRARY.")
   endif()
   add_library(FFTW3::fftw3 UNKNOWN IMPORTED)
   set_target_properties(FFTW3::fftw3 PROPERTIES
