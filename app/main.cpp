@@ -96,6 +96,7 @@ void save_run_metadata(
         << "  \"omega_x\": " << cfg.w_x << ",\n"
         << "  \"omega_y\": " << cfg.w_y << ",\n"
         << "  \"omega_z\": " << cfg.w_z << ",\n"
+        << "  \"omega_y_over_omega_x\": " << cfg.w_y / cfg.w_x << ",\n"
         << "  \"omega_y_over_omega_z\": " << cfg.w_y / cfg.w_z << ",\n"
         << "  \"nx\": " << cfg.nx << ",\n"
         << "  \"ny\": " << cfg.ny << ",\n"

@@ -52,9 +52,11 @@ The lower block is its bosonic particle-hole partner `-B* u - A* v - psi0* delta
 
 ## Requested 40-point sweep
 
-[parameters/sweep_40.tsv](parameters/sweep_40.tsv) contains 8 evenly spaced scattering lengths from `0.001` to `0.009`, crossed with 5 aspect ratios from `omega_y/omega_z=1` to `10`, for exactly 40 runs. It fixes `a_dd=0.008843`, `N=80000`, `omega_x=1`, and `omega_z=8`. The production Slurm script supplies a `1024x1024` grid on `[-25,25) x [-8,8)`.
+[parameters/sweep_40.tsv](parameters/sweep_40.tsv) contains 8 evenly spaced scattering lengths from `0.001` to `0.009`, crossed with the 5 in-plane aspect ratios `omega_y/omega_x = 1, 3.25, 5.5, 7.75, 10`, for exactly 40 runs. It fixes `a_dd=0.008843`, `N=80000`, `omega_x=1`, and `omega_z=8`. The production Slurm script supplies a `1024x1024` grid on `[-25,25) x [-25,25)`. Thus `omega_y` ranges from 1 to 10; the run-name suffix `ratio_yx` identifies this convention.
 
-Important: the implemented dimensional reduction integrates out `z`, which is controlled only when `omega_z` is substantially larger than both `omega_x` and `omega_y`. The literal requested range `omega_y/omega_z >= 1` does not satisfy that quasi-2D condition. If the intended ratio was `omega_z/omega_y`, or if a different physical axis is frozen, change the table before interpreting the sweep physically. The program records the literal ratio in every run's metadata to prevent an axis-label mistake from going unnoticed.
+The implemented dimensional reduction integrates out `z`. The existing `omega_z=8` is retained, but it does not provide strong axial confinement relative to the entire in-plane sweep, especially at `omega_y=10`. Choose the axial confinement from the intended physical setup before treating the sweep as a controlled quasi-2D calculation. Metadata records both `omega_y_over_omega_x` and `omega_y_over_omega_z`.
+
+The larger y box accommodates broader states near equal in-plane confinement. Its size still requires a boundary-density check; at fixed 1024 points, enlarging the box reduces spatial resolution. Old `test_100.tsv` files are not regenerated automatically: recreate any one-row test file from the corrected sweep table.
 
 A single noisy initial state is used per table row to permit broken-symmetry droplet solutions. Near first-order transitions, one initial condition does not prove the global minimum. Publication-quality phase boundaries require several seeds and structured droplet initial states per parameter point, followed by selection of the lowest converged energy.
 
