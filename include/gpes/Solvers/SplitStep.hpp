@@ -25,6 +25,12 @@ constexpr double M_PI = 3.14159265358979323846;
 
 namespace gpes::solvers {
 
+    struct StationaryDiagnostics {
+        double energy = std::numeric_limits<double>::quiet_NaN();
+        double chemical_potential = std::numeric_limits<double>::quiet_NaN();
+        double relative_residual = std::numeric_limits<double>::quiet_NaN();
+    };
+
     template <Dimension Dim,
                 //typename SolverType = Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double>>>>
                 typename SolverType =Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double>>>>
@@ -196,6 +202,16 @@ namespace gpes::solvers {
             }
             return vec_energy_.back();
         }
+
+        void set_time_step(double dt) {
+            if (!(dt > 0.0) || !std::isfinite(dt)) {
+                throw std::invalid_argument("SplitStep<Dimension::One>::set_time_step: invalid dt");
+            }
+            sim_config_.dt = dt;
+            init_kinetic_op();
+        }
+
+        double time_step() const { return sim_config_.dt; }
 
     private:
         // Repeated functions for calculating DDI for CN and SSFM algorithm in future should be in DipolarInteraction class
@@ -510,15 +526,87 @@ namespace gpes::solvers {
                 normalize(vec.vec());
             }
 
-            Eigen::VectorXd U_ddi(vec.size());
-            if (F_ddi_) {
-                F_ddi_->compute_DDI_term(vec.vec(), U_ddi);
-            } else {
-                U_ddi.setZero();
+        }
+
+        StationaryDiagnostics diagnostics(const WaveFuncType& vec) {
+            const int size_x = static_cast<int>(grid_->size_x());
+            const int size_y = static_cast<int>(grid_->size_y());
+            const int size = size_x * size_y;
+            const double measure = grid_->step_x() * grid_->step_y();
+            if (vec.size() != size) {
+                throw std::invalid_argument("SplitStep<Dimension::Two>::diagnostics: size mismatch");
             }
-            const auto energy_terms = experimental::energy_2d(*grid_, vec.vec(), ph_config_, &U_ddi);
-            double current_energy = energy_terms.total();
-            vec_energy_.push_back(current_energy);
+
+            Eigen::VectorXd phi_ddi(size);
+            F_ddi_->compute_DDI_term(vec.vec(), phi_ddi);
+
+            Eigen::VectorXcd kinetic = vec.vec();
+            auto* data = reinterpret_cast<fftw_complex*>(kinetic.data());
+            fftw_plan forward = fftw_plan_dft_2d(
+                size_x, size_y, data, data, FFTW_FORWARD, FFTW_ESTIMATE);
+            fftw_plan backward = fftw_plan_dft_2d(
+                size_x, size_y, data, data, FFTW_BACKWARD, FFTW_ESTIMATE);
+            if (!forward || !backward) {
+                if (forward) fftw_destroy_plan(forward);
+                if (backward) fftw_destroy_plan(backward);
+                throw std::runtime_error("SplitStep<Dimension::Two>::diagnostics: FFTW plan creation failed");
+            }
+            fftw_execute_dft(forward, data, data);
+            for (int k = 0; k < size; ++k) {
+                // U_k stores exp(-dt k^2/4), hence recover k^2 from the
+                // spectral grid directly instead of taking its logarithm.
+                const int i = k / size_y;
+                const int j = k % size_y;
+                const int qx = (i <= size_x / 2) ? i : i - size_x;
+                const int qy = (j <= size_y / 2) ? j : j - size_y;
+                const double kx = 2.0 * M_PI * qx /
+                    (static_cast<double>(size_x) * grid_->step_x());
+                const double ky = 2.0 * M_PI * qy /
+                    (static_cast<double>(size_y) * grid_->step_y());
+                kinetic(k) *= 0.5 * (kx * kx + ky * ky);
+            }
+            fftw_execute_dft(backward, data, data);
+            kinetic /= static_cast<double>(size);
+            fftw_destroy_plan(forward);
+            fftw_destroy_plan(backward);
+
+            StationaryDiagnostics result;
+            result.energy = 0.0;
+            double norm = 0.0;
+            double mu_numerator = 0.0;
+            Eigen::VectorXcd hpsi(size);
+            for (int i = 0; i < size_x; ++i) {
+                for (int j = 0; j < size_y; ++j) {
+                    const int k = get_index(i, j);
+                    const double density = std::norm(vec.vec()(k));
+                    const double local = grid_->potential()(i, j)
+                        + ph_config_.g_scat * density
+                        + phi_ddi(k)
+                        + ph_config_.g_lhy * std::pow(density, 1.5);
+                    hpsi(k) = kinetic(k) + local * vec.vec()(k);
+
+                    result.energy += measure * (
+                        std::real(std::conj(vec.vec()(k)) * kinetic(k))
+                        + grid_->potential()(i, j) * density
+                        + 0.5 * ph_config_.g_scat * density * density
+                        + 0.5 * phi_ddi(k) * density
+                        + 0.4 * ph_config_.g_lhy * std::pow(density, 2.5));
+                    mu_numerator += measure * std::real(std::conj(vec.vec()(k)) * hpsi(k));
+                    norm += measure * density;
+                }
+            }
+            if (!(norm > 0.0) || !std::isfinite(result.energy)) {
+                throw std::runtime_error("SplitStep<Dimension::Two>::diagnostics: non-finite state");
+            }
+            result.chemical_potential = mu_numerator / norm;
+            const Eigen::VectorXcd residual = hpsi - result.chemical_potential * vec.vec();
+            const double denominator = std::max({
+                hpsi.norm(),
+                std::abs(result.chemical_potential) * vec.vec().norm(),
+                1e-300});
+            result.relative_residual = residual.norm() / denominator;
+            vec_energy_.push_back(result.energy);
+            return result;
         }
 
         const std::vector<double>& energies() const {
@@ -531,6 +619,16 @@ namespace gpes::solvers {
             }
             return vec_energy_.back();
         }
+
+        void set_time_step(double dt) {
+            if (!(dt > 0.0) || !std::isfinite(dt)) {
+                throw std::invalid_argument("SplitStep<Dimension::Two>::set_time_step: invalid dt");
+            }
+            sim_config_.dt = dt;
+            init_kinetic_op();
+        }
+
+        double time_step() const { return sim_config_.dt; }
 
     private:
         int get_index(int i, int j) const {

@@ -13,9 +13,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 #   -march=native
 set(GPES_EXECUTABLE_COMPILE_OPTIONS
     -O3
-    -march=native
-    # -ffast-math
-    -s
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE

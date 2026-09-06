@@ -30,10 +30,16 @@ namespace gpes {
 
 
     struct SimConfig {
-        double duration;
-        double dt;
-        size_t num_of_steps;
+        double duration = 0.1;
+        double dt = 0.001;
+        size_t num_of_steps = 100;
         bool ground_state = true;
+        std::size_t max_ground_steps = 50000;
+        std::size_t convergence_check_interval = 100;
+        std::size_t convergence_checks_required = 3;
+        double relative_energy_tolerance = 1e-10;
+        double stationary_residual_tolerance = 1e-4;
+        double minimum_ground_dt = 1e-4;
     };
 
     struct PhysConfig {
@@ -118,49 +124,37 @@ namespace gpes {
 
 
 
-        // ----------------------------------------------------------------
-        //  64-point Gauss-Legendre quadrature on [-1, 1].
-        //  Only 32 positive nodes stored; negative nodes follow by symmetry.
-        // ----------------------------------------------------------------
+        // 64-point Gauss-Legendre quadrature.  Roots and weights are generated
+        // together to prevent a mismatched or corrupted coefficient table.
         namespace gl64 {
-
-        inline constexpr std::array<double, 32> kNodes = {{
-            0.02435069280380807, 0.07299312178779904, 0.12146281929612057,
-            0.16964441042399283, 0.21742364374000720, 0.26468716220876750,
-            0.31132287199021144, 0.35722015833737524, 0.40227015796399163,
-            0.44636601725346409, 0.48940314570705264, 0.53127946401989455,
-            0.57189564620263404, 0.61115565518529115, 0.64896547125465734,
-            0.68523631305423258, 0.71988185017161082, 0.75281990726053190,
-            0.78397296107852894, 0.81326531512279756, 0.84062929625258036,
-            0.86599939815409282, 0.88931544599511410, 0.91052213707850214,
-            0.92956917213193958, 0.94641137485840268, 0.96100879965205372,
-            0.97332682778991096, 0.98333625388462596, 0.99101337147674432,
-            0.99634011677195528, 0.99930504173577214
-        }};
-
-        inline constexpr std::array<double, 32> kWeights = {{
-            0.04869095700913972, 0.04857546744129617, 0.04834476223480296,
-            0.04799399306119873, 0.04754053634182810, 0.04696818281621017,
-            0.04628427260225052, 0.04549051395354865, 0.04458975198667646,
-            0.04358438723094860, 0.04247673042249869, 0.04126929292348930,
-            0.03996564116617411, 0.03856971190749052, 0.03708459440549989,
-            0.03551493579369814, 0.03386448403584631, 0.03213766176091653,
-            0.03033858995124842, 0.02847186956396420, 0.02654155115373869,
-            0.02455182230400890, 0.02250676695539950, 0.02041081169392176,
-            0.01826846790897158, 0.01608436367056735, 0.01386254088856210,
-            0.01160768608166252, 0.00932455454895537, 0.00701669807153073,
-            0.00468856751676779, 0.00234406987817898
-        }};
-
-        // Integrate f on [a, b].  Precondition: f is C-infinity on [a, b].
         template <typename Func>
         [[nodiscard]] double Integrate(Func&& f, double a, double b) noexcept(noexcept(f(0.0))) {
+            constexpr int order = 64;
             const double half = 0.5 * (b - a);
             const double mid  = 0.5 * (b + a);
             double result = 0.0;
-            for (int i = 0; i < 32; ++i)
-                result += kWeights[i] * (f(mid + half * kNodes[i])
-                                    + f(mid - half * kNodes[i]));
+            for (int i = 0; i < order / 2; ++i) {
+                double root = std::cos(M_PI * (static_cast<double>(i) + 0.75)
+                    / (static_cast<double>(order) + 0.5));
+                double derivative = 0.0;
+                for (int iteration = 0; iteration < 20; ++iteration) {
+                    double p_nm2 = 1.0;
+                    double p_nm1 = root;
+                    for (int degree = 2; degree <= order; ++degree) {
+                        const double p_n = ((2.0 * degree - 1.0) * root * p_nm1
+                            - (degree - 1.0) * p_nm2) / degree;
+                        p_nm2 = p_nm1;
+                        p_nm1 = p_n;
+                    }
+                    derivative = order * (root * p_nm1 - p_nm2) / (root * root - 1.0);
+                    const double update = p_nm1 / derivative;
+                    root -= update;
+                    if (std::abs(update) < 2e-16) break;
+                }
+                const double weight = 2.0 /
+                    ((1.0 - root * root) * derivative * derivative);
+                result += weight * (f(mid + half * root) + f(mid - half * root));
+            }
             return result * half;
         }
 
@@ -194,13 +188,15 @@ namespace gpes {
         }
 
         // Public entry point inside gpes::detail.
-        // @param eps_dd  a_dd / a_ss — must be positive
+        // @param eps_dd  a_dd / a_ss -- must be non-negative
         // @throws std::domain_error on out-of-range input
         [[nodiscard]] inline double ComputeQ5(double eps_dd) {
-            if (eps_dd <= 0.0)
+            if (eps_dd < 0.0)
                 throw std::domain_error(
-                    "gpes::detail::ComputeQ5: eps_dd must be positive, got "
+                    "gpes::detail::ComputeQ5: eps_dd must be non-negative, got "
                     + std::to_string(eps_dd));
+
+            if (eps_dd == 0.0) return 1.0;
 
             return (eps_dd <= 1.0) ? Q5Smooth(eps_dd) : Q5Singular(eps_dd);
         }
@@ -454,8 +450,8 @@ namespace gpes {
             if (!std::isfinite(cfg.g_lhy) || cfg.g_lhy == 0.0) {
                 throw std::invalid_argument(std::string(context) + ": g_lhy must be non-zero and finite");
             }
-            if (!std::isfinite(cfg.V_dd) || cfg.V_dd == 0.0) {
-                throw std::invalid_argument(std::string(context) + ": V_dd must be non-zero and finite");
+            if (!std::isfinite(cfg.V_dd)) {
+                throw std::invalid_argument(std::string(context) + ": V_dd must be finite");
             }
         }
 

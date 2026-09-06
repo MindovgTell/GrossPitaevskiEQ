@@ -14,7 +14,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(GPES_BUILD_APP "Build CLI executable" ON)
 option(GPES_ENABLE_PLOTTING "Build plotting module (Python/NumPy + matplotlib-cpp)" ON)
 option(GPES_WARNINGS "Enable -Wall -Wextra -Wpedantic" ON)
-option(GPES_ALLOW_FETCHCONTENT "Allow CMake to download missing header-only dependencies" ON)
+option(GPES_BUILD_TESTS "Build numerical regression tests" ON)
+option(GPES_ALLOW_FETCHCONTENT "Allow CMake to download missing header-only dependencies" OFF)
 set(GPES_SPECTRA_SOURCE_DIR "" CACHE PATH "Use an existing Spectra source tree instead of downloading with FetchContent")
 
 # —————————————————————————————————————————
@@ -56,6 +57,7 @@ if(GPES_SPECTRA_SOURCE_DIR)
 else()
   find_path(GPES_SPECTRA_INCLUDE_DIR
     NAMES Spectra/GenEigsSolver.h
+    HINTS "${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party"
   )
   if(NOT GPES_SPECTRA_INCLUDE_DIR)
     if(NOT GPES_ALLOW_FETCHCONTENT)
@@ -108,8 +110,19 @@ if(NOT TARGET FFTW3::fftw3)
 endif()
 
 
-# spdlog: prefer installed module/package, otherwise fetch it.
-find_package(spdlog QUIET)
+# spdlog: prefer the vendored headers for reproducible offline cluster builds.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party/spdlog/spdlog.h")
+  add_library(spdlog::spdlog_header_only INTERFACE IMPORTED)
+  target_compile_definitions(spdlog::spdlog_header_only INTERFACE
+    SPDLOG_HEADER_ONLY
+    FMT_HEADER_ONLY
+  )
+  target_include_directories(spdlog::spdlog_header_only INTERFACE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party"
+  )
+else()
+  find_package(spdlog QUIET)
+endif()
 if(NOT TARGET spdlog::spdlog_header_only AND NOT TARGET spdlog::spdlog)
   find_path(SPDLOG_INCLUDE_DIR
     NAMES spdlog/spdlog.h
@@ -267,6 +280,11 @@ endif()
 # —————————————————————————————————————————
 if(GPES_BUILD_APP)
   add_subdirectory(app)
+endif()
+
+if(GPES_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
 endif()
 
 # —————————————————————————————————————————

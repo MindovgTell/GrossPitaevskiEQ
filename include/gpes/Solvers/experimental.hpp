@@ -68,9 +68,11 @@ inline SystemEnergy energy_1d(
     out.kinetic *= dx / static_cast<double>(n);
 
     for (int i = 0; i < n; ++i) {
-        const double w = trap_weight_1d(i, n);
         const double density = std::norm(psi(i));
-        const double measure = dx * w;
+        // The Fourier grid represents [x0, x0 + L), so every node has the
+        // same quadrature weight.  Trapezoidal endpoint weights would be
+        // inconsistent with the periodic spectral kinetic operator.
+        const double measure = dx;
 
         out.potential += measure * grid.potential()(i) * density;
         out.contact += measure * 0.5 * phys.g_scat * density * density;
@@ -143,12 +145,10 @@ inline SystemEnergy energy_2d(
     out.kinetic *= (dx * dy) / static_cast<double>(n);
 
     for (int i = 0; i < nx; ++i) {
-        const double wx = trap_weight_1d(i, nx);
         for (int j = 0; j < ny; ++j) {
-            const double wy = trap_weight_1d(j, ny);
             const int idx = i * ny + j;
             const double density = std::norm(psi(idx));
-            const double measure = dx * dy * wx * wy;
+            const double measure = dx * dy;
 
             out.potential += measure * grid.potential()(i, j) * density;
             out.contact += measure * 0.5 * phys.g_scat * density * density;
@@ -174,4 +174,3 @@ inline SystemEnergy energy_2d(
 }
 
 } // namespace gpes::solvers::experimental
-

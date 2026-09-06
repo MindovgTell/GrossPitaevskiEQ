@@ -1,6 +1,6 @@
 #system files
 .vscode
-.DS_store
+.DS_Store
 
 build
 bin
@@ -11,6 +11,11 @@ oldVersion
 scripts/*
 !scripts/build.slurm
 !scripts/run.slurm
+!scripts/run_solver.sh
+!scripts/build_local.sh
+!scripts/submit_sweep.sh
+parameters/*
+!parameters/sweep_40.tsv
 res
 AresRes
 AresGPES
@@ -19,7 +24,7 @@ inputs
 python
 
 params.txt
-
+docs/
 include/gpes/Solvers/CrankNicolson1D.inl
 include/gpes/Solvers/CrankNicolson2D.inl
 
@@ -30,4 +35,3 @@ Log
 .cache/
 /GPES/
 runs/
-scripts/

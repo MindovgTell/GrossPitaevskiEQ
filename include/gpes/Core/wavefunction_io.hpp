@@ -77,7 +77,8 @@ inline void save_wavefunction_csv(
         throw std::invalid_argument("save_wavefunction_csv(1D): wavefunction has no grid");
     }
 
-    std::ofstream out(filepath);
+    const std::filesystem::path temporary = filepath.string() + ".tmp";
+    std::ofstream out(temporary);
     if (!out) {
         throw std::runtime_error("save_wavefunction_csv(1D): cannot open file: " + filepath.string());
     }
@@ -96,6 +97,9 @@ inline void save_wavefunction_csv(
         const std::complex<double> v = vec(i);
         out << i << "," << x << "," << v.real() << "," << v.imag() << "," << std::norm(v) << "\n";
     }
+    out.close();
+    if (!out) throw std::runtime_error("save_wavefunction_csv(1D): write failed: " + temporary.string());
+    std::filesystem::rename(temporary, filepath);
 }
 
 inline void save_wavefunction_csv(
@@ -106,7 +110,8 @@ inline void save_wavefunction_csv(
         throw std::invalid_argument("save_wavefunction_csv(2D): wavefunction has no grid");
     }
 
-    std::ofstream out(filepath);
+    const std::filesystem::path temporary = filepath.string() + ".tmp";
+    std::ofstream out(temporary);
     if (!out) {
         throw std::runtime_error("save_wavefunction_csv(2D): cannot open file: " + filepath.string());
     }
@@ -133,12 +138,16 @@ inline void save_wavefunction_csv(
                 << v.real() << "," << v.imag() << "," << std::norm(v) << "\n";
         }
     }
+    out.close();
+    if (!out) throw std::runtime_error("save_wavefunction_csv(2D): write failed: " + temporary.string());
+    std::filesystem::rename(temporary, filepath);
 }
 
 inline std::filesystem::path save_state_energy_history_csv(
     const std::vector<double>& energies,
     const std::filesystem::path& wavefunction_csv_path,
-    const std::string& filename = "state_energy_history.csv"
+    const std::string& filename = "state_energy_history.csv",
+    std::size_t step_stride = 1
 ) {
     const std::filesystem::path output_path = wavefunction_csv_path.has_parent_path()
         ? (wavefunction_csv_path.parent_path() / filename)
@@ -158,7 +167,7 @@ inline std::filesystem::path save_state_energy_history_csv(
     out << "step,energy\n";
     out << std::setprecision(17);
     for (std::size_t i = 0; i < energies.size(); ++i) {
-        out << i << "," << energies[i] << "\n";
+        out << (i + 1) * step_stride << "," << energies[i] << "\n";
     }
 
     return output_path;
@@ -180,6 +189,8 @@ inline void load_wavefunction_csv(
     Eigen::VectorXcd loaded = Eigen::VectorXcd::Zero(psi.size());
     const int n = static_cast<int>(loaded.size());
     int sequential_index = 0;
+    int loaded_count = 0;
+    std::vector<bool> seen(static_cast<std::size_t>(n), false);
 
     std::string line;
     while (std::getline(in, line)) {
@@ -199,17 +210,25 @@ inline void load_wavefunction_csv(
                     throw std::out_of_range("index out of range");
                 }
                 loaded(idx) = std::complex<double>(std::stod(fields[2]), std::stod(fields[3]));
+                if (!seen[static_cast<std::size_t>(idx)]) {
+                    seen[static_cast<std::size_t>(idx)] = true;
+                    ++loaded_count;
+                }
             } else if (fields.size() >= 2) {
                 if (sequential_index >= n) {
                     break;
                 }
                 loaded(sequential_index++) = std::complex<double>(std::stod(fields[0]), std::stod(fields[1]));
+                ++loaded_count;
             }
         } catch (const std::exception&) {
             // Skip non-data/header lines.
         }
     }
 
+    if (loaded_count != n) {
+        throw std::runtime_error("load_wavefunction_csv(1D): checkpoint is incomplete or has the wrong grid");
+    }
     psi.set_vec(loaded);
 }
 
@@ -233,6 +252,8 @@ inline void load_wavefunction_csv(
 
     Eigen::VectorXcd loaded = Eigen::VectorXcd::Zero(n);
     int sequential_index = 0;
+    int loaded_count = 0;
+    std::vector<bool> seen(static_cast<std::size_t>(n), false);
 
     std::string line;
     while (std::getline(in, line)) {
@@ -254,6 +275,10 @@ inline void load_wavefunction_csv(
                 }
                 const int idx = ix * ny + iy;
                 loaded(idx) = std::complex<double>(std::stod(fields[4]), std::stod(fields[5]));
+                if (!seen[static_cast<std::size_t>(idx)]) {
+                    seen[static_cast<std::size_t>(idx)] = true;
+                    ++loaded_count;
+                }
             } else if (fields.size() >= 4) {
                 const int ix = std::stoi(fields[0]);
                 const int iy = std::stoi(fields[1]);
@@ -262,17 +287,25 @@ inline void load_wavefunction_csv(
                 }
                 const int idx = ix * ny + iy;
                 loaded(idx) = std::complex<double>(std::stod(fields[2]), std::stod(fields[3]));
+                if (!seen[static_cast<std::size_t>(idx)]) {
+                    seen[static_cast<std::size_t>(idx)] = true;
+                    ++loaded_count;
+                }
             } else if (fields.size() >= 2) {
                 if (sequential_index >= n) {
                     break;
                 }
                 loaded(sequential_index++) = std::complex<double>(std::stod(fields[0]), std::stod(fields[1]));
+                ++loaded_count;
             }
         } catch (const std::exception&) {
             // Skip non-data/header lines.
         }
     }
 
+    if (loaded_count != n) {
+        throw std::runtime_error("load_wavefunction_csv(2D): checkpoint is incomplete or has the wrong grid");
+    }
     psi.set_vec(loaded);
 }
 

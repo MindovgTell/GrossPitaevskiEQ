@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <fftw3.h>
 #include <Eigen/Dense>
 #include <memory>
+#include <stdexcept>
 
 #include "Core/definitions.hpp"
 #include "grid/grid.hpp"
@@ -17,6 +20,23 @@ namespace gpes {
     #endif
     constexpr double SQRT_PI    =   1.77245385090551602729;
     constexpr double SQRT2      =   1.41421356237309504880;
+
+    // exp(q^2) erfc(q), evaluated without overflow/underflow.  The direct
+    // expression loses the high-k limit of the quasi-2D dipolar kernel once
+    // erfc(q) underflows, which is readily reached on a 1024^2 grid.
+    inline double scaled_erfc_nonnegative(double q) {
+        if (!std::isfinite(q) || q < 0.0) {
+            throw std::invalid_argument("scaled_erfc_nonnegative: q must be finite and non-negative");
+        }
+        if (q < 20.0) {
+            return std::exp(q * q) * std::erfc(q);
+        }
+
+        const double inv_q2 = 1.0 / (q * q);
+        const double series = 1.0 + inv_q2 * (-0.5 + inv_q2 *
+            (0.75 + inv_q2 * (-1.875 + inv_q2 * 6.5625)));
+        return series / (SQRT_PI * q);
+    }
 
 
 //********************************/***********/********************************//
@@ -514,23 +534,12 @@ namespace gpes {
         }
 
         double F_perp(double q) const {
-            const double q2 = q * q;
-
-            if (q2 < 700.0) {
-                const double erfc_val = std::erfc(q);
-                const double exp_val = std::exp(q2);
-
-                const double answ =
-                    2.0 - 3.0 * SQRT_PI * q * exp_val * erfc_val;
-
-                if (!std::isfinite(answ)) {
-                    throw std::runtime_error("DipolarInteraction<Dimension::Two>::F_perp produced non-finite value");
-                }
-
-                return answ;
+            const double answ =
+                2.0 - 3.0 * SQRT_PI * q * scaled_erfc_nonnegative(q);
+            if (!std::isfinite(answ)) {
+                throw std::runtime_error("DipolarInteraction<Dimension::Two>::F_perp produced non-finite value");
             }
-
-            return -1.0;
+            return answ;
         }
 
         double F_parallel(double q_x, double q_y) const {
@@ -540,23 +549,12 @@ namespace gpes {
                 return -1.0;
             }
 
-            const double q2 = q * q;
-
-            if (q2 < 700.0) {
-                const double erfc_val = std::erfc(q);
-                const double exp_val = std::exp(q2);
-
-                const double answ =
-                    -1.0 + 3.0 * SQRT_PI * (q_x * q_x / q) * exp_val * erfc_val;
-
-                if (!std::isfinite(answ)) {
-                    throw std::runtime_error("DipolarInteraction<Dimension::Two>::F_parallel produced non-finite value");
-                }
-
-                return answ;
+            const double answ = -1.0 + 3.0 * SQRT_PI *
+                (q_x * q_x / q) * scaled_erfc_nonnegative(q);
+            if (!std::isfinite(answ)) {
+                throw std::runtime_error("DipolarInteraction<Dimension::Two>::F_parallel produced non-finite value");
             }
-
-            return 2.0;
+            return answ;
         }
 
         void precompute_U_tilde() {

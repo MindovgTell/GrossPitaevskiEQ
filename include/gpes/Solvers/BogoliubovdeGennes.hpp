@@ -35,6 +35,7 @@ namespace gpes::bdg {
         Eigen::VectorXcd u;
         Eigen::VectorXcd v;
         std::complex<double> omega;
+        double relative_residual = std::numeric_limits<double>::quiet_NaN();
     };
 
     struct BdGConfig {
@@ -539,10 +540,8 @@ namespace gpes::bdg {
             }
 
             const double q = k * lz / std::sqrt(2.0);
-            const double q2 = q * q;
-            const double form_factor = q2 < 700.0
-                ? 2.0 - 3.0 * std::sqrt(M_PI) * q * std::exp(q2) * std::erfc(q)
-                : -1.0;
+            const double form_factor =
+                2.0 - 3.0 * std::sqrt(M_PI) * q * scaled_erfc_nonnegative(q);
             return strength * form_factor;
         }
 
@@ -1148,10 +1147,10 @@ namespace gpes::bdg {
                     std::abs(mode.omega) * full_mode.norm(),
                     1e-300
                 });
+                mode.relative_residual =
+                    (applied_mode - mode.omega * full_mode).norm() / denominator;
                 result.max_eigen_residual = std::max(
-                    result.max_eigen_residual,
-                    (applied_mode - mode.omega * full_mode).norm() / denominator
-                );
+                    result.max_eigen_residual, mode.relative_residual);
 
                 result.modes.push_back(std::move(mode));
             }
@@ -1376,7 +1375,8 @@ namespace gpes::bdg {
     inline std::filesystem::path save_bdg_result(
         const BdGResult& result,
         const Grid<Dimension::Two>& grid,
-        const std::filesystem::path& destination_folder
+        const std::filesystem::path& destination_folder,
+        bool save_mode_fields = true
     ) {
         const int nx = static_cast<int>(grid.size_x());
         const int ny = static_cast<int>(grid.size_y());
@@ -1394,7 +1394,7 @@ namespace gpes::bdg {
             throw std::runtime_error("save_bdg_result: cannot open file: " + spectrum_path.string());
         }
 
-        spectrum << "mode,omega_real,omega_imag,bdg_norm,state_file\n";
+        spectrum << "mode,omega_real,omega_imag,bdg_norm,relative_residual,state_file\n";
         spectrum << std::setprecision(17);
 
         for (std::size_t m = 0; m < result.modes.size(); ++m) {
@@ -1411,7 +1411,12 @@ namespace gpes::bdg {
                      << mode.omega.real() << ','
                      << mode.omega.imag() << ','
                      << qnorm << ','
-                     << ("excited_states/" + state_filename) << '\n';
+                     << mode.relative_residual << ','
+                     << (save_mode_fields ? "excited_states/" + state_filename : "") << '\n';
+
+            if (!save_mode_fields) {
+                continue;
+            }
 
             std::ofstream state(state_path);
             if (!state) {
@@ -1450,13 +1455,14 @@ namespace gpes::bdg {
     inline std::filesystem::path save_bdg_result(
         const BdGResult& result,
         const std::shared_ptr<const Grid<Dimension::Two>>& grid,
-        const std::filesystem::path& destination_folder
+        const std::filesystem::path& destination_folder,
+        bool save_mode_fields = true
     ) {
         if (!grid) {
             throw std::invalid_argument("save_bdg_result: grid is null");
         }
 
-        return save_bdg_result(result, *grid, destination_folder);
+        return save_bdg_result(result, *grid, destination_folder, save_mode_fields);
     }
 
 } // namespace gpes::bdg
