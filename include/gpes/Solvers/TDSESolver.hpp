@@ -1,11 +1,14 @@
 #pragma once
 
 #include <cmath>
+#include <algorithm>
 #include <filesystem>
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
+#include "Core/utility.hpp"
 #include "Core/wavefunction_io.hpp"
 #include "grid/grid.hpp"
 #include "wavefunction/wavefunction.hpp"
@@ -23,6 +26,8 @@ namespace gpes {
         double chemical_potential = std::numeric_limits<double>::quiet_NaN();
         double stationary_residual = std::numeric_limits<double>::infinity();
         double final_time_step = std::numeric_limits<double>::quiet_NaN();
+        double absolute_energy_change = std::numeric_limits<double>::infinity();
+        std::vector<std::size_t> diagnostic_steps;
     };
 
     template <Dimension D, typename Algorythm,
@@ -90,8 +95,9 @@ namespace gpes {
             if (sim_config_.ground_state) {
                 validate_ground_state_config();
                 GPES_LOG(kLogCategory, Log,
-                    "Ground-state search: relative_energy_tol={}, residual_tol={}, check_interval={}, max_steps={}",
+                    "Ground-state search: relative_energy_tol={}, absolute_energy_tol={}, residual_tol={}, check_interval={}, max_steps={}",
                     sim_config_.relative_energy_tolerance,
+                    sim_config_.absolute_energy_tolerance,
                     sim_config_.stationary_residual_tolerance,
                     sim_config_.convergence_check_interval,
                     sim_config_.max_ground_steps);
@@ -111,17 +117,14 @@ namespace gpes {
 
                     update_ground_state_diagnostics();
                     ++ground_result_.convergence_checks;
-                    if (std::isfinite(prev_energy)) {
-                        ground_result_.relative_energy_change =
-                            std::abs(ground_result_.energy - prev_energy) /
-                            std::max({std::abs(ground_result_.energy), std::abs(prev_energy), 1.0});
-                    }
+                    update_energy_change(prev_energy);
+                    const bool energy_plateau = ground_energy_converged(
+                        ground_result_.energy, prev_energy,
+                        sim_config_.relative_energy_tolerance, sim_config_.absolute_energy_tolerance);
                     const bool check_converged =
-                        ground_result_.relative_energy_change <= sim_config_.relative_energy_tolerance &&
+                        energy_plateau &&
                         ground_result_.stationary_residual <= sim_config_.stationary_residual_tolerance;
                     consecutive_converged = check_converged ? consecutive_converged + 1 : 0;
-                    const bool energy_plateau =
-                        ground_result_.relative_energy_change <= sim_config_.relative_energy_tolerance;
                     energy_plateau_checks = energy_plateau ? energy_plateau_checks + 1 : 0;
 
                     GPES_LOG(kLogCategory, Log,
@@ -157,6 +160,12 @@ namespace gpes {
                     }
                     prev_energy = ground_result_.energy;
                 }
+                // The final checkpoint and diagnostics must describe the same state,
+                // including runs ending between regular convergence checks.
+                if (ground_result_.steps_completed % sim_config_.convergence_check_interval != 0) {
+                    update_ground_state_diagnostics();
+                    update_energy_change(prev_energy);
+                }
                 if (!ground_result_.converged) {
                     GPES_LOG(kLogCategory, Warning,
                         "Ground state did not converge within {} steps; final residual={}",
@@ -186,10 +195,25 @@ namespace gpes {
                 sim_config_.convergence_check_interval == 0 ||
                 sim_config_.convergence_checks_required == 0 ||
                 !(sim_config_.relative_energy_tolerance > 0.0) ||
+                !std::isfinite(sim_config_.relative_energy_tolerance) ||
+                !(sim_config_.absolute_energy_tolerance >= 0.0) ||
+                !std::isfinite(sim_config_.absolute_energy_tolerance) ||
                 !(sim_config_.stationary_residual_tolerance > 0.0) ||
+                !std::isfinite(sim_config_.stationary_residual_tolerance) ||
                 !(sim_config_.minimum_ground_dt > 0.0) ||
                 sim_config_.minimum_ground_dt > sim_config_.dt) {
                 throw std::invalid_argument("TDSESolver: invalid ground-state convergence controls");
+            }
+        }
+
+        void update_energy_change(double previous) {
+            ground_result_.absolute_energy_change = std::numeric_limits<double>::infinity();
+            ground_result_.relative_energy_change = std::numeric_limits<double>::infinity();
+            if (std::isfinite(previous) && std::isfinite(ground_result_.energy)) {
+                const double delta = std::abs(ground_result_.energy - previous);
+                const double scale = std::max(std::abs(ground_result_.energy), std::abs(previous));
+                ground_result_.absolute_energy_change = delta;
+                ground_result_.relative_energy_change = scale > 0.0 ? delta / scale : 0.0;
             }
         }
 
@@ -203,6 +227,7 @@ namespace gpes {
                 ground_result_.energy = algo_.last_energy();
                 ground_result_.stationary_residual = 0.0;
             }
+            ground_result_.diagnostic_steps.push_back(ground_result_.steps_completed);
         }
 
         void prepare_snapshot_path(const std::filesystem::path* snapshot_path) const {

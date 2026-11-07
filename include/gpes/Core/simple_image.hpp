@@ -69,27 +69,16 @@ inline std::string xml_escape(const std::string& value) {
 
 } // namespace detail
 
-inline void save_scalar_bmp(
-    const Eigen::VectorXd& values,
-    int nx,
-    int ny,
-    const std::filesystem::path& path,
-    bool logarithmic = false)
-{
-    if (nx <= 0 || ny <= 0 || values.size() != nx * ny) {
-        throw std::invalid_argument("save_scalar_bmp: invalid image dimensions");
-    }
-    if (path.has_parent_path()) std::filesystem::create_directories(path.parent_path());
+namespace detail {
 
-    double maximum = 0.0;
-    for (Eigen::Index i = 0; i < values.size(); ++i) {
-        if (std::isfinite(values(i))) maximum = std::max(maximum, values(i));
-    }
+template<typename ColorAt>
+inline void save_bmp(int nx, int ny, const std::filesystem::path& path, ColorAt color_at) {
+    if (path.has_parent_path()) std::filesystem::create_directories(path.parent_path());
     const std::uint32_t row_size = static_cast<std::uint32_t>((3 * ny + 3) & ~3);
     const std::uint32_t pixel_bytes = row_size * static_cast<std::uint32_t>(nx);
 
     std::ofstream out(path, std::ios::binary);
-    if (!out) throw std::runtime_error("save_scalar_bmp: cannot open " + path.string());
+    if (!out) throw std::runtime_error("save_bmp: cannot open " + path.string());
     out.write("BM", 2);
     detail::write_u32(out, 54u + pixel_bytes);
     detail::write_u32(out, 0u);
@@ -109,15 +98,60 @@ inline void save_scalar_bmp(
     std::vector<char> row(row_size, 0);
     for (int i = 0; i < nx; ++i) {
         for (int j = 0; j < ny; ++j) {
-            double normalized = maximum > 0.0 ? std::max(0.0, values(i * ny + j)) / maximum : 0.0;
-            if (logarithmic) normalized = std::log1p(99.0 * normalized) / std::log(100.0);
-            const auto rgb = detail::inferno_like(normalized);
+            const auto rgb = color_at(i * ny + j);
             row[3 * j] = static_cast<char>(rgb[2]);
             row[3 * j + 1] = static_cast<char>(rgb[1]);
             row[3 * j + 2] = static_cast<char>(rgb[0]);
         }
         out.write(row.data(), static_cast<std::streamsize>(row.size()));
     }
+    if (!out) throw std::runtime_error("save_bmp: write failed for " + path.string());
+}
+
+} // namespace detail
+
+inline void save_scalar_bmp(
+    const Eigen::VectorXd& values, int nx, int ny,
+    const std::filesystem::path& path, bool logarithmic = false)
+{
+    if (nx <= 0 || ny <= 0 || values.size() != nx * ny) {
+        throw std::invalid_argument("save_scalar_bmp: invalid image dimensions");
+    }
+    double maximum = 0.0;
+    for (Eigen::Index i = 0; i < values.size(); ++i) {
+        if (std::isfinite(values(i))) maximum = std::max(maximum, values(i));
+    }
+    detail::save_bmp(nx, ny, path, [&](int index) {
+        double normalized = maximum > 0.0 ? std::max(0.0, values(index)) / maximum : 0.0;
+        if (logarithmic) normalized = std::log1p(99.0 * normalized) / std::log(100.0);
+        return detail::inferno_like(normalized);
+    });
+}
+
+inline void save_phase_bmp(
+    const Eigen::VectorXcd& psi, int nx, int ny, const std::filesystem::path& path)
+{
+    if (nx <= 0 || ny <= 0 || psi.size() != nx * ny || !psi.allFinite()) {
+        throw std::invalid_argument("save_phase_bmp: invalid field or image dimensions");
+    }
+    const double peak = psi.cwiseAbs2().maxCoeff();
+    const double pi = std::acos(-1.0);
+    detail::save_bmp(nx, ny, path, [&](int index) -> std::array<unsigned char, 3> {
+        if (std::norm(psi(index)) <= 1e-8 * peak) return {0, 0, 0};
+        // Cyclic HSV hue: phase -pi and +pi share the same color. Mask vacuum.
+        const double hue = 3.0 * (std::arg(psi(index)) / pi + 1.0);
+        const int sector = static_cast<int>(std::floor(hue));
+        const auto rising = static_cast<unsigned char>(std::lround(255.0 * (hue - sector)));
+        const auto falling = static_cast<unsigned char>(255 - rising);
+        switch (sector % 6) {
+            case 0: return {255, rising, 0};
+            case 1: return {falling, 255, 0};
+            case 2: return {0, 255, rising};
+            case 3: return {0, falling, 255};
+            case 4: return {rising, 0, 255};
+            default: return {255, 0, falling};
+        }
+    });
 }
 
 inline void save_line_svg(

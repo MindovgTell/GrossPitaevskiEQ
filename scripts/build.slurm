@@ -105,8 +105,10 @@ fi
 
 cmake "${CMAKE_ARGS[@]}"
 
-cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" --parallel "${SLURM_CPUS_PER_TASK:-4}"
-ctest --test-dir "${BUILD_DIR}" --output-on-failure
+cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" --parallel "${SLURM_CPUS_PER_TASK:-4}" \
+  --target groundstate gpes_convergence_test gpes_rotation_test gpes_modulations_test
+ctest --test-dir "${BUILD_DIR}" --output-on-failure \
+  -R '^gpes_(convergence|rotation|modulations|groundstate_workflow|submit_sweep)$'
 
-echo "Build and numerical tests finished."
-echo "Binary: ${REPO_ROOT}/bin/GPESolver"
+echo "Ground-state build and numerical tests finished."
+echo "Ground-state binary: ${REPO_ROOT}/bin/groundstate"

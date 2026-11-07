@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Eigen/IterativeLinearSolvers>
+
 #include <cmath>
 #include <complex>
 #include <limits>
@@ -14,6 +16,7 @@
 #include "Core/definitions.hpp"
 #include "Core/traits.hpp"
 #include "Log/Log.hpp"
+#include "Solvers/AngularMomentum.hpp"
 #include "Solvers/experimental.hpp"
 #include "dipoleinteraction/dipoleinteraction.hpp"
 #include "grid/grid.hpp"
@@ -26,9 +29,14 @@ constexpr double M_PI = 3.14159265358979323846;
 namespace gpes::solvers {
 
     struct StationaryDiagnostics {
+        // The minimization objective is E - Omega <Lz>, not the lab-frame energy.
         double energy = std::numeric_limits<double>::quiet_NaN();
         double chemical_potential = std::numeric_limits<double>::quiet_NaN();
         double relative_residual = std::numeric_limits<double>::quiet_NaN();
+        double lab_energy = std::numeric_limits<double>::quiet_NaN();
+        double angular_momentum = std::numeric_limits<double>::quiet_NaN();
+        double angular_momentum_per_particle = std::numeric_limits<double>::quiet_NaN();
+        double scaled_residual = std::numeric_limits<double>::quiet_NaN();
     };
 
     template <Dimension Dim,
@@ -405,7 +413,13 @@ namespace gpes::solvers {
         SimConfig sim_config_;
 
         std::unique_ptr<DipolarInteraction<Dim>> F_ddi_;
+        std::unique_ptr<operators::AngularMomentum2D> angular_momentum_;
+        double rotation_frequency_ = 0.0;
+        Eigen::VectorXcd U_x_quarter_, U_y_half_;
+        fftw_plan forward_x_ = nullptr, backward_x_ = nullptr;
+        fftw_plan forward_y_ = nullptr, backward_y_ = nullptr;
         std::vector<double> vec_energy_;
+        std::vector<StationaryDiagnostics> diagnostic_history_;
 
     public:
 
@@ -413,10 +427,12 @@ namespace gpes::solvers {
             ShrdPtrGrid grid,
             WaveFuncType& vec,
             PhysConfig phcnfg,
-            SimConfig simcnfg
+            SimConfig simcnfg,
+            double rotation_frequency = 0.0
         ) : grid_(std::move(grid)),
             ph_config_(phcnfg),
-            sim_config_(simcnfg)
+            sim_config_(simcnfg),
+            rotation_frequency_(rotation_frequency)
         {
             if (!grid_) {
                 GPES_LOG(kLogCategory, Error, "SplitStep requires a valid grid");
@@ -451,6 +467,13 @@ namespace gpes::solvers {
                 GPES_LOG(kLogCategory, Error, "SplitStep<Dimension::Two>: omega_z must be positive and finite");
                 throw std::invalid_argument("SplitStep<Dimension::Two>: omega_z must be positive and finite");
             }
+            if (!std::isfinite(rotation_frequency_)) {
+                throw std::invalid_argument("SplitStep<2D>: rotation frequency must be finite");
+            }
+            if (sim_config_.ground_state && rotation_frequency_ != 0.0 &&
+                !(std::abs(rotation_frequency_) < std::min(grid_->omega_x(), grid_->omega_y()))) {
+                throw std::invalid_argument("SplitStep<2D>: a trapped rotating ground state requires |Omega| < min(omega_x, omega_y)");
+            }
             double l_z = 1.0 / std::sqrt(grid_->omega_z());
 
             calc_inter_consts<Dim>(ph_config_, l_z);
@@ -462,6 +485,7 @@ namespace gpes::solvers {
             }
 
             F_ddi_ = std::make_unique<DipolarInteraction<Dim>>(grid_, l_z, ph_config_.V_dd);
+            angular_momentum_ = std::make_unique<operators::AngularMomentum2D>(grid_);
 
             vec_energy_.reserve(sim_config_.num_of_steps);
 
@@ -476,8 +500,27 @@ namespace gpes::solvers {
 
         void init_fft(fftw_complex* data_ptr, int size_x, int size_y) {
             destroy_fft();
-            plan_fwd_ = fftw_plan_dft_2d(size_x, size_y, data_ptr, data_ptr, FFTW_FORWARD, FFTW_ESTIMATE);
-            plan_bwd_ = fftw_plan_dft_2d(size_x, size_y, data_ptr, data_ptr, FFTW_BACKWARD, FFTW_ESTIMATE);
+            if (rotation_frequency_ == 0.0) {
+                plan_fwd_ = fftw_plan_dft_2d(size_x, size_y, data_ptr, data_ptr, FFTW_FORWARD, FFTW_ESTIMATE);
+                plan_bwd_ = fftw_plan_dft_2d(size_x, size_y, data_ptr, data_ptr, FFTW_BACKWARD, FFTW_ESTIMATE);
+                if (!plan_fwd_ || !plan_bwd_) {
+                    destroy_fft();
+                    throw std::runtime_error("SplitStep<2D>: FFTW plan creation failed");
+                }
+            } else {
+                forward_x_ = fftw_plan_many_dft(1, &size_x, size_y, data_ptr, nullptr,
+                    size_y, 1, data_ptr, nullptr, size_y, 1, FFTW_FORWARD, FFTW_ESTIMATE);
+                backward_x_ = fftw_plan_many_dft(1, &size_x, size_y, data_ptr, nullptr,
+                    size_y, 1, data_ptr, nullptr, size_y, 1, FFTW_BACKWARD, FFTW_ESTIMATE);
+                forward_y_ = fftw_plan_many_dft(1, &size_y, size_x, data_ptr, nullptr,
+                    1, size_y, data_ptr, nullptr, 1, size_y, FFTW_FORWARD, FFTW_ESTIMATE);
+                backward_y_ = fftw_plan_many_dft(1, &size_y, size_x, data_ptr, nullptr,
+                    1, size_y, data_ptr, nullptr, 1, size_y, FFTW_BACKWARD, FFTW_ESTIMATE);
+                if (!forward_x_ || !backward_x_ || !forward_y_ || !backward_y_) {
+                    destroy_fft();
+                    throw std::runtime_error("SplitStep<2D>: directional FFTW plan creation failed");
+                }
+            }
             plan_data_ptr_ = data_ptr;
             plan_size_ = size_x * size_y;
         }
@@ -485,8 +528,12 @@ namespace gpes::solvers {
         void destroy_fft() {
             if (plan_fwd_) fftw_destroy_plan(plan_fwd_);
             if (plan_bwd_) fftw_destroy_plan(plan_bwd_);
-            plan_fwd_ = nullptr;
-            plan_bwd_ = nullptr;
+            if (forward_x_) fftw_destroy_plan(forward_x_);
+            if (backward_x_) fftw_destroy_plan(backward_x_);
+            if (forward_y_) fftw_destroy_plan(forward_y_);
+            if (backward_y_) fftw_destroy_plan(backward_y_);
+            plan_fwd_ = plan_bwd_ = nullptr;
+            forward_x_ = backward_x_ = forward_y_ = backward_y_ = nullptr;
             plan_data_ptr_ = nullptr;
             plan_size_ = 0;
         }
@@ -501,26 +548,20 @@ namespace gpes::solvers {
                 GPES_LOG(kLogCategory, Error, "SplitStep<Dimension::Two>: wavefunction resized or reallocated during solver lifetime");
                 throw std::runtime_error("SplitStep<Dimension::Two>: wavefunction resized or reallocated during solver lifetime");
             }
-            if (!plan_fwd_ || !plan_bwd_ || plan_data_ptr_ != data || plan_size_ != size) {
+            if (plan_data_ptr_ != data || plan_size_ != size) {
                 init_fft(data, size_x, size_y);
             }
 
-            fftw_execute_dft(plan_fwd_, data, data);
-            for (int i = 0; i < size; ++i) {
-                vec.vec()(i) *= U_k_(i);
-            }
-            fftw_execute_dft(plan_bwd_, data, data);
-            vec.vec() /= static_cast<double>(size);
+            kinetic_half_step(vec.vec());
 
             calc_potential_op(vec.vec());
             vec.vec().array() *= U_v_.array();
 
-            fftw_execute_dft(plan_fwd_, data, data);
-            for (int i = 0; i < size; ++i) {
-                vec.vec()(i) *= U_k_(i);
+            kinetic_half_step(vec.vec());
+
+            if (!vec.vec().allFinite()) {
+                throw std::runtime_error("SplitStep<2D>: non-finite propagation; reduce the time step");
             }
-            fftw_execute_dft(plan_bwd_, data, data);
-            vec.vec() /= static_cast<double>(size);
 
             if (sim_config_.ground_state) {
                 normalize(vec.vec());
@@ -539,6 +580,8 @@ namespace gpes::solvers {
 
             Eigen::VectorXd phi_ddi(size);
             F_ddi_->compute_DDI_term(vec.vec(), phi_ddi);
+            Eigen::VectorXcd lz_psi;
+            angular_momentum_->apply(vec.vec(), lz_psi);
 
             Eigen::VectorXcd kinetic = vec.vec();
             auto* data = reinterpret_cast<fftw_complex*>(kinetic.data());
@@ -583,7 +626,7 @@ namespace gpes::solvers {
                         + ph_config_.g_scat * density
                         + phi_ddi(k)
                         + ph_config_.g_lhy * std::pow(density, 1.5);
-                    hpsi(k) = kinetic(k) + local * vec.vec()(k);
+                    hpsi(k) = kinetic(k) + local * vec.vec()(k) - rotation_frequency_ * lz_psi(k);
 
                     result.energy += measure * (
                         std::real(std::conj(vec.vec()(k)) * kinetic(k))
@@ -598,6 +641,10 @@ namespace gpes::solvers {
             if (!(norm > 0.0) || !std::isfinite(result.energy)) {
                 throw std::runtime_error("SplitStep<Dimension::Two>::diagnostics: non-finite state");
             }
+            result.lab_energy = result.energy;
+            result.angular_momentum = measure * std::real(vec.vec().dot(lz_psi));
+            result.angular_momentum_per_particle = result.angular_momentum / norm;
+            result.energy -= rotation_frequency_ * result.angular_momentum;
             result.chemical_potential = mu_numerator / norm;
             const Eigen::VectorXcd residual = hpsi - result.chemical_potential * vec.vec();
             const double denominator = std::max({
@@ -605,8 +652,18 @@ namespace gpes::solvers {
                 std::abs(result.chemical_potential) * vec.vec().norm(),
                 1e-300});
             result.relative_residual = residual.norm() / denominator;
+            if (grid_->omega_x() > 0.0) {
+                result.scaled_residual = residual.norm() / (grid_->omega_x() * vec.vec().norm());
+            }
             vec_energy_.push_back(result.energy);
+            diagnostic_history_.push_back(result);
             return result;
+        }
+
+        double rotation_frequency() const { return rotation_frequency_; }
+
+        const std::vector<StationaryDiagnostics>& diagnostic_history() const {
+            return diagnostic_history_;
         }
 
         const std::vector<double>& energies() const {
@@ -653,6 +710,31 @@ namespace gpes::solvers {
             const double dkx = 2.0 * M_PI / Lx;
             const double dky = 2.0 * M_PI / Ly;
 
+            if (rotation_frequency_ != 0.0) {
+                U_x_quarter_.resize(size);
+                U_y_half_.resize(size);
+                const std::complex<double> time = sim_config_.ground_state
+                    ? std::complex<double>(sim_config_.dt, 0.0)
+                    : std::complex<double>(0.0, sim_config_.dt);
+                for (int i = 0; i < size_x; ++i) {
+                    const double x = grid_->start_pos_x() + i * dx;
+                    const double kx = operators::detail::fourier_wavenumber(i, size_x, dx);
+                    const double px = operators::detail::first_derivative_wavenumber(i, size_x, dx);
+                    for (int j = 0; j < size_y; ++j) {
+                        const double y = grid_->start_pos_y() + j * dy;
+                        const double ky = operators::detail::fourier_wavenumber(j, size_y, dy);
+                        const double py = operators::detail::first_derivative_wavenumber(j, size_y, dy);
+                        const int k = get_index(i, j);
+                        // Hx = px^2/2 + Omega y px; Hy = py^2/2 - Omega x py.
+                        U_x_quarter_(k) = std::exp(-0.25 * time * (0.5 * kx * kx + rotation_frequency_ * y * px));
+                        U_y_half_(k) = std::exp(-0.5 * time * (0.5 * ky * ky - rotation_frequency_ * x * py));
+                    }
+                }
+                if (!U_x_quarter_.allFinite() || !U_y_half_.allFinite()) {
+                    throw std::invalid_argument("SplitStep<2D>: rotating propagator overflow; reduce dt");
+                }
+                return;
+            }
             U_k_.resize(size);
 
             for (int i = 0; i < size_x; ++i) {
@@ -671,6 +753,30 @@ namespace gpes::solvers {
                     }
                 }
             }
+        }
+
+        void kinetic_half_step(Eigen::VectorXcd& vec) {
+            auto* data = reinterpret_cast<fftw_complex*>(vec.data());
+            if (rotation_frequency_ == 0.0) {
+                fftw_execute_dft(plan_fwd_, data, data);
+                vec.array() *= U_k_.array();
+                fftw_execute_dft(plan_bwd_, data, data);
+                vec /= static_cast<double>(vec.size());
+                return;
+            }
+            // Symmetric approximation to exp[-s (T - Omega Lz)/2].
+            fftw_execute_dft(forward_x_, data, data);
+            vec.array() *= U_x_quarter_.array();
+            fftw_execute_dft(backward_x_, data, data);
+            vec /= static_cast<double>(grid_->size_x());
+            fftw_execute_dft(forward_y_, data, data);
+            vec.array() *= U_y_half_.array();
+            fftw_execute_dft(backward_y_, data, data);
+            vec /= static_cast<double>(grid_->size_y());
+            fftw_execute_dft(forward_x_, data, data);
+            vec.array() *= U_x_quarter_.array();
+            fftw_execute_dft(backward_x_, data, data);
+            vec /= static_cast<double>(grid_->size_x());
         }
 
         void calc_potential_op(const Eigen::VectorXcd& vec) {
@@ -790,6 +896,9 @@ namespace gpes::solvers {
             double psum = 0;
             for(int i = 0; i < size; ++i){
                 psum += std::norm(vec(i));
+            }
+            if (!(psum > 0.0) || !std::isfinite(psum)) {
+                throw std::runtime_error("SplitStep<2D>: invalid normalization; reduce the time step");
             }
             std::complex<double> normalization_factor = std::sqrt(ph_config_.num_of_prt) / std::sqrt(psum * grid_->step_x() * grid_->step_y()); // 
             vec *= std::abs(normalization_factor);

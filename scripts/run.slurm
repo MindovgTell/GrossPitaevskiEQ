@@ -29,8 +29,8 @@ if [[ ! -f "${REPO_ROOT}/CMakeLists.txt" ]]; then
   exit 1
 fi
 
-PARAMS_FILE="${1:-${REPO_ROOT}/parameters/sweep_40.tsv}"
-EXECUTABLE="${EXECUTABLE:-${REPO_ROOT}/bin/GPESolver}"
+PARAMS_FILE="${1:-${REPO_ROOT}/parameters/sweep_80.tsv}"
+EXECUTABLE="${EXECUTABLE:-${REPO_ROOT}/bin/groundstate}"
 GPES_MODULES="${GPES_MODULES:-GCC/14.3.0 CMake/3.31.8 Eigen/3.4.0 FFTW/3.3.10}"
 if [[ -z "${RUN_ROOT:-}" ]]; then
   if [[ -z "${SCRATCH:-}" ]]; then
@@ -44,28 +44,22 @@ NX="${NX:-1024}"
 NY="${NY:-1024}"
 X_HALF_LENGTH="${X_HALF_LENGTH:-25}"
 Y_HALF_LENGTH="${Y_HALF_LENGTH:-25}"
-MAX_GROUND_STEPS="${MAX_GROUND_STEPS:-50000}"
+MAX_GROUND_STEPS="${MAX_GROUND_STEPS:-200000}"
 MIN_GROUND_DT="${MIN_GROUND_DT:-1e-4}"
 CONVERGENCE_CHECK_INTERVAL="${CONVERGENCE_CHECK_INTERVAL:-100}"
+CONVERGENCE_CHECKS_REQUIRED="${CONVERGENCE_CHECKS_REQUIRED:-3}"
+RELATIVE_ENERGY_TOL="${RELATIVE_ENERGY_TOL:-1e-6}"
+ABSOLUTE_ENERGY_TOL="${ABSOLUTE_ENERGY_TOL:-1e-12}"
+STATIONARY_RESIDUAL_TOL="${STATIONARY_RESIDUAL_TOL:-1e-4}"
+BOUNDARY_DENSITY_TOL="${BOUNDARY_DENSITY_TOL:-1e-8}"
 SNAPSHOT_INTERVAL="${SNAPSHOT_INTERVAL:-5000}"
-BDG_MODES="${BDG_MODES:-24}"
-BDG_NCV="${BDG_NCV:-64}"
-MAX_CONCURRENT="${MAX_CONCURRENT:-8}"
+BACKGROUND_WIDTH_X="${BACKGROUND_WIDTH_X:-2.5}"
+BACKGROUND_WIDTH_Y="${BACKGROUND_WIDTH_Y:-2.5}"
+SEED_NOISE="${SEED_NOISE:-0.001}"
 
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-
-mkdir -p "${REPO_ROOT}/slurm"
-
-count_parameter_lines() {
-  awk '
-    /^[[:space:]]*$/ { next }
-    /^[[:space:]]*#/ { next }
-    { count++ }
-    END { print count + 0 }
-  ' "$1"
-}
 
 get_parameter_line() {
   local line_number="$1"
@@ -88,19 +82,7 @@ if [[ ! -f "${PARAMS_FILE}" ]]; then
 fi
 
 if [[ -z "${SLURM_ARRAY_TASK_ID:-}" ]]; then
-  num_jobs="$(count_parameter_lines "${PARAMS_FILE}")"
-  if [[ "${num_jobs}" -le 0 ]]; then
-    echo "No parameter sets found in ${PARAMS_FILE}" >&2
-    exit 1
-  fi
-
-  echo "Submitting ${num_jobs} GPES jobs from ${PARAMS_FILE}"
-  mkdir -p "${RUN_ROOT}/slurm"
-  exec sbatch \
-    --array="1-${num_jobs}%${MAX_CONCURRENT}" \
-    --output="${RUN_ROOT}/slurm/%A_%a.out" \
-    --error="${RUN_ROOT}/slurm/%A_%a.err" \
-    "$0" "${PARAMS_FILE}"
+  exec "${REPO_ROOT}/scripts/submit_sweep.sh" "${PARAMS_FILE}"
 fi
 
 if [[ -r /etc/os-release ]]; then
@@ -124,7 +106,7 @@ fi
 
 if [[ ! -x "${EXECUTABLE}" ]]; then
   echo "Executable not found or not executable: ${EXECUTABLE}" >&2
-  echo "Submit build.slurm first or set EXECUTABLE=/path/to/GPESolver." >&2
+  echo "Submit build.slurm first or set EXECUTABLE=/path/to/groundstate." >&2
   exit 1
 fi
 
@@ -135,67 +117,109 @@ if [[ -z "${param_line}" ]]; then
 fi
 
 # Parameter-file columns:
-# a_s a_dd num_particles dt duration w_x w_y w_z [run_name]
-read -r a_s a_dd num_particles dt duration w_x w_y w_z run_name extra <<< "${param_line}"
+# a_s a_dd num_particles dt legacy_duration w_x w_y w_z run_name [Omega] [modulation_file]
+# legacy_duration remains in the old sweep table but groundstate uses convergence controls.
+read -r a_s a_dd num_particles dt legacy_duration w_x w_y w_z run_name rotation_frequency modulation_file extra <<< "${param_line}"
 
 if [[ -z "${a_s:-}" || -z "${a_dd:-}" || -z "${num_particles:-}" ||
-      -z "${dt:-}" || -z "${duration:-}" ||
+      -z "${dt:-}" || -z "${legacy_duration:-}" ||
       -z "${w_x:-}" || -z "${w_y:-}" || -z "${w_z:-}" ]]; then
   echo "Invalid parameter line ${SLURM_ARRAY_TASK_ID}: ${param_line}" >&2
-  echo "Expected: a_s a_dd num_particles dt duration w_x w_y w_z [run_name]" >&2
+  echo "Expected: a_s a_dd num_particles dt legacy_duration w_x w_y w_z run_name [Omega] [modulation_file]" >&2
   exit 1
 fi
 
 if [[ -n "${extra:-}" ]]; then
   echo "Too many fields on parameter line ${SLURM_ARRAY_TASK_ID}: ${param_line}" >&2
-  echo "Expected: a_s a_dd num_particles dt duration w_x w_y w_z [run_name]" >&2
+  echo "Expected: a_s a_dd num_particles dt legacy_duration w_x w_y w_z run_name [Omega] [modulation_file]" >&2
   exit 1
 fi
 
 if [[ -z "${run_name:-}" ]]; then
   run_name="$(printf "run_%04d" "${SLURM_ARRAY_TASK_ID}")"
 fi
+if [[ ! "${run_name}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+  echo "Invalid run_name: ${run_name}" >&2
+  exit 1
+fi
+rotation_frequency="${rotation_frequency:-0}"
+if [[ -n "${modulation_file:-}" && "${modulation_file}" != "-" ]]; then
+  modulation_file="${RUN_ROOT}/seeds/${run_name}.tsv"
+  if [[ ! -f "${modulation_file}" ]]; then
+    echo "Missing submitted modulation seed: ${modulation_file}" >&2
+    exit 1
+  fi
+else
+  modulation_file=""
+fi
 
-run_dir="${RUN_ROOT}/${run_name}"
-log_dir="${run_dir}/log"
+base_dir="${RUN_ROOT}/${run_name}"
+source_dir=""
+for candidate in "${base_dir}" "${base_dir}_retry_"*; do
+  if [[ -f "${candidate}/COMPLETED" ]]; then
+    echo "Ground-state run already complete: ${candidate}"
+    exit 0
+  fi
+  checkpoint="${candidate}/wavefunction/wavefunction.csv"
+  if [[ -f "${checkpoint}" && ( -z "${source_dir}" || "${checkpoint}" -nt "${source_dir}/wavefunction/wavefunction.csv" ) ]]; then
+    source_dir="${candidate}"
+  fi
+done
 
-mkdir -p "${run_dir}" "${log_dir}"
-
-if [[ -f "${run_dir}/COMPLETED" ]]; then
-  echo "Run already complete: ${run_dir}"
-  exit 0
+run_dir="${base_dir}"
+if [[ -e "${run_dir}" ]]; then
+  run_dir="${base_dir}_retry_${SLURM_JOB_ID:-manual}_${SLURM_RESTART_COUNT:-0}"
+  attempt=1
+  while [[ -e "${run_dir}" ]]; do
+    run_dir="${base_dir}_retry_${SLURM_JOB_ID:-manual}_${SLURM_RESTART_COUNT:-0}_${attempt}"
+    attempt=$((attempt + 1))
+  done
 fi
 
 cmd=(
   "${EXECUTABLE}"
-  --cli-only
-  --a-s "${a_s}"
-  --a-dd "${a_dd}"
-  --num-particles "${num_particles}"
   --dt "${dt}"
-  --duration "${duration}"
-  --w-x "${w_x}"
-  --w-y "${w_y}"
-  --w-z "${w_z}"
-  --nx "${NX}"
-  --ny "${NY}"
-  --x-half-length "${X_HALF_LENGTH}"
-  --y-half-length "${Y_HALF_LENGTH}"
   --max-ground-steps "${MAX_GROUND_STEPS}"
   --min-ground-dt "${MIN_GROUND_DT}"
   --convergence-check-interval "${CONVERGENCE_CHECK_INTERVAL}"
+  --convergence-checks-required "${CONVERGENCE_CHECKS_REQUIRED}"
+  --relative-energy-tol "${RELATIVE_ENERGY_TOL}"
+  --absolute-energy-tol "${ABSOLUTE_ENERGY_TOL}"
+  --stationary-residual-tol "${STATIONARY_RESIDUAL_TOL}"
+  --boundary-density-tol "${BOUNDARY_DENSITY_TOL}"
   --snapshot-interval "${SNAPSHOT_INTERVAL}"
-  --random-seed "${SLURM_ARRAY_TASK_ID}"
-  --bdg-modes "${BDG_MODES}"
-  --bdg-ncv "${BDG_NCV}"
-  --log-dir "${log_dir}"
-  --wavefunction-out "${run_dir}"
+  --output-dir "${run_dir}"
 )
+if [[ -n "${source_dir}" ]]; then
+  cmd+=(--resume "${source_dir}")
+else
+  cmd+=(
+    --a-s "${a_s}"
+    --a-dd "${a_dd}"
+    --num-particles "${num_particles}"
+    --w-x "${w_x}"
+    --w-y "${w_y}"
+    --w-z "${w_z}"
+    --rotation-frequency "${rotation_frequency}"
+    --nx "${NX}"
+    --ny "${NY}"
+    --x-half-length "${X_HALF_LENGTH}"
+    --y-half-length "${Y_HALF_LENGTH}"
+    --background-width-x "${BACKGROUND_WIDTH_X}"
+    --background-width-y "${BACKGROUND_WIDTH_Y}"
+    --seed-noise "${SEED_NOISE}"
+    --random-seed "${SLURM_ARRAY_TASK_ID}"
+  )
+  if [[ -n "${modulation_file}" ]]; then
+    cmd+=(--modulation-file "${modulation_file}")
+  fi
+fi
 
 echo "SLURM job id: ${SLURM_JOB_ID:-unknown}"
 echo "SLURM array task id: ${SLURM_ARRAY_TASK_ID}"
 echo "Parameter line: ${param_line}"
 echo "Run directory: ${run_dir}"
+echo "Resume from: ${source_dir:-fresh seed}"
 echo "Grid: ${NX}x${NY} on [-${X_HALF_LENGTH},${X_HALF_LENGTH}) x [-${Y_HALF_LENGTH},${Y_HALF_LENGTH})"
 echo "Command: ${cmd[*]}"
 

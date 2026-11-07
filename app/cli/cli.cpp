@@ -38,6 +38,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
     std::size_t convergence_check_interval = cfg.convergence_check_interval;
     std::size_t convergence_checks_required = cfg.convergence_checks_required;
     double relative_energy_tolerance = cfg.relative_energy_tolerance;
+    double absolute_energy_tolerance = cfg.absolute_energy_tolerance;
     double stationary_residual_tolerance = cfg.stationary_residual_tolerance;
     double minimum_ground_dt = cfg.minimum_ground_dt;
     std::size_t snapshot_interval = cfg.snapshot_interval;
@@ -79,6 +80,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
     app.add_option("--convergence-check-interval", convergence_check_interval, "Steps between convergence checks")->check(CLI::PositiveNumber);
     app.add_option("--convergence-checks-required", convergence_checks_required, "Consecutive passing convergence checks")->check(CLI::PositiveNumber);
     app.add_option("--relative-energy-tol", relative_energy_tolerance, "Relative ground-state energy tolerance")->check(CLI::PositiveNumber);
+    app.add_option("--absolute-energy-tol", absolute_energy_tolerance, "Absolute ground-state energy tolerance floor")->check(CLI::NonNegativeNumber);
     app.add_option("--stationary-residual-tol", stationary_residual_tolerance, "Relative stationary eGPE residual tolerance")->check(CLI::PositiveNumber);
     app.add_option("--min-ground-dt", minimum_ground_dt, "Smallest imaginary-time step used during residual refinement")->check(CLI::PositiveNumber);
     app.add_option("--snapshot-interval", snapshot_interval, "Steps between wavefunction checkpoints")->check(CLI::PositiveNumber);
@@ -145,6 +147,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
     cfg.convergence_check_interval = convergence_check_interval;
     cfg.convergence_checks_required = convergence_checks_required;
     cfg.relative_energy_tolerance = relative_energy_tolerance;
+    cfg.absolute_energy_tolerance = absolute_energy_tolerance;
     cfg.stationary_residual_tolerance = stationary_residual_tolerance;
     cfg.minimum_ground_dt = minimum_ground_dt;
     cfg.snapshot_interval = snapshot_interval;
@@ -179,6 +182,7 @@ ParsedCli parse_cli_full(int argc, char **argv) {
     sim.convergence_check_interval = cfg.convergence_check_interval;
     sim.convergence_checks_required = cfg.convergence_checks_required;
     sim.relative_energy_tolerance = cfg.relative_energy_tolerance;
+    sim.absolute_energy_tolerance = cfg.absolute_energy_tolerance;
     sim.stationary_residual_tolerance = cfg.stationary_residual_tolerance;
     sim.minimum_ground_dt = cfg.minimum_ground_dt;
 

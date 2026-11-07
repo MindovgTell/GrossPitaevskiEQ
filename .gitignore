@@ -16,6 +16,8 @@ scripts/*
 !scripts/submit_sweep.sh
 parameters/*
 !parameters/sweep_40.tsv
+!parameters/sweep_80.tsv
+!parameters/three_peak_seed.tsv
 res
 AresRes
 AresGPES

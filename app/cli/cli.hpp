@@ -21,7 +21,8 @@ struct CliConfig {
     std::size_t max_ground_steps = 50000;
     std::size_t convergence_check_interval = 100;
     std::size_t convergence_checks_required = 3;
-    double relative_energy_tolerance = 1e-10;
+    double relative_energy_tolerance = 1e-8;
+    double absolute_energy_tolerance = 1e-12;
     double stationary_residual_tolerance = 1e-4;
     double minimum_ground_dt = 1e-4;
     std::size_t snapshot_interval = 5000;

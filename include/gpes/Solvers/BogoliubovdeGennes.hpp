@@ -1447,7 +1447,12 @@ namespace gpes::bdg {
                           << local_bdg_weight << '\n';
                 }
             }
+            state.close();
+            if (!state) throw std::runtime_error("save_bdg_result: write failed: " + state_path.string());
         }
+
+        spectrum.close();
+        if (!spectrum) throw std::runtime_error("save_bdg_result: write failed: " + spectrum_path.string());
 
         return spectrum_path;
     }

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <complex>
+#include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <cstddef>
 #include <filesystem>
@@ -234,7 +236,8 @@ inline void load_wavefunction_csv(
 
 inline void load_wavefunction_csv(
     WaveFunction<Dimension::Two>& psi,
-    const std::filesystem::path& filepath
+    const std::filesystem::path& filepath,
+    bool strict_checkpoint = false
 ) {
     if (!psi.grid()) {
         throw std::invalid_argument("load_wavefunction_csv(2D): wavefunction has no grid");
@@ -256,6 +259,53 @@ inline void load_wavefunction_csv(
     std::vector<bool> seen(static_cast<std::size_t>(n), false);
 
     std::string line;
+    if (strict_checkpoint) {
+        if (!std::getline(in, line) || detail::trim_copy(line) != "ix,iy,x,y,real,imag,abs2") {
+            throw std::runtime_error("Checkpoint must have the GPES 2D CSV header: " + filepath.string());
+        }
+        const auto real = [](const std::string& field) {
+            std::size_t end = 0;
+            const double value = std::stod(field, &end);
+            if (end != field.size() || !std::isfinite(value)) {
+                throw std::runtime_error("Invalid finite number in checkpoint");
+            }
+            return value;
+        };
+        const auto index = [](const std::string& field) {
+            std::size_t end = 0;
+            const int value = std::stoi(field, &end);
+            if (end != field.size()) throw std::runtime_error("Invalid checkpoint index");
+            return value;
+        };
+        const auto close = [](double lhs, double rhs) {
+            return std::abs(lhs - rhs) <= 1e-12 * std::max({1.0, std::abs(lhs), std::abs(rhs)});
+        };
+        while (std::getline(in, line)) {
+            if (detail::is_comment_or_empty(line)) continue;
+            const auto fields = detail::split_csv_line(line);
+            if (fields.size() != 7) throw std::runtime_error("Invalid checkpoint column count");
+            const int ix = index(fields[0]);
+            const int iy = index(fields[1]);
+            if (ix < 0 || ix >= nx || iy < 0 || iy >= ny) {
+                throw std::runtime_error("Checkpoint index outside the declared grid");
+            }
+            const int k = ix * ny + iy;
+            if (seen[static_cast<std::size_t>(k)]) throw std::runtime_error("Duplicate checkpoint grid point");
+            if (!close(real(fields[2]), grid.start_pos_x() + ix * grid.step_x()) ||
+                !close(real(fields[3]), grid.start_pos_y() + iy * grid.step_y())) {
+                throw std::runtime_error("Checkpoint coordinates do not match the parameter manifest");
+            }
+            loaded(k) = {real(fields[4]), real(fields[5])};
+            if (!std::isfinite(std::norm(loaded(k))) || !close(real(fields[6]), std::norm(loaded(k)))) {
+                throw std::runtime_error("Checkpoint density does not match its complex field");
+            }
+            seen[static_cast<std::size_t>(k)] = true;
+            ++loaded_count;
+        }
+        if (!in.eof() || loaded_count != n) throw std::runtime_error("Checkpoint is incomplete or unreadable");
+        psi.set_vec(loaded);
+        return;
+    }
     while (std::getline(in, line)) {
         if (detail::is_comment_or_empty(line)) {
             continue;

@@ -339,6 +339,9 @@ public:
     void set_state_TF(double x_c, double y_c, unsigned int number_of_prt);
     void set_state_Gauss(double x_c, double y_c, double sigma_x, double sigma_y, unsigned int number_of_prt);
     void set_state_GaussSum(const std::vector<GaussianComponent>& components, unsigned int number_of_prt);
+    // Add sum_j A_j exp[-(x-x_j)^2/(2 sigma_xj^2) -(y-y_j)^2/(2 sigma_yj^2)]
+    // to the current state. A_j scales the current background's peak amplitude; keep its norm.
+    void add_gaussian_modulations(const std::vector<GaussianComponent>& components);
 
     void set_vec(Eigen::VectorXcd& vec) {
         int sx = gridptr_->size_x();
@@ -632,6 +635,49 @@ inline void WaveFunction<Dimension::Two>::set_state_GaussSum(
         std::sqrt(number_of_prt) / std::sqrt(psum * stepx * stepy);
     U *= std::abs(normalization_factor);
     data_ = U;
+}
+
+inline void WaveFunction<Dimension::Two>::add_gaussian_modulations(
+    const std::vector<GaussianComponent>& components
+) {
+    if (components.empty()) return;
+    if (!gridptr_ || data_.size() != static_cast<Eigen::Index>(gridptr_->size_x() * gridptr_->size_y()) ||
+        !data_.allFinite()) {
+        throw std::invalid_argument("add_gaussian_modulations: invalid wavefunction or grid");
+    }
+    for (const auto& peak : components) {
+        if (!std::isfinite(peak[0]) || !std::isfinite(peak[1]) ||
+            !std::isfinite(peak[2]) || peak[2] <= 0.0 ||
+            !std::isfinite(peak[3]) || peak[3] <= 0.0 || !std::isfinite(peak[4])) {
+            throw std::invalid_argument("add_gaussian_modulations: peak coordinates, widths and amplitude must be finite; widths must be positive");
+        }
+    }
+    const double original_norm = data_.squaredNorm();
+    if (!(original_norm > 0.0) || !std::isfinite(original_norm)) {
+        throw std::invalid_argument("add_gaussian_modulations: the background must have nonzero finite norm");
+    }
+    const double amplitude_scale = data_.cwiseAbs().maxCoeff();
+    VectorType modulated = data_;
+    const int nx = static_cast<int>(gridptr_->size_x());
+    const int ny = static_cast<int>(gridptr_->size_y());
+    for (int i = 0; i < nx; ++i) {
+        const double x = gridptr_->start_pos_x() + i * gridptr_->step_x();
+        for (int j = 0; j < ny; ++j) {
+            const double y = gridptr_->start_pos_y() + j * gridptr_->step_y();
+            double modulation = 0.0;
+            for (const auto& peak : components) {
+                const double dx = (x - peak[0]) / peak[2];
+                const double dy = (y - peak[1]) / peak[3];
+                modulation += peak[4] * std::exp(-0.5 * (dx * dx + dy * dy));
+            }
+            modulated(i * ny + j) += amplitude_scale * modulation;
+        }
+    }
+    const double new_norm = modulated.squaredNorm();
+    if (!(new_norm > 0.0) || !std::isfinite(new_norm)) {
+        throw std::runtime_error("add_gaussian_modulations: zero or nonfinite modulated state");
+    }
+    data_ = modulated * std::sqrt(original_norm / new_norm);
 }
 
 

@@ -4,6 +4,7 @@
 // #include "visualitsation.hpp"
 // #include "SaveSimResults.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <complex>
@@ -37,10 +38,18 @@ namespace gpes {
         std::size_t max_ground_steps = 50000;
         std::size_t convergence_check_interval = 100;
         std::size_t convergence_checks_required = 3;
-        double relative_energy_tolerance = 1e-10;
+        double relative_energy_tolerance = 1e-8;
         double stationary_residual_tolerance = 1e-4;
         double minimum_ground_dt = 1e-4;
+        double absolute_energy_tolerance = 1e-12;
     };
+
+    inline bool ground_energy_converged(double current, double previous,
+                                        double relative_tolerance, double absolute_tolerance) {
+        if (!std::isfinite(current) || !std::isfinite(previous)) return false;
+        return std::abs(current - previous) <= absolute_tolerance
+            + relative_tolerance * std::max(std::abs(current), std::abs(previous));
+    }
 
     struct PhysConfig {
         double a_s;

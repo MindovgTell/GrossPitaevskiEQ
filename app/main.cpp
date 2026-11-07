@@ -101,6 +101,11 @@ void save_run_metadata(
         << "  \"nx\": " << cfg.nx << ",\n"
         << "  \"ny\": " << cfg.ny << ",\n"
         << "  \"dt\": " << cfg.dt << ",\n"
+        << "  \"relative_energy_tolerance\": " << cfg.relative_energy_tolerance << ",\n"
+        << "  \"absolute_energy_tolerance\": " << cfg.absolute_energy_tolerance << ",\n"
+        << "  \"stationary_residual_tolerance\": " << cfg.stationary_residual_tolerance << ",\n"
+        << "  \"convergence_check_interval\": " << cfg.convergence_check_interval << ",\n"
+        << "  \"convergence_checks_required\": " << cfg.convergence_checks_required << ",\n"
         << "  \"final_imaginary_time_dt\": " << ground.final_time_step << ",\n"
         << "  \"ground_state_converged\": " << (ground.converged ? "true" : "false") << ",\n"
         << "  \"ground_state_steps\": " << ground.steps_completed << ",\n"
@@ -213,9 +218,12 @@ int main(int argc, char **argv) {
         solver.run(wavefunction_path, cfg.snapshot_interval);
         const auto ground = solver.ground_state_result();
 
-        gpes::io::save_state_energy_history_csv(
-            stepper.energies(), wavefunction_path, "energy_history.csv",
-            cfg.convergence_check_interval);
+        std::ostringstream energy_history;
+        energy_history << "step,energy\n" << std::setprecision(17);
+        for (std::size_t i = 0; i < stepper.energies().size(); ++i) {
+            energy_history << ground.diagnostic_steps.at(i) << ',' << stepper.energies()[i] << '\n';
+        }
+        write_text_file(wavefunction_dir / "energy_history.csv", energy_history.str());
         gpes::image::save_line_svg(
             stepper.energies(), image_dir / "energy_history.svg",
             "Imaginary-time convergence", "energy");

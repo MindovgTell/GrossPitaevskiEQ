@@ -33,20 +33,12 @@ endif()
 # 4. Dependencies (installed packages)
 # —————————————————————————————————————————
 include(FetchContent)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # Eigen
-find_package(Eigen3 3.3 QUIET NO_MODULE)
-if(NOT TARGET Eigen3::Eigen)
-  find_path(EIGEN3_INCLUDE_DIR
-    NAMES Eigen/Core
-    PATH_SUFFIXES eigen3 Eigen3
-  )
-  if(NOT EIGEN3_INCLUDE_DIR)
-    message(FATAL_ERROR "Eigen3 not found. Load an Eigen module or set CMAKE_PREFIX_PATH/EIGEN3_INCLUDE_DIR.")
-  endif()
-  add_library(Eigen3::Eigen INTERFACE IMPORTED)
-  target_include_directories(Eigen3::Eigen INTERFACE "${EIGEN3_INCLUDE_DIR}")
-endif()
+find_package(GPESEigen3 REQUIRED)
 
 # Spectra (header-only; depends on Eigen)
 if(GPES_SPECTRA_SOURCE_DIR)
@@ -78,40 +70,14 @@ endif()
 
 # FFTW3: search headers/libs directly. Some cluster FFTW CMake package files are
 # incomplete, so avoid find_package(FFTW3) unless a target already exists.
-if(NOT TARGET FFTW3::fftw3)
-  find_path(FFTW3_INCLUDE_DIR
-    NAMES fftw3.h
-    HINTS
-      "${FFTW3_ROOT}"
-      "$ENV{FFTW3_ROOT}"
-      "$ENV{FFTW_ROOT}"
-      "$ENV{EBROOTFFTW}"
-    PATH_SUFFIXES include
-    PATHS /opt/homebrew/include /usr/local/include /usr/include
-  )
-  find_library(FFTW3_LIBRARY
-    NAMES fftw3
-    HINTS
-      "${FFTW3_ROOT}"
-      "$ENV{FFTW3_ROOT}"
-      "$ENV{FFTW_ROOT}"
-      "$ENV{EBROOTFFTW}"
-    PATH_SUFFIXES lib lib64
-    PATHS /opt/homebrew/lib /usr/local/lib /usr/lib
-  )
-  if(NOT FFTW3_INCLUDE_DIR OR NOT FFTW3_LIBRARY)
-    message(FATAL_ERROR "FFTW3 not found. Load an FFTW module or set FFTW3_ROOT/FFTW3_INCLUDE_DIR/FFTW3_LIBRARY.")
-  endif()
-  add_library(FFTW3::fftw3 UNKNOWN IMPORTED)
-  set_target_properties(FFTW3::fftw3 PROPERTIES
-    IMPORTED_LOCATION "${FFTW3_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${FFTW3_INCLUDE_DIR}"
-  )
-endif()
+find_package(GPESFFTW REQUIRED)
+find_package(Threads REQUIRED)
 
 
 # spdlog: prefer the vendored headers for reproducible offline cluster builds.
+set(GPES_BUNDLED_SPDLOG OFF)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party/spdlog/spdlog.h")
+  set(GPES_BUNDLED_SPDLOG ON)
   add_library(spdlog::spdlog_header_only INTERFACE IMPORTED)
   target_compile_definitions(spdlog::spdlog_header_only INTERFACE
     SPDLOG_HEADER_ONLY
@@ -201,24 +167,40 @@ add_library(gpes::gpes ALIAS gpes)
 
 target_include_directories(gpes
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/gpes
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/gpes>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/gpes>"
 )
+target_compile_features(gpes PUBLIC cxx_std_20)
+target_link_libraries(gpes PRIVATE Threads::Threads)
 
 # Link Eigen
 target_link_libraries(gpes PUBLIC Eigen3::Eigen)
 
 # Link Spectra
 target_include_directories(gpes PUBLIC
-    ${GPES_SPECTRA_INCLUDE_DIR}
+    "$<BUILD_INTERFACE:${GPES_SPECTRA_INCLUDE_DIR}>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/gpes/third_party>"
 )
 # Link FFTW3 (handle both "target" and "variables" styles)
 target_link_libraries(gpes PUBLIC FFTW3::fftw3)
 
 # Link spdlog (prefer header_only if available, else compiled target)
-if(TARGET spdlog::spdlog_header_only)
+if(GPES_BUNDLED_SPDLOG)
+  # Give bundled headers an exported target independent of source-tree paths.
+  add_library(gpes_logging INTERFACE)
+  set_target_properties(gpes_logging PROPERTIES EXPORT_NAME logging)
+  target_compile_definitions(gpes_logging INTERFACE SPDLOG_HEADER_ONLY FMT_HEADER_ONLY)
+  target_include_directories(gpes_logging INTERFACE
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/gpes/third_party>"
+  )
+  target_link_libraries(gpes PUBLIC gpes_logging)
+elseif(TARGET spdlog::spdlog_header_only)
   target_link_libraries(gpes PUBLIC spdlog::spdlog_header_only)
+  set(GPES_EXTERNAL_SPDLOG_TARGET spdlog::spdlog_header_only)
 elseif(TARGET spdlog::spdlog)
   target_link_libraries(gpes PUBLIC spdlog::spdlog)
+  set(GPES_EXTERNAL_SPDLOG_TARGET spdlog::spdlog)
 else()
   message(FATAL_ERROR "spdlog found but no spdlog::spdlog(_header_only) target available.")
 endif()
@@ -230,11 +212,14 @@ if(GPES_ENABLE_PLOTTING)
     include/gpes/source/plot/plot.cpp
   )
   add_library(gpes::plot ALIAS gpes_plot)
+  set_target_properties(gpes_plot PROPERTIES EXPORT_NAME plot)
 
   target_include_directories(gpes_plot
     PUBLIC
-      ${CMAKE_CURRENT_SOURCE_DIR}/include/gpes
-      ${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party
+      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/gpes>"
+      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/gpes/third_party>"
+      "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/gpes>"
+      "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/gpes/third_party>"
     PRIVATE
       ${Python3_INCLUDE_DIRS}
       ${Python3_NumPy_INCLUDE_DIRS}
@@ -261,6 +246,8 @@ if(GPES_WARNINGS)
 endif()
 
 set_target_properties(gpes PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/InstallGPES.cmake")
 
 
 # —————————————————————————————————————————
