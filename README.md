@@ -187,9 +187,9 @@ BdG attempt:
 
 Both programs return 0 and write `COMPLETED` only on success. Exit 2 means a saved but unconverged/diagnostic calculation (`NOT_CONVERGED` or `INCOMPLETE`). Exit 1 means a run/input/output error, recorded in `FAILED` when a destination exists; CLI syntax errors may use other nonzero codes. `RUNNING` without a terminal marker can indicate a killed job. A BdG convergence failure retains any returned candidate modes, even zero-mode CSV headers, but **these are not a validated spectrum**. An exception before the eigensolver returns can leave only failure diagnostics, not mode files. For recursive processing any unsuccessful state makes the overall exit status nonzero.
 
-## Default 80-point sweep
+## Default 20-point sweep
 
-[parameters/sweep_80.tsv](parameters/sweep_80.tsv) contains 16 evenly spaced scattering lengths from `0.001` to `0.009`, crossed with the 5 in-plane aspect ratios `omega_y/omega_x = 1, 2, 3, 4, 5`, for exactly 80 ground-state attempts. It fixes `a_dd=0.008843`, `N=80000`, `omega_x=1`, and `omega_z=8`. The Slurm script supplies a `1024x1024` grid on `[-25,25) x [-25,25)`. Every default row has `Omega=0` and a noisy Gaussian seed. The previous [40-point table](parameters/sweep_40.tsv) remains available for explicit submission. Neither table is the proposal's `omega_x/omega_y` scan with several rotation frequencies and seed families.
+[parameters/sweep_20.tsv](parameters/sweep_20.tsv) contains five scattering lengths `0.002600000, 0.004733333, 0.006333333, 0.007933333, 0.009000000`, crossed with four in-plane aspect ratios `omega_y/omega_x = 1, 2, 3, 5`, for 20 ground-state attempts. These points span strongly dipolar interactions through a near-`a_s=a_dd` reference; they are exploratory choices, not known phase boundaries. It fixes `a_dd=0.008843`, `N=80000`, `omega_x=1`, and `omega_z=8`. The Slurm script supplies a `1024x1024` grid on `[-25,25) x [-25,25)`. Every default row has `Omega=0` and a noisy Gaussian seed. The larger [80-point table](parameters/sweep_80.tsv) and previous [40-point table](parameters/sweep_40.tsv) remain available for explicit submission. None of these tables is the proposal's `omega_x/omega_y` scan with several rotation frequencies and seed families.
 
 The implemented dimensional reduction integrates out `z`. The existing `omega_z=8` exceeds the new maximum `omega_y=5`, but the ratio is only `8/5` at that end of the sweep; verify that frozen-axis quasi-2D assumptions hold for the intended physical setup. The saved frequencies allow either ratio to be reconstructed; `ground_state.txt` explicitly records `lambda_omega_x_over_omega_y`.
 
@@ -205,13 +205,13 @@ Dependencies are CMake 3.24+, a C++20 compiler, Eigen 3.3+, and FFTW3. Spectra 1
 bash scripts/submit_sweep.sh
 ```
 
-The wrapper submits one ground-state build/test job and then a dependent array of 80 ground-state tasks. Up to 8 tasks run concurrently by default; each requests one CPU and 32 GiB. The submission command returns after queuing jobs. The Slurm build does not build or test BdG, and no BdG job is submitted. Results and logs are stored below:
+The wrapper submits one ground-state build/test job and then a dependent array of 20 ground-state tasks. Up to 8 tasks run concurrently by default; each requests one CPU and 32 GiB. The submission command returns after queuing jobs. The Slurm build does not build or test BdG, and no BdG job is submitted. Results and logs are stored below:
 
 ```text
 $SCRATCH/GPES/sweep_YYYYMMDD_HHMMSS_XXXXXX/
 ```
 
-Every default submission creates a new timestamped sweep directory containing the 80 parameter-set directories, `slurm/` logs, and `parameter_table.tsv`, a copy of the submitted inputs. It also records grid and seed settings and copies requested modulation files to `seeds/` before queuing, so later edits to the original files do not change queued jobs. The random suffix prevents collisions between submissions in the same second. The wrapper prints the directory and Slurm job IDs.
+Every default submission creates a new timestamped sweep directory containing the 20 parameter-set directories, `slurm/` logs, and `parameter_table.tsv`, a copy of the submitted inputs. It also records grid and seed settings and copies requested modulation files to `seeds/` before queuing, so later edits to the original files do not change queued jobs. The random suffix prevents collisions between submissions in the same second. The wrapper prints the directory and Slurm job IDs.
 
 The table accepts one row per run with the following whitespace-separated columns:
 
@@ -232,7 +232,7 @@ Useful submission overrides include:
 ```bash
 MAX_CONCURRENT=4 bash scripts/submit_sweep.sh
 NX=100 NY=100 MAX_GROUND_STEPS=1000 bash scripts/submit_sweep.sh
-RUN_ROOT=/alternate/path bash scripts/submit_sweep.sh parameters/sweep_80.tsv
+RUN_ROOT=/alternate/path bash scripts/submit_sweep.sh parameters/sweep_20.tsv
 ```
 
 To resume an existing sweep, explicitly reuse its directory:
@@ -241,7 +241,7 @@ To resume an existing sweep, explicitly reuse its directory:
 RUN_ROOT="$SCRATCH/GPES/sweep_20260906_120000_ABC123" bash scripts/submit_sweep.sh
 ```
 
-With explicit `RUN_ROOT`, the wrapper requires the same parameter table and seed files. Completed tasks are skipped. An unfinished task resumes its latest saved checkpoint into a new sibling directory named `_retry_...`; previous outputs are not overwritten. Do not submit the same `RUN_ROOT` while its earlier tasks are still running. Use a new `RUN_ROOT` for changed physics, grid, or seeds.
+With explicit `RUN_ROOT`, the wrapper requires the same parameter table and seed files. To resume a previous 80-point sweep, supply `parameters/sweep_80.tsv` explicitly. Completed tasks are skipped. An unfinished task resumes its latest saved checkpoint into a new sibling directory named `_retry_...`; previous outputs are not overwritten. Do not submit the same `RUN_ROOT` while its earlier tasks are still running. Use a new `RUN_ROOT` for changed physics, grid, or seeds.
 
 Ground-state convergence uses the relative-plus-absolute energy criterion described above. Slurm supplies a relative energy tolerance of `1e-6` (the standalone CLI still defaults to `1e-8`) and an absolute floor of `1e-12`. The stationary residual must still be at most `1e-4` for three consecutive checks, spaced 100 steps apart. The Slurm step limit is `200000`; override it with `MAX_GROUND_STEPS`. Set `RELATIVE_ENERGY_TOL` or `--relative-energy-tol` to change the energy threshold. Relaxing energy alone does not bypass the stationary residual requirement.
 

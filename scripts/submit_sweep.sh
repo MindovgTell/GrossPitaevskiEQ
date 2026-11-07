@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-PARAMS_FILE="${1:-${REPO_ROOT}/parameters/sweep_80.tsv}"
+PARAMS_FILE="${1:-${REPO_ROOT}/parameters/sweep_20.tsv}"
 MAX_CONCURRENT="${MAX_CONCURRENT:-8}"
 
 if [[ -z "${RUN_ROOT:-}" && -z "${SCRATCH:-}" ]]; then

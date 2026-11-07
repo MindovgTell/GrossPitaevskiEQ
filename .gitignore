@@ -15,6 +15,7 @@ scripts/*
 !scripts/build_local.sh
 !scripts/submit_sweep.sh
 parameters/*
+!parameters/sweep_20.tsv
 !parameters/sweep_40.tsv
 !parameters/sweep_80.tsv
 !parameters/three_peak_seed.tsv

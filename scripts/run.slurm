@@ -29,7 +29,7 @@ if [[ ! -f "${REPO_ROOT}/CMakeLists.txt" ]]; then
   exit 1
 fi
 
-PARAMS_FILE="${1:-${REPO_ROOT}/parameters/sweep_80.tsv}"
+PARAMS_FILE="${1:-${REPO_ROOT}/parameters/sweep_20.tsv}"
 EXECUTABLE="${EXECUTABLE:-${REPO_ROOT}/bin/groundstate}"
 GPES_MODULES="${GPES_MODULES:-GCC/14.3.0 CMake/3.31.8 Eigen/3.4.0 FFTW/3.3.10}"
 if [[ -z "${RUN_ROOT:-}" ]]; then
